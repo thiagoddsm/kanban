@@ -1,0 +1,722 @@
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
+import { useAccess } from '../../context/AccessContext';
+import { useTenant } from '../../context/TenantContext';
+import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem } from '../../types';
+import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
+import { 
+  X, 
+  Calendar, 
+  User, 
+  CheckSquare, 
+  MessageSquare, 
+  Link2, 
+  AlertTriangle, 
+  ShieldAlert, 
+  Send, 
+  Plus, 
+  Trash2, 
+  CheckCircle2, 
+  ExternalLink,
+  Lock,
+  RotateCcw,
+  Sparkles,
+  MapPin
+} from 'lucide-react';
+
+interface TaskModalProps {
+  task: Task | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) => {
+  if (!isOpen || !task) return null;
+
+  const { 
+    events, 
+    users, 
+    tasks, 
+    updateTask, 
+    archiveTask, 
+    deleteTask, 
+    addComment, 
+    getCommentsForTask,
+    blockTaskWithReason,
+    unblockTask,
+    approveTask,
+    remindPredecessors
+  } = useData();
+
+  const { currentUser } = useAuth();
+  const { canAssignResponsible, canChangePriority, canApproveTasks, canArchive } = useAccess();
+  const { campuses } = useTenant();
+
+  // Local editable states
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || '');
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [eventId, setEventId] = useState(task.eventId || '');
+  const [campusId, setCampusId] = useState(task.campusId || '');
+  const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(() => {
+    if (task.assigneeIds && task.assigneeIds.length > 0) return task.assigneeIds;
+    if (task.assigneeId) return [task.assigneeId];
+    return [];
+  });
+  const [startDate, setStartDate] = useState(task.startDate);
+  const [deadline, setDeadline] = useState(task.deadline);
+  const [effortEstimate, setEffortEstimate] = useState(task.effortEstimate || '');
+  
+  // Checklist
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(task.checklist || []);
+  const [newCheckText, setNewCheckText] = useState('');
+
+  // Attachments
+  const [attachmentLinks, setAttachmentLinks] = useState<AttachmentLink[]>(task.attachmentLinks || []);
+  const [attTitle, setAttTitle] = useState('');
+  const [attUrl, setAttUrl] = useState('');
+  const [attType, setAttType] = useState<AttachmentLink['type']>('canva');
+
+  // Blocking Modal State
+  const [isBlockPromptOpen, setIsBlockPromptOpen] = useState(false);
+  const [blockReasonInput, setBlockReasonInput] = useState(task.blockedReason || '');
+  const [actionRequiredByInput, setActionRequiredByInput] = useState(task.blockedActionRequiredBy || '');
+
+  // Comments
+  const [commentText, setCommentText] = useState('');
+  const taskComments = getCommentsForTask(task.id);
+
+  const toggleAssignee = (userId: string) => {
+    setSelectedAssigneeIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleSave = () => {
+    const assigneesList = selectedAssigneeIds.map((id) => {
+      const u = users.find((user) => user.id === id);
+      return {
+        id,
+        name: u ? u.name : 'Responsável',
+        avatar: u ? u.avatar : undefined,
+      };
+    });
+
+    updateTask({
+      ...task,
+      title,
+      description,
+      status,
+      priority,
+      eventId: eventId || undefined,
+      campusId: campusId || undefined,
+      assigneeId: selectedAssigneeIds[0] || undefined,
+      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
+      assigneeAvatar: assigneesList[0]?.avatar,
+      assigneeIds: selectedAssigneeIds,
+      assignees: assigneesList,
+      startDate,
+      deadline,
+      effortEstimate,
+      checklist,
+      attachmentLinks,
+    });
+    onClose();
+  };
+
+  const handleToggleCheck = (itemId: string) => {
+    const updated = checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    setChecklist(updated);
+    updateTask({ ...task, checklist: updated });
+  };
+
+  const handleAddCheckItem = () => {
+    if (!newCheckText.trim()) return;
+    const newItem: ChecklistItem = {
+      id: 'chk_' + Date.now().toString(36),
+      text: newCheckText.trim(),
+      completed: false,
+    };
+    const updated = [...checklist, newItem];
+    setChecklist(updated);
+    setNewCheckText('');
+    updateTask({ ...task, checklist: updated });
+  };
+
+  const handleRemoveCheckItem = (itemId: string) => {
+    const updated = checklist.filter((i) => i.id !== itemId);
+    setChecklist(updated);
+    updateTask({ ...task, checklist: updated });
+  };
+
+  const handleAddAttachment = () => {
+    if (!attTitle.trim() || !attUrl.trim()) return;
+    const newAtt: AttachmentLink = {
+      id: 'att_' + Date.now().toString(36),
+      title: attTitle.trim(),
+      url: attUrl.trim(),
+      type: attType,
+    };
+    const updated = [...attachmentLinks, newAtt];
+    setAttachmentLinks(updated);
+    setAttTitle('');
+    setAttUrl('');
+    updateTask({ ...task, attachmentLinks: updated });
+  };
+
+  const handleRemoveAttachment = (attId: string) => {
+    const updated = attachmentLinks.filter((a) => a.id !== attId);
+    setAttachmentLinks(updated);
+    updateTask({ ...task, attachmentLinks: updated });
+  };
+
+  const handleAddCommentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    addComment(task.id, commentText.trim());
+    setCommentText('');
+  };
+
+  const handleBlockConfirm = () => {
+    if (!blockReasonInput.trim()) return;
+    blockTaskWithReason(task.id, blockReasonInput.trim(), actionRequiredByInput.trim());
+    setStatus('BLOCKED');
+    setIsBlockPromptOpen(false);
+  };
+
+  const handleUnblockConfirm = () => {
+    unblockTask(task.id);
+    setStatus('IN_PROGRESS');
+  };
+
+  const handleApproveConfirm = () => {
+    approveTask(task.id);
+    setStatus('DONE');
+  };
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
+        {/* Header */}
+        <div className="p-5 sm:p-6 border-b border-slate-800 flex items-center justify-between gap-4 bg-slate-900/90 shrink-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <DemandTypeBadge type={task.demandType} />
+            <StatusBadge status={status} />
+            <PriorityBadge priority={priority} />
+            {task.campusName && (
+              <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-700">
+                <MapPin className="w-3 h-3 text-rose-400" />
+                {task.campusName}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {canApproveTasks && status === 'REVIEW' && (
+              <button
+                onClick={handleApproveConfirm}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Aprovar Entrega</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
+          {/* Block Alert Banner if BLOCKED */}
+          {status === 'BLOCKED' && (
+            <div className="p-4 rounded-2xl bg-rose-950/40 border border-rose-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-pulse">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+                    Demanda Bloqueada
+                  </h4>
+                  <p className="text-xs text-rose-200 mt-0.5">
+                    Motivo: <strong>{task.blockedReason || 'Aguardando ação externa'}</strong>
+                  </p>
+                  {task.blockedActionRequiredBy && (
+                    <p className="text-[11px] text-rose-300/80 mt-0.5">
+                      Ação pendente de: <strong>{task.blockedActionRequiredBy}</strong>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
+                  onClick={() => {
+                    const { whatsappUrl } = remindPredecessors(task.id);
+                    if (whatsappUrl) window.open(whatsappUrl, '_blank');
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold"
+                >
+                  Cobrar via WhatsApp
+                </button>
+                <button
+                  onClick={handleUnblockConfirm}
+                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+                >
+                  Desbloquear
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Title & Description */}
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full text-lg sm:text-xl font-black text-white bg-transparent border-b border-slate-800 focus:border-indigo-500 focus:outline-none pb-1"
+            />
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Adicione orientações detalhadas, briefing, público e referências..."
+              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          {/* Grid of Properties */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 text-xs">
+            {/* Status */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Status</label>
+              <select
+                value={status}
+                onChange={(e) => {
+                  const val = e.target.value as TaskStatus;
+                  if (val === 'BLOCKED') {
+                    setIsBlockPromptOpen(true);
+                  } else {
+                    setStatus(val);
+                  }
+                }}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none"
+              >
+                <option value="INBOX">1. Inbox</option>
+                <option value="PLANNING">2. Planejamento</option>
+                <option value="IN_PROGRESS">3. Em Andamento</option>
+                <option value="BLOCKED">4. Bloqueado</option>
+                <option value="REVIEW">5. Revisão</option>
+                <option value="DONE">6. Concluído</option>
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Prioridade</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none"
+              >
+                <option value="LOW">Baixa</option>
+                <option value="MEDIUM">Média</option>
+                <option value="HIGH">Alta</option>
+                <option value="URGENT">Urgente</option>
+              </select>
+            </div>
+
+            {/* Responsible Assignees (Multi-select) */}
+            <div className="sm:col-span-2">
+              <label className="text-slate-400 font-semibold block mb-1">
+                Responsáveis ({selectedAssigneeIds.length})
+              </label>
+              <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-slate-800/90 border border-slate-700 min-h-[38px]">
+                {users.map((u) => {
+                  const isSelected = selectedAssigneeIds.includes(u.id);
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => toggleAssignee(u.id)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs transition-all ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white font-bold shadow'
+                          : 'bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-700'
+                      }`}
+                    >
+                      <img
+                        src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                        alt={u.name}
+                        className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                      />
+                      <span>{u.name.split(' ')[0]}</span>
+                      {isSelected && <span className="text-[10px] ml-0.5">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Campus */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Campus / Unidade</label>
+              <select
+                value={campusId}
+                onChange={(e) => setCampusId(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none"
+              >
+                <option value="">Todos os Campi (Geral)</option>
+                {campuses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Event */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Projeto / Evento</label>
+              <select
+                value={eventId}
+                onChange={(e) => setEventId(e.target.value)}
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none"
+              >
+                <option value="">Nenhum (Demanda Avulsa)</option>
+                {events.filter((e) => !e.isArchived).map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start Date */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Início</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-2 py-1 rounded-xl bg-slate-800 text-white border border-slate-700"
+              />
+            </div>
+
+            {/* Deadline */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Prazo Final</label>
+              <input
+                type="date"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="w-full px-2 py-1 rounded-xl bg-slate-800 text-white border border-slate-700"
+              />
+            </div>
+
+            {/* Effort */}
+            <div>
+              <label className="text-slate-400 font-semibold block mb-1">Estimativa</label>
+              <input
+                type="text"
+                value={effortEstimate}
+                onChange={(e) => setEffortEstimate(e.target.value)}
+                placeholder="Ex: 8h (1 dia)"
+                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700"
+              />
+            </div>
+          </div>
+
+          {/* Checklist */}
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                Checklist / Subtarefas ({checklist.filter((i) => i.completed).length}/{checklist.length})
+              </h4>
+            </div>
+
+            <div className="space-y-1.5">
+              {checklist.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-2 rounded-xl bg-slate-850 hover:bg-slate-800 text-xs transition-colors"
+                >
+                  <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={() => handleToggleCheck(item.id)}
+                      className="w-4 h-4 rounded text-indigo-600 bg-slate-700 border-slate-600 focus:ring-0"
+                    />
+                    <span className={`truncate ${item.completed ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+                      {item.text}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveCheckItem(item.id)}
+                    className="text-slate-500 hover:text-rose-400 p-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <input
+                type="text"
+                placeholder="Novo item do checklist..."
+                value={newCheckText}
+                onChange={(e) => setNewCheckText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCheckItem();
+                  }
+                }}
+                className="flex-1 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500"
+              />
+              <button
+                type="button"
+                onClick={handleAddCheckItem}
+                className="px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold"
+              >
+                Adicionar
+              </button>
+            </div>
+          </div>
+
+          {/* Links & Attachments */}
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <Link2 className="w-4 h-4 text-indigo-400" />
+              Links & Materiais Anexados ({attachmentLinks.length})
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {attachmentLinks.map((att) => (
+                <div
+                  key={att.id}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-850 border border-slate-750 text-xs"
+                >
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 truncate flex-1 font-semibold"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{att.title}</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAttachment(att.id)}
+                    className="text-slate-500 hover:text-rose-400 p-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <input
+                type="text"
+                placeholder="Título do link..."
+                value={attTitle}
+                onChange={(e) => setAttTitle(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+              />
+              <input
+                type="url"
+                placeholder="https://..."
+                value={attUrl}
+                onChange={(e) => setAttUrl(e.target.value)}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+              />
+              <div className="flex gap-2">
+                <select
+                  value={attType}
+                  onChange={(e) => setAttType(e.target.value as AttachmentLink['type'])}
+                  className="flex-1 px-2 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+                >
+                  <option value="canva">Canva</option>
+                  <option value="drive">Drive</option>
+                  <option value="figma">Figma</option>
+                  <option value="document">Doc</option>
+                  <option value="other">Outro</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleAddAttachment}
+                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
+                >
+                  Anexar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Comments & Discussion */}
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <MessageSquare className="w-4 h-4 text-purple-400" />
+              Comentários e Histórico de Feedback ({taskComments.length})
+            </h4>
+
+            <div className="space-y-2.5 max-h-48 overflow-y-auto custom-scrollbar">
+              {taskComments.length === 0 ? (
+                <p className="text-xs text-slate-500 py-2">Nenhum comentário registrado ainda.</p>
+              ) : (
+                taskComments.map((c) => (
+                  <div key={c.id} className="p-3 rounded-2xl bg-slate-850 border border-slate-750 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-white">{c.userName}</span>
+                        <span className="text-[10px] text-indigo-400 font-semibold bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/20">
+                          {c.userRole}
+                        </span>
+                      </div>
+                      <span className="text-slate-500">
+                        {new Date(c.createdAt).toLocaleDateString('pt-BR')} às{' '}
+                        {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300">{c.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <form onSubmit={handleAddCommentSubmit} className="flex gap-2 pt-1">
+              <input
+                type="text"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Escreva um comentário ou feedback para a equipe..."
+                className="flex-1 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Enviar</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            {canArchive && (
+              <button
+                type="button"
+                onClick={() => {
+                  archiveTask(task.id, true);
+                  onClose();
+                }}
+                className="px-3 py-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 text-xs font-medium transition-colors"
+              >
+                Arquivar Tarefa
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+            >
+              Fechar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs font-bold shadow-md"
+            >
+              Salvar Alterações
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Block Reason Prompt Modal */}
+      {isBlockPromptOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2 text-rose-400">
+              <ShieldAlert className="w-5 h-5" />
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                Motivo do Bloqueio da Demanda
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400">
+              Registre a justificativa do bloqueio e quem precisa agir para liberar a produção.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Motivo do Impedimento *
+              </label>
+              <textarea
+                rows={2}
+                required
+                value={blockReasonInput}
+                onChange={(e) => setBlockReasonInput(e.target.value)}
+                placeholder="Ex: Aguardando envio das fotos em alta resolução do batismo..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Quem precisa agir? (Nome / Equipe)
+              </label>
+              <input
+                type="text"
+                value={actionRequiredByInput}
+                onChange={(e) => setActionRequiredByInput(e.target.value)}
+                placeholder="Ex: Pr. Tiago Rocha ou Equipe de Fotografia"
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsBlockPromptOpen(false)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleBlockConfirm}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold"
+              >
+                Confirmar Bloqueio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return createPortal(modalContent, document.body);
+};

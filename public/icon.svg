@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+    <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded Background Container -->
+  <rect width="512" height="512" rx="128" fill="url(#bg-grad)"/>
+  
+  <!-- Subtle inner border -->
+  <rect x="16" y="16" width="480" height="480" rx="112" stroke="white" stroke-opacity="0.15" stroke-width="4"/>
+
+  <!-- Church Architecture & Stylized Cross + Kanban Checklist -->
+  <g transform="translate(106, 86)">
+    <!-- Church Building / Spire Silhouette -->
+    <path d="M150 20 L240 100 L240 330 L60 330 L60 100 Z" fill="white" fill-opacity="0.08" />
+    
+    <!-- Stylized Cross at Spire Peak -->
+    <path d="M150 10 L150 90 M120 40 L180 40" stroke="#ffffff" stroke-width="14" stroke-linecap="round" />
+    
+    <!-- Kanban Card Board Floating in Front -->
+    <rect x="20" y="110" width="260" height="220" rx="24" fill="#0f172a" fill-opacity="0.85" stroke="#a5b4fc" stroke-width="6" />
+    
+    <!-- Checklist items inside board -->
+    <!-- Column 1 bar -->
+    <rect x="44" y="145" width="40" height="8" rx="4" fill="#818cf8" />
+    <rect x="44" y="165" width="212" height="34" rx="10" fill="#1e293b" />
+    <circle cx="64" cy="182" r="7" fill="#10b981" />
+    <path d="M60 182 L63 185 L69 179" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="80" y="177" width="120" height="10" rx="5" fill="#f8fafc" />
+
+    <!-- Checklist item 2 -->
+    <rect x="44" y="215" width="212" height="34" rx="10" fill="#1e293b" />
+    <circle cx="64" cy="232" r="7" fill="#38bdf8" />
+    <path d="M60 232 L63 235 L69 229" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="80" y="227" width="90" height="10" rx="5" fill="#cbd5e1" />
+
+    <!-- Checklist item 3 (In Progress) -->
+    <rect x="44" y="265" width="212" height="34" rx="10" fill="#1e293b" />
+    <circle cx="64" cy="282" r="7" stroke="#f59e0b" stroke-width="3" fill="none" />
+    <rect x="80" y="277" width="140" height="10" rx="5" fill="#94a3b8" />
+  </g>
+</svg>

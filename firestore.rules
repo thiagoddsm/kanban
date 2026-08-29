@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: Is user authenticated?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper: Global user checking own doc
+    function isUserSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper: Fetch membership for specific organization
+    function getMembership(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)/memberships/$(request.auth.uid)).data;
+    }
+
+    // Helper: Check if user belongs to active organization
+    function isOrgMember(orgId) {
+      return isAuthenticated() && exists(/databases/$(database)/documents/organizations/$(orgId)/memberships/$(request.auth.uid));
+    }
+
+    // Helper: Role checks within the organization
+    function isOrgAdmin(orgId) {
+      return isOrgMember(orgId) && getMembership(orgId).role == 'ADMIN' && getMembership(orgId).status == 'ACTIVE';
+    }
+
+    function isOrgLeader(orgId) {
+      return isOrgMember(orgId) && 
+        (getMembership(orgId).role == 'ADMIN' || getMembership(orgId).role == 'LEADER') && 
+        getMembership(orgId).status == 'ACTIVE';
+    }
+
+    function isOrgTeam(orgId) {
+      return isOrgMember(orgId) && 
+        (getMembership(orgId).role in ['ADMIN', 'LEADER', 'TEAM']) && 
+        getMembership(orgId).status == 'ACTIVE';
+    }
+
+    // Helper: Campus access authorization (Explicit hasOrgWideAccess boolean check)
+    function hasCampusAccess(orgId, campusId) {
+      return isOrgAdmin(orgId) || 
+        (isOrgMember(orgId) && (
+          getMembership(orgId).hasOrgWideAccess == true || 
+          campusId in getMembership(orgId).campusIds
+        ));
+    }
+
+    // 1. Global User Identity
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isUserSelf(userId);
+    }
+
+    // 2. Organizations (Tenants)
+    match /organizations/{orgId} {
+      allow read: if isOrgMember(orgId);
+      allow create: if isAuthenticated();
+      allow update, delete: if isOrgAdmin(orgId);
+
+      // Campuses subcollection
+      match /campuses/{campusId} {
+        allow read: if isOrgMember(orgId);
+        allow write: if isOrgAdmin(orgId);
+      }
+
+      // Memberships subcollection
+      match /memberships/{membershipId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgAdmin(orgId);
+      }
+
+      // Tasks subcollection
+      match /tasks/{taskId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId); // Requesters can open demands
+        allow update: if isOrgTeam(orgId) || (isOrgMember(orgId) && resource.data.requesterId == request.auth.uid);
+        allow delete: if isOrgAdmin(orgId);
+      }
+
+      // Events subcollection
+      match /events/{eventId} {
+        allow read: if isOrgMember(orgId);
+        allow create, update, delete: if isOrgLeader(orgId);
+      }
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId);
+        allow update, delete: if isOrgAdmin(orgId) || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      }
+
+      // Activities & Security Audit log subcollection
+      match /activities/{activityId} {
+        allow read: if isOrgMember(orgId);
+        allow create: if isOrgMember(orgId);
+        allow update, delete: if false; // Immutable audit logs
+      }
+    }
+  }
+}

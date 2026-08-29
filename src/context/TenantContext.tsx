@@ -1,0 +1,306 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog } from '../types';
+import { StorageService } from '../services/storageService';
+import { useAuth } from './AuthContext';
+import { useNotification } from './NotificationContext';
+
+interface TenantContextType {
+  organizations: Organization[];
+  currentOrganization: Organization;
+  campuses: Campus[];
+  currentCampus: Campus | null; // null = 'Toda a Organização / Todos os Campi'
+  switchOrganization: (orgId: string) => void;
+  switchOrganizationBySlug: (slug: string) => boolean;
+  switchCampus: (campusId: string | null) => void;
+  createOrganization: (name: string, slug: string, mainCampusName: string, city: string, plan?: TenantPlan) => Organization;
+  createCampus: (name: string, code: string, city: string, address?: string) => Campus | null;
+  updateOrganizationBranding: (branding: Partial<OrganizationBranding>) => void;
+}
+
+const TenantContext = createContext<TenantContextType | undefined>(undefined);
+
+const ACTIVE_ORG_KEY = 'marketing_active_organization_id_v3';
+const ACTIVE_CAMPUS_KEY = 'marketing_active_campus_id_v3';
+
+export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { currentUser } = useAuth();
+  const { success, error: notifyError } = useNotification();
+
+  const [organizations, setOrganizations] = useState<Organization[]>(() => StorageService.getOrganizations());
+  
+  // Tenant Resolver: check URL query param ?org=... or path, or localStorage
+  const [currentOrganization, setCurrentOrganization] = useState<Organization>(() => {
+    const orgs = StorageService.getOrganizations();
+    
+    // 1. URL search param ?org=ibm
+    const params = new URLSearchParams(window.location.search);
+    const orgParam = params.get('org') || params.get('tenant');
+    if (orgParam) {
+      const match = orgs.find((o) => o.slug.toLowerCase() === orgParam.toLowerCase() || o.id === orgParam);
+      if (match) return match;
+    }
+
+    // 2. Saved session in localStorage
+    const savedOrgId = localStorage.getItem(ACTIVE_ORG_KEY);
+    const found = orgs.find((o) => o.id === savedOrgId);
+    return found || orgs[0];
+  });
+
+  const [campuses, setCampuses] = useState<Campus[]>(() => {
+    return StorageService.getCampuses(currentOrganization.id);
+  });
+
+  const [currentCampus, setCurrentCampus] = useState<Campus | null>(() => {
+    const savedCampId = localStorage.getItem(ACTIVE_CAMPUS_KEY);
+    if (!savedCampId || savedCampId === 'all') return null;
+    const orgCampuses = StorageService.getCampuses(currentOrganization.id);
+    return orgCampuses.find((c) => c.id === savedCampId) || null;
+  });
+
+  // Keep campuses in sync when organization changes
+  useEffect(() => {
+    const orgCampuses = StorageService.getCampuses(currentOrganization.id);
+    setCampuses(orgCampuses);
+
+    if (currentCampus && currentCampus.organizationId !== currentOrganization.id) {
+      setCurrentCampus(null);
+      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+    }
+  }, [currentOrganization.id]);
+
+  const switchOrganization = (orgId: string) => {
+    const org = organizations.find((o) => o.id === orgId);
+    if (org) {
+      setCurrentOrganization(org);
+      localStorage.setItem(ACTIVE_ORG_KEY, org.id);
+      setCurrentCampus(null);
+      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+
+      // Update URL param smoothly without reload
+      const url = new URL(window.location.href);
+      url.searchParams.set('org', org.slug);
+      window.history.replaceState({}, '', url.toString());
+
+      success(`Organização alterada para: ${org.name}`);
+    }
+  };
+
+  const switchOrganizationBySlug = (slug: string): boolean => {
+    const org = organizations.find((o) => o.slug.toLowerCase() === slug.toLowerCase());
+    if (org) {
+      switchOrganization(org.id);
+      return true;
+    }
+    return false;
+  };
+
+  const switchCampus = (campusId: string | null) => {
+    if (!campusId || campusId === 'all') {
+      setCurrentCampus(null);
+      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+      success(`Escopo: Toda a Organização (${currentOrganization.name})`);
+    } else {
+      const camp = campuses.find((c) => c.id === campusId);
+      if (camp) {
+        setCurrentCampus(camp);
+        localStorage.setItem(ACTIVE_CAMPUS_KEY, camp.id);
+        success(`Escopo: ${camp.name}`);
+      }
+    }
+  };
+
+  const createOrganization = (
+    name: string,
+    slug: string,
+    mainCampusName: string,
+    city: string,
+    plan: TenantPlan = 'PRO'
+  ): Organization => {
+    const orgId = 'org_' + slug.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36).substring(2, 5);
+
+    const newOrg: Organization = {
+      id: orgId,
+      name,
+      slug,
+      branding: {
+        primaryColor: '#4f46e5',
+        secondaryColor: '#818cf8',
+      },
+      subscription: {
+        organizationId: orgId,
+        plan,
+        status: 'ACTIVE',
+        currentPeriodStart: new Date().toISOString(),
+        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+      limits: {
+        maxMembers: plan === 'PRO' ? 50 : 15,
+        maxCampuses: plan === 'PRO' ? 10 : 2,
+        maxEvents: plan === 'PRO' ? 100 : 20,
+        maxTasks: plan === 'PRO' ? 1000 : 200,
+        storageGB: plan === 'PRO' ? 50 : 10,
+        customBranding: true,
+        advancedReports: plan === 'PRO',
+        gantt: true,
+        apiAccess: plan === 'PRO',
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Create Main Campus
+    const mainCampus: Campus = {
+      id: 'camp_' + orgId + '_sede',
+      organizationId: orgId,
+      name: mainCampusName || 'Sede',
+      code: 'SEDE',
+      city,
+      isMainCampus: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Save
+    const updatedOrgs = StorageService.addOrganization(newOrg);
+    StorageService.addCampus(mainCampus);
+
+    // Creator becomes ADMIN of this new org with org-wide access
+    StorageService.addMembership({
+      id: 'mem_' + currentUser.id + '_' + orgId,
+      userId: currentUser.id,
+      organizationId: orgId,
+      hasOrgWideAccess: true,
+      campusIds: [],
+      role: 'ADMIN',
+      department: 'Diretoria Geral',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    const auditLog: ActivityLog = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: orgId,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      action: `criou a organização ${name} (Plano ${plan})`,
+      securityEvent: 'MEMBERSHIP_CREATED',
+      targetType: 'organization',
+      targetId: orgId,
+      targetTitle: name,
+      timestamp: new Date().toISOString(),
+    };
+    StorageService.addActivity(auditLog);
+
+    setOrganizations(updatedOrgs);
+    setCurrentOrganization(newOrg);
+    setCampuses([mainCampus]);
+    setCurrentCampus(null);
+
+    success(`Organização ${name} criada com sucesso!`);
+    return newOrg;
+  };
+
+  const createCampus = (name: string, code: string, city: string, address?: string): Campus | null => {
+    // Check Plan Limits for Campuses
+    if (campuses.length >= currentOrganization.limits.maxCampuses) {
+      notifyError(
+        'Limite de Campi atingido!',
+        `O plano ${currentOrganization.subscription.plan} permite no máximo ${currentOrganization.limits.maxCampuses} campi. Faça upgrade para cadastrar novas filiais.`
+      );
+      return null;
+    }
+
+    const newCampus: Campus = {
+      id: 'camp_' + currentOrganization.id + '_' + Date.now().toString(36),
+      organizationId: currentOrganization.id,
+      name,
+      code: code.toUpperCase(),
+      city,
+      address,
+      isMainCampus: campuses.length === 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = StorageService.addCampus(newCampus);
+    setCampuses(updated);
+
+    const auditLog: ActivityLog = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: currentOrganization.id,
+      campusId: newCampus.id,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      action: `cadastrou o campus ${name} (${code})`,
+      securityEvent: 'CAMPUS_CREATED',
+      targetType: 'security',
+      targetId: newCampus.id,
+      targetTitle: `Campus: ${name}`,
+      timestamp: new Date().toISOString(),
+    };
+    StorageService.addActivity(auditLog);
+
+    success(`Novo campus criado: ${name}`);
+    return newCampus;
+  };
+
+  const updateOrganizationBranding = (branding: Partial<OrganizationBranding>) => {
+    const updatedOrg: Organization = {
+      ...currentOrganization,
+      branding: {
+        ...currentOrganization.branding,
+        ...branding,
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedOrgs = StorageService.getOrganizations().map((o) =>
+      o.id === updatedOrg.id ? updatedOrg : o
+    );
+    StorageService.saveOrganizations(updatedOrgs);
+    setOrganizations(updatedOrgs);
+    setCurrentOrganization(updatedOrg);
+
+    const auditLog: ActivityLog = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: currentOrganization.id,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      action: 'atualizou a identidade visual / branding da organização',
+      securityEvent: 'ORGANIZATION_UPDATED',
+      targetType: 'organization',
+      targetId: currentOrganization.id,
+      targetTitle: currentOrganization.name,
+      timestamp: new Date().toISOString(),
+    };
+    StorageService.addActivity(auditLog);
+
+    success('Identidade visual da organização atualizada!');
+  };
+
+  return (
+    <TenantContext.Provider
+      value={{
+        organizations,
+        currentOrganization,
+        campuses,
+        currentCampus,
+        switchOrganization,
+        switchOrganizationBySlug,
+        switchCampus,
+        createOrganization,
+        createCampus,
+        updateOrganizationBranding,
+      }}
+    >
+      {children}
+    </TenantContext.Provider>
+  );
+};
+
+export const useTenant = (): TenantContextType => {
+  const context = useContext(TenantContext);
+  if (!context) {
+    throw new Error('useTenant must be used within a TenantProvider');
+  }
+  return context;
+};

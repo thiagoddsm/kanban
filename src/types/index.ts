@@ -1,0 +1,427 @@
+export type UserRole = 'ADMIN' | 'LEADER' | 'TEAM' | 'REQUESTER';
+export type MembershipStatus = 'ACTIVE' | 'INVITED' | 'SUSPENDED';
+
+export type Permission =
+  | 'tasks.create'
+  | 'tasks.edit'
+  | 'tasks.delete'
+  | 'tasks.assign'
+  | 'tasks.approve'
+  | 'events.manage'
+  | 'users.manage'
+  | 'campuses.manage'
+  | 'organization.manage'
+  | 'reports.view'
+  | 'automations.manage';
+
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  ADMIN: [
+    'tasks.create',
+    'tasks.edit',
+    'tasks.delete',
+    'tasks.assign',
+    'tasks.approve',
+    'events.manage',
+    'users.manage',
+    'campuses.manage',
+    'organization.manage',
+    'reports.view',
+    'automations.manage',
+  ],
+  LEADER: [
+    'tasks.create',
+    'tasks.edit',
+    'tasks.assign',
+    'tasks.approve',
+    'events.manage',
+    'reports.view',
+    'automations.manage',
+  ],
+  TEAM: [
+    'tasks.create',
+    'tasks.edit',
+  ],
+  REQUESTER: [
+    'tasks.create',
+  ],
+};
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  createdAt?: string;
+}
+
+export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'SUSPENDED';
+
+export interface PlanLimits {
+  maxMembers: number;
+  maxCampuses: number;
+  maxEvents: number;
+  maxTasks: number;
+  storageGB: number;
+  customBranding: boolean;
+  advancedReports: boolean;
+  gantt: boolean;
+  apiAccess: boolean;
+}
+
+export interface Subscription {
+  organizationId: string;
+  plan: TenantPlan;
+  status: SubscriptionStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  provider?: 'ASAAS' | 'STRIPE';
+  externalCustomerId?: string;
+  externalSubscriptionId?: string;
+}
+
+export interface OrganizationBranding {
+  logoUrl?: string;
+  faviconUrl?: string;
+  primaryColor: string;
+  secondaryColor?: string;
+  fontFamily?: string;
+  loginBackgroundUrl?: string;
+  customDomain?: string;
+}
+
+export interface Campus {
+  id: string;
+  organizationId: string;
+  name: string;
+  code: string;
+  city: string;
+  address?: string;
+  isMainCampus: boolean;
+  createdAt: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  branding: OrganizationBranding;
+  subscription: Subscription;
+  limits: PlanLimits;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Membership {
+  id: string;
+  userId: string;
+  organizationId: string;
+  hasOrgWideAccess: boolean;
+  campusIds: string[];
+  role: UserRole;
+  department?: string;
+  status: MembershipStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TaskStatus = 
+  | 'INBOX' 
+  | 'PLANNING' 
+  | 'IN_PROGRESS' 
+  | 'BLOCKED' 
+  | 'REVIEW' 
+  | 'DONE';
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export type DemandType = 
+  | 'ARTE' 
+  | 'VIDEO' 
+  | 'SOCIAL_MEDIA' 
+  | 'FOTOGRAFIA' 
+  | 'TEXTO' 
+  | 'IMPRESSAO' 
+  | 'SITE' 
+  | 'APRESENTACAO' 
+  | 'COMUNICACAO_INTERNA' 
+  | 'EVENTO' 
+  | 'OUTRO';
+
+export interface AttachmentLink {
+  id: string;
+  title: string;
+  url: string;
+  type: 'drive' | 'canva' | 'figma' | 'document' | 'other';
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface Comment {
+  id: string;
+  organizationId: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  userRole: UserRole;
+  content: string;
+  createdAt: string;
+}
+
+export type ApprovalAction = 'REQUESTED' | 'APPROVED' | 'CHANGES_REQUESTED';
+
+export interface ApprovalRecord {
+  id: string;
+  taskId: string;
+  organizationId: string;
+  action: ApprovalAction;
+  requestedBy: string;
+  requestedByName: string;
+  approverId?: string;
+  approverName?: string;
+  comment?: string;
+  timestamp: string;
+}
+
+export interface TaskAssignee {
+  id: string;
+  name: string;
+  avatar?: string;
+  role?: string;
+}
+
+export interface Task {
+  id: string;
+  organizationId: string;
+  campusId?: string | null;
+  campusName?: string;
+  
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  demandType: DemandType;
+  
+  eventId?: string;
+  eventName?: string;
+  
+  requesterId: string;
+  requesterName: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  assigneeAvatar?: string;
+  assigneeIds?: string[];
+  assignees?: TaskAssignee[];
+  approverId?: string;
+  approverName?: string;
+
+  requestedAt: string;
+  startDate: string;       // YYYY-MM-DD
+  deadline: string;        // YYYY-MM-DD
+  completedAt?: string;
+  effortEstimate?: string;
+
+  blockedReason?: string;
+  blockedActionRequiredBy?: string;
+  changesRequestedReason?: string;
+  delayReason?: string;
+
+  tags: string[];
+  attachmentLinks: AttachmentLink[];
+  dependencies: string[];
+  checklist: ChecklistItem[];
+  commentsCount: number;
+  isArchived: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type EventStatus = 'PLANNING' | 'IN_PROGRESS' | 'FINISHED';
+export type EventCategory = 'CULTO' | 'CONFERENCIA' | 'CAMPANHA' | 'SERIE' | 'WORKSHOP' | 'RETIRO' | 'OUTRO';
+
+export interface ChurchEvent {
+  id: string;
+  organizationId: string;
+  campusId?: string | null;
+  campusName?: string;
+
+  title: string;
+  description: string;
+  category: EventCategory;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD
+  location?: string;
+  leaderId: string;
+  leaderName: string;
+  teamIds: string[];
+  status: EventStatus;
+  isArchived: boolean;
+  bannerColor?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventProjectStats {
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  blockedTasks: number;
+  overdueTasks: number;
+  progressPercentage: number;
+}
+
+export interface TemplateTaskItem {
+  title: string;
+  demandType: DemandType;
+  daysBeforeEvent: number;
+  durationDays: number;
+  priority: TaskPriority;
+  checklist?: string[];
+  dependsOnIndex?: number;
+}
+
+export interface EventTemplate {
+  id: string;
+  name: string;
+  category: EventCategory;
+  description: string;
+  defaultTasks: TemplateTaskItem[];
+}
+
+// --- NOTIFICATIONS & AUTOMATION ---
+export type NotificationType =
+  | 'TASK_ASSIGNED'
+  | 'TASK_DUE_SOON'
+  | 'TASK_OVERDUE'
+  | 'TASK_BLOCKED'
+  | 'TASK_REVIEW'
+  | 'TASK_APPROVED'
+  | 'TASK_REJECTED'
+  | 'MENTION'
+  | 'DEPENDENCY_BLOCKED'
+  | 'REQUEST_RECEIVED'
+  | 'REQUEST_APPROVED'
+  | 'EVENT_APPROACHING';
+
+export interface Notification {
+  id: string;
+  organizationId: string;
+  campusId?: string | null;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  entityType?: 'TASK' | 'EVENT' | 'REQUEST';
+  entityId?: string;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface UserNotificationPreferences {
+  inApp: boolean;
+  email: boolean;
+  whatsapp: boolean;
+  taskAssigned: boolean;
+  taskOverdue: boolean;
+  approvalRequested: boolean;
+  dependencyBlocked: boolean;
+  eventApproaching: boolean;
+  dailyDigest: boolean;
+}
+
+export type AutomationTrigger =
+  | 'TASK_CREATED'
+  | 'TASK_ASSIGNED'
+  | 'TASK_OVERDUE'
+  | 'TASK_MOVED'
+  | 'TASK_BLOCKED'
+  | 'TASK_REVIEW'
+  | 'EVENT_CREATED'
+  | 'EVENT_APPROACHING';
+
+export interface AutomationAction {
+  type: 'NOTIFY_USER' | 'NOTIFY_LEADER' | 'NOTIFY_APPROVER' | 'SEND_WHATSAPP_PREP';
+  templateMessage: string;
+}
+
+export interface AutomationRule {
+  id: string;
+  organizationId: string;
+  name: string;
+  active: boolean;
+  trigger: AutomationTrigger;
+  actions: AutomationAction[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SecurityAuditEvent = 
+  | 'USER_INVITED' 
+  | 'USER_ROLE_CHANGED' 
+  | 'USER_REMOVED' 
+  | 'MEMBERSHIP_CREATED' 
+  | 'CAMPUS_CREATED' 
+  | 'CAMPUS_DELETED' 
+  | 'ORGANIZATION_UPDATED' 
+  | 'SUBSCRIPTION_CHANGED' 
+  | 'EVENT_CREATED'
+  | 'EVENT_STATUS_CHANGED'
+  | 'EVENT_COMPLETED'
+  | 'APPROVAL_REQUESTED'
+  | 'APPROVED'
+  | 'CHANGES_REQUESTED'
+  | 'AUTOMATION_TRIGGERED'
+  | 'PERMISSION_DENIED';
+
+export interface ActivityLog {
+  id: string;
+  organizationId: string;
+  campusId?: string | null;
+  userId: string;
+  userName: string;
+  action: string;
+  securityEvent?: SecurityAuditEvent;
+  fieldChanged?: string;
+  oldValue?: string;
+  newValue?: string;
+  targetType: 'task' | 'event' | 'user' | 'demand' | 'organization' | 'security';
+  targetId: string;
+  targetTitle: string;
+  timestamp: string;
+}
+
+export type NavigationTab = 
+  | 'dashboard' 
+  | 'tasks' 
+  | 'events' 
+  | 'gantt' 
+  | 'calendar' 
+  | 'archived' 
+  | 'users';
+
+export interface ColumnDefinition {
+  id: TaskStatus;
+  title: string;
+  description: string;
+  color: string;
+  badgeBg: string;
+  borderHover: string;
+}
+
+export interface DemandTypeDefinition {
+  type: DemandType;
+  label: string;
+  icon: string;
+  description: string;
+  color: string;
+  bgLight: string;
+  placeholderText: string;
+}
