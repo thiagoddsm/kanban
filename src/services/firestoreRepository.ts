@@ -25,7 +25,7 @@ import {
 
 export class FirestoreRepository {
   /**
-   * Fetch all organizations from Firestore (seeds initial orgs if empty)
+   * Fetch all organizations from Firestore
    */
   public static async fetchOrganizations(): Promise<Organization[]> {
     if (!isFirebaseConfigured || !db) {
@@ -35,12 +35,7 @@ export class FirestoreRepository {
       const orgsCol = collection(db, 'organizations');
       const snap = await getDocs(orgsCol);
       if (snap.empty) {
-        const local = StorageService.getOrganizations();
-        // Seed initial organizations to Firestore
-        Promise.all(local.map((o) => setDoc(doc(db, 'organizations', o.id), o))).catch((err) => {
-          console.warn('Erro ao semear organizações no Firestore:', err);
-        });
-        return local;
+        return [];
       }
       return snap.docs.map((d) => d.data() as Organization);
     } catch (e) {
@@ -76,9 +71,7 @@ export class FirestoreRepository {
       const campusCol = collection(db, 'organizations', orgId, 'campuses');
       const snap = await getDocs(campusCol);
       if (snap.empty) {
-        const local = StorageService.getCampuses(orgId);
-        Promise.all(local.map((c) => setDoc(doc(db, 'organizations', orgId, 'campuses', c.id), c))).catch(() => {});
-        return local;
+        return [];
       }
       return snap.docs.map((d) => d.data() as Campus);
     } catch (e) {
@@ -120,7 +113,7 @@ export class FirestoreRepository {
   }
 
   /**
-   * Fetch all tasks for an organization from Firestore (with automatic initial seeding)
+   * Fetch all tasks for an organization from Firestore
    */
   public static async fetchTasks(orgId: string): Promise<Task[]> {
     if (!isFirebaseConfigured || !db) {
@@ -130,15 +123,12 @@ export class FirestoreRepository {
       const tasksCol = collection(db, 'organizations', orgId, 'tasks');
       const snap = await getDocs(tasksCol);
       if (snap.empty) {
-        const local = StorageService.getTasks(orgId);
-        // Seed initial tasks to Firestore in background
-        Promise.all(local.map((t) => setDoc(doc(db, 'organizations', orgId, 'tasks', t.id), t))).catch(() => {});
-        return local;
+        return [];
       }
       const remote = snap.docs.map((d) => d.data() as Task);
       return remote;
     } catch (e) {
-      console.warn('Aviso: lendo do cache local enquanto conecta ao Firestore:', e);
+      console.warn('Aviso: lendo tarefas do cache local:', e);
       return StorageService.getTasks(orgId);
     }
   }
@@ -154,13 +144,11 @@ export class FirestoreRepository {
       const eventsCol = collection(db, 'organizations', orgId, 'events');
       const snap = await getDocs(eventsCol);
       if (snap.empty) {
-        const local = StorageService.getEvents(orgId);
-        Promise.all(local.map((ev) => setDoc(doc(db, 'organizations', orgId, 'events', ev.id), ev))).catch(() => {});
-        return local;
+        return [];
       }
       return snap.docs.map((d) => d.data() as ChurchEvent);
     } catch (e) {
-      console.warn('Aviso: lendo do cache local enquanto conecta ao Firestore:', e);
+      console.warn('Aviso: lendo eventos do cache local:', e);
       return StorageService.getEvents(orgId);
     }
   }
