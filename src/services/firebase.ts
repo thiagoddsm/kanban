@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
   apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || "AIzaSyADLqvQVfPzG6PS5jxiU9OKNZdzzJ3Bx3I",
@@ -14,6 +15,7 @@ export const firebaseConfig = {
 let app: any = null;
 let auth: any = null;
 let db: any = null;
+let storage: any = null;
 let googleProvider: any = null;
 
 export const isFirebaseConfigured = true;
@@ -26,10 +28,11 @@ try {
   }
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
-  console.log("🔥 Firebase inicializado com sucesso no projeto studio-5589719834-7481b!");
+  console.log("🔥 Firebase Firestore, Auth e Storage inicializados com sucesso no projeto studio-5589719834-7481b!");
 } catch (error) {
   console.warn("Aviso na inicialização do Firebase:", error);
 }
 
-export { app, auth, db, googleProvider };
+export { app, auth, db, storage, googleProvider };

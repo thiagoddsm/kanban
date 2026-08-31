@@ -1,0 +1,56 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidFileSize(maxMegabytes) {
+      return request.resource.size <= maxMegabytes * 1024 * 1024;
+    }
+
+    function isAllowedFileType() {
+      return request.resource.contentType.matches('image/.*')
+        || request.resource.contentType.matches('video/.*')
+        || request.resource.contentType.matches('audio/.*')
+        || request.resource.contentType.matches('application/pdf')
+        || request.resource.contentType.matches('application/zip')
+        || request.resource.contentType.matches('application/x-zip-compressed')
+        || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
+        || request.resource.contentType.matches('application/msword');
+    }
+
+    // 1. User Avatars (max 5MB, images only)
+    match /users/{userId}/avatar/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) 
+        && isValidFileSize(5) 
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Organization Task Attachments & Deliverables (max 50MB)
+    match /organizations/{orgId}/tasks/{taskId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+        && isValidFileSize(50) 
+        && isAllowedFileType();
+      allow delete: if isAuthenticated();
+    }
+
+    // 3. Organization Event Assets & Media (max 50MB)
+    match /organizations/{orgId}/events/{eventId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() 
+        && isValidFileSize(50) 
+        && isAllowedFileType();
+      allow delete: if isAuthenticated();
+    }
+  }
+}
