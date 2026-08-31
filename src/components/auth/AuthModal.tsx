@@ -405,53 +405,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </form>
         )}
-
-        {/* Demo Switcher Accordion (Convenience for testing) */}
-        <div className="pt-2 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={() => setIsDemoAccordionOpen(!isDemoAccordionOpen)}
-            className="w-full flex items-center justify-between py-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            <span>Alternar Usuário para Demonstração (Demo)</span>
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isDemoAccordionOpen ? 'rotate-180' : ''}`} />
-          </button>
-
-          {isDemoAccordionOpen && (
-            <div className="mt-2 space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar p-1">
-              {users.map((u) => {
-                const isSelected = currentUser.id === u.id;
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      switchUser(u.id);
-                      onClose();
-                    }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left text-xs transition-all ${
-                      isSelected
-                        ? 'bg-indigo-600/20 border border-indigo-500/50 text-white'
-                        : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                        alt={u.name}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate text-[11px]">{u.name}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{u.email}</p>
-                      </div>
-                    </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
