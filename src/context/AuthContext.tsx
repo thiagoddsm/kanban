@@ -59,7 +59,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [users, setUsers] = useState<User[]>(() => StorageService.getUsers());
   const [currentUser, setCurrentUserState] = useState<User>(() => {
     const all = StorageService.getUsers();
-    return all[0];
+    const master = all.find((u) => u.email.toLowerCase() === 'thiagoddsm@gmail.com');
+    return master || all[0];
   });
   const [isLoadingAuth, setIsLoadingAuth] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);

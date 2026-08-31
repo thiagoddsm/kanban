@@ -69,10 +69,15 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   }, [memberships, currentUser.id, currentOrganization.id]);
 
-  const currentRole: UserRole = currentMembership?.role || 'REQUESTER';
+  const isMasterAdmin = useMemo(() => {
+    return currentUser.email.toLowerCase() === 'thiagoddsm@gmail.com';
+  }, [currentUser.email]);
+
+  const currentRole: UserRole = isMasterAdmin ? 'ADMIN' : (currentMembership?.role || 'REQUESTER');
 
   // Permission Checking Engine
   const hasPermission = (permission: Permission): boolean => {
+    if (isMasterAdmin) return true; // Master Admin has unrestricted permissions
     if (!currentMembership) {
       return permission === 'tasks.create'; // Requesters can create demands
     }
@@ -99,24 +104,26 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Accessible Organizations for current user
   const accessibleOrganizations = useMemo(() => {
+    if (isMasterAdmin) return organizations; // Master Admin has access to all organizations
     const userOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
 
     return organizations.filter((o) => userOrgIds.includes(o.id));
-  }, [organizations, memberships, currentUser.id]);
+  }, [organizations, memberships, currentUser.id, isMasterAdmin]);
 
   // Accessible Campuses in current organization
   const accessibleCampuses = useMemo(() => {
+    if (isMasterAdmin) return campuses;
     if (!currentMembership) return [];
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return campuses;
     }
     return campuses.filter((c) => currentMembership.campusIds.includes(c.id));
-  }, [campuses, currentMembership]);
+  }, [campuses, currentMembership, isMasterAdmin]);
 
   const hasCampusAccess = (campusId?: string | null): boolean => {
-    if (!campusId) return true; // Null/undefined means Organization-wide
+    if (!campusId || isMasterAdmin) return true; // Null/undefined or Master Admin means Organization-wide
     if (!currentMembership) return false;
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return true;

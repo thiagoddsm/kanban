@@ -388,10 +388,18 @@ export const INITIAL_CAMPUSES: Campus[] = [
 // --- GLOBAL USERS ---
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr_thiago_master',
+    name: 'Thiago Master Admin',
+    email: 'thiagoddsm@gmail.com',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    phone: '(11) 99999-8888',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
     id: 'usr_admin',
     name: 'Pr. Carlos Mendes',
     email: 'admin@marketingibm.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
     phone: '(11) 98765-4321',
     createdAt: '2026-01-10T10:00:00Z',
   },
@@ -431,6 +439,18 @@ export const INITIAL_USERS: User[] = [
 
 // --- MEMBERSHIPS ---
 export const INITIAL_MEMBERSHIPS: Membership[] = [
+  {
+    id: 'mem_thiago_master',
+    userId: 'usr_thiago_master',
+    organizationId: 'org_ibm',
+    hasOrgWideAccess: true,
+    campusIds: [],
+    role: 'ADMIN',
+    department: 'Direção Executiva & Master Admin',
+    status: 'ACTIVE',
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  },
   {
     id: 'mem_carlos_ibm',
     userId: 'usr_admin',
