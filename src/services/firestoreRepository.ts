@@ -25,6 +25,101 @@ import {
 
 export class FirestoreRepository {
   /**
+   * Fetch all organizations from Firestore (seeds initial orgs if empty)
+   */
+  public static async fetchOrganizations(): Promise<Organization[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getOrganizations();
+    }
+    try {
+      const orgsCol = collection(db, 'organizations');
+      const snap = await getDocs(orgsCol);
+      if (snap.empty) {
+        const local = StorageService.getOrganizations();
+        // Seed initial organizations to Firestore
+        Promise.all(local.map((o) => setDoc(doc(db, 'organizations', o.id), o))).catch((err) => {
+          console.warn('Erro ao semear organizações no Firestore:', err);
+        });
+        return local;
+      }
+      return snap.docs.map((d) => d.data() as Organization);
+    } catch (e) {
+      console.warn('Aviso: lendo organizações do cache local:', e);
+      return StorageService.getOrganizations();
+    }
+  }
+
+  /**
+   * Save / Update Organization in Firestore
+   */
+  public static async saveOrganization(org: Organization): Promise<void> {
+    StorageService.addOrganization(org);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const orgRef = doc(db, 'organizations', org.id);
+      await setDoc(orgRef, org, { merge: true });
+      console.log('✅ Organização gravada no Firestore:', org.id);
+    } catch (e) {
+      console.error('Erro ao gravar organização no Firestore:', e);
+    }
+  }
+
+  /**
+   * Fetch all campuses for an organization from Firestore
+   */
+  public static async fetchCampuses(orgId: string): Promise<Campus[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getCampuses(orgId);
+    }
+    try {
+      const campusCol = collection(db, 'organizations', orgId, 'campuses');
+      const snap = await getDocs(campusCol);
+      if (snap.empty) {
+        const local = StorageService.getCampuses(orgId);
+        Promise.all(local.map((c) => setDoc(doc(db, 'organizations', orgId, 'campuses', c.id), c))).catch(() => {});
+        return local;
+      }
+      return snap.docs.map((d) => d.data() as Campus);
+    } catch (e) {
+      console.warn('Aviso: lendo campi do cache local:', e);
+      return StorageService.getCampuses(orgId);
+    }
+  }
+
+  /**
+   * Save / Update Campus in Firestore
+   */
+  public static async saveCampus(campus: Campus): Promise<void> {
+    StorageService.addCampus(campus);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const campusRef = doc(db, 'organizations', campus.organizationId, 'campuses', campus.id);
+      await setDoc(campusRef, campus, { merge: true });
+      console.log('✅ Campus gravado no Firestore:', campus.id);
+    } catch (e) {
+      console.error('Erro ao gravar campus no Firestore:', e);
+    }
+  }
+
+  /**
+   * Save / Update Membership in Firestore
+   */
+  public static async saveMembership(membership: Membership): Promise<void> {
+    StorageService.addMembership(membership);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const memRef = doc(db, 'organizations', membership.organizationId, 'memberships', membership.userId);
+      await setDoc(memRef, membership, { merge: true });
+      console.log('✅ Membership gravado no Firestore:', membership.id);
+    } catch (e) {
+      console.error('Erro ao gravar membership no Firestore:', e);
+    }
+  }
+
+  /**
    * Fetch all tasks for an organization from Firestore (with automatic initial seeding)
    */
   public static async fetchTasks(orgId: string): Promise<Task[]> {

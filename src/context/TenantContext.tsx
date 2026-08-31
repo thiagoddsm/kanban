@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog } from '../types';
+import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership } from '../types';
 import { StorageService } from '../services/storageService';
+import { FirestoreRepository } from '../services/firestoreRepository';
 import { useAuth } from './AuthContext';
 import { useNotification } from './NotificationContext';
 
@@ -57,10 +58,25 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return orgCampuses.find((c) => c.id === savedCampId) || null;
   });
 
+  // Initial sync with Firestore
+  useEffect(() => {
+    FirestoreRepository.fetchOrganizations().then((remoteOrgs) => {
+      if (remoteOrgs && remoteOrgs.length > 0) {
+        setOrganizations(remoteOrgs);
+      }
+    });
+  }, []);
+
   // Keep campuses in sync when organization changes
   useEffect(() => {
-    const orgCampuses = StorageService.getCampuses(currentOrganization.id);
-    setCampuses(orgCampuses);
+    FirestoreRepository.fetchCampuses(currentOrganization.id).then((remoteCampuses) => {
+      if (remoteCampuses && remoteCampuses.length > 0) {
+        setCampuses(remoteCampuses);
+      } else {
+        const orgCampuses = StorageService.getCampuses(currentOrganization.id);
+        setCampuses(orgCampuses);
+      }
+    });
 
     if (currentCampus && currentCampus.organizationId !== currentOrganization.id) {
       setCurrentCampus(null);
@@ -159,12 +175,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       createdAt: new Date().toISOString(),
     };
 
-    // Save
+    // Save Locally
     const updatedOrgs = StorageService.addOrganization(newOrg);
     StorageService.addCampus(mainCampus);
 
-    // Creator becomes ADMIN of this new org with org-wide access
-    StorageService.addMembership({
+    const membership: Membership = {
       id: 'mem_' + currentUser.id + '_' + orgId,
       userId: currentUser.id,
       organizationId: orgId,
@@ -175,7 +190,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       status: 'ACTIVE',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
+    StorageService.addMembership(membership);
 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -190,6 +206,12 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+
+    // Sync to Cloud Firestore in Real-Time
+    FirestoreRepository.saveOrganization(newOrg);
+    FirestoreRepository.saveCampus(mainCampus);
+    FirestoreRepository.saveMembership(membership);
+    FirestoreRepository.recordActivity(auditLog);
 
     setOrganizations(updatedOrgs);
     setCurrentOrganization(newOrg);
@@ -222,6 +244,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     const updated = StorageService.addCampus(newCampus);
+    FirestoreRepository.saveCampus(newCampus);
     setCampuses(updated);
 
     const auditLog: ActivityLog = {
@@ -238,6 +261,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+    FirestoreRepository.recordActivity(auditLog);
 
     success(`Novo campus criado: ${name}`);
     return newCampus;
@@ -257,6 +281,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       o.id === updatedOrg.id ? updatedOrg : o
     );
     StorageService.saveOrganizations(updatedOrgs);
+    FirestoreRepository.saveOrganization(updatedOrg);
     setOrganizations(updatedOrgs);
     setCurrentOrganization(updatedOrg);
 
