@@ -20,12 +20,12 @@ import {
 } from './mockData';
 
 // Global keys
-const ORGS_KEY = 'marketing_saas_organizations_v3';
-const USERS_KEY = 'marketing_saas_global_users_v3';
-const MEMBERSHIPS_KEY = 'marketing_saas_memberships_v3';
+const ORGS_KEY = 'marketing_saas_organizations_v4_clean';
+const USERS_KEY = 'marketing_saas_global_users_v4_clean';
+const MEMBERSHIPS_KEY = 'marketing_saas_memberships_v4_clean';
 
 // Organization-scoped key generator
-const getOrgKey = (orgId: string, entity: string) => `marketing_org_${orgId}_${entity}_v3`;
+const getOrgKey = (orgId: string, entity: string) => `marketing_org_${orgId}_${entity}_v4_clean`;
 
 export class StorageService {
   // --- ORGANIZATIONS ---

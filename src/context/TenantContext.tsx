@@ -20,8 +20,8 @@ interface TenantContextType {
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
-const ACTIVE_ORG_KEY = 'marketing_active_organization_id_v3';
-const ACTIVE_CAMPUS_KEY = 'marketing_active_campus_id_v3';
+const ACTIVE_ORG_KEY = 'marketing_active_organization_id_v4_clean';
+const ACTIVE_CAMPUS_KEY = 'marketing_active_campus_id_v4_clean';
 
 export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
