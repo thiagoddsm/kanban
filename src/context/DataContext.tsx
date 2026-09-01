@@ -211,6 +211,30 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+    FirestoreRepository.fetchComments(currentOrganization.id).then((remoteComments) => {
+      if (remoteComments && remoteComments.length > 0) {
+        setComments(remoteComments);
+        remoteComments.forEach((c) => StorageService.addComment(c));
+      }
+    });
+
+    FirestoreRepository.fetchOrgConfig(currentOrganization.id).then((remoteConfig) => {
+      if (remoteConfig) {
+        if (remoteConfig.demandTypes) {
+          setDemandTypes(remoteConfig.demandTypes);
+          StorageService.saveDemandTypes(currentOrganization.id, remoteConfig.demandTypes);
+        }
+        if (remoteConfig.eventCategories) {
+          setEventCategories(remoteConfig.eventCategories);
+          StorageService.saveEventCategories(currentOrganization.id, remoteConfig.eventCategories);
+        }
+        if (remoteConfig.departments) {
+          setDepartments(remoteConfig.departments);
+          StorageService.saveDepartments(currentOrganization.id, remoteConfig.departments);
+        }
+      }
+    });
+
     // Realtime listeners
     const unsubTasks = FirestoreRepository.subscribeTasks(currentOrganization.id, (tasks) => {
       if (tasks && tasks.length >= 0) {
@@ -233,10 +257,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+    const unsubComments = FirestoreRepository.subscribeComments(currentOrganization.id, (comments) => {
+      if (comments && comments.length >= 0) {
+        setComments(comments);
+        comments.forEach((c) => StorageService.addComment(c));
+      }
+    });
+
+    const unsubConfig = FirestoreRepository.subscribeOrgConfig(currentOrganization.id, (remoteConfig) => {
+      if (remoteConfig) {
+        if (remoteConfig.demandTypes) {
+          setDemandTypes(remoteConfig.demandTypes);
+          StorageService.saveDemandTypes(currentOrganization.id, remoteConfig.demandTypes);
+        }
+        if (remoteConfig.eventCategories) {
+          setEventCategories(remoteConfig.eventCategories);
+          StorageService.saveEventCategories(currentOrganization.id, remoteConfig.eventCategories);
+        }
+        if (remoteConfig.departments) {
+          setDepartments(remoteConfig.departments);
+          StorageService.saveDepartments(currentOrganization.id, remoteConfig.departments);
+        }
+      }
+    });
+
     return () => {
       unsubTasks();
       unsubEvents();
       unsubUsers();
+      unsubComments();
+      unsubConfig();
     };
   }, [currentOrganization.id]);
 
@@ -985,6 +1035,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = StorageService.addComment(newComment);
     setComments(updated);
     setRawTasks(StorageService.getTasks(currentOrganization.id));
+    FirestoreRepository.saveComment(newComment);
 
     // Find task title
     const currentTasks = StorageService.getTasks(currentOrganization.id);
@@ -1044,6 +1095,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = [...demandTypes, newType];
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     success('Novo tipo de demanda adicionado!', `Tipo "${newType.label}" agora disponível nas solicitações.`);
   };
 
@@ -1051,6 +1103,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = demandTypes.map((dt) => (dt.type === updatedType.type ? updatedType : dt));
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     success('Tipo de demanda atualizado com sucesso!');
   };
 
@@ -1058,12 +1111,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = demandTypes.filter((dt) => dt.type !== typeName);
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     info('Tipo de demanda removido.');
   };
 
   const resetDemandTypesToDefault = () => {
     setDemandTypes(DEMAND_TYPES);
     StorageService.saveDemandTypes(currentOrganization.id, DEMAND_TYPES);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: DEMAND_TYPES, eventCategories, departments });
     success('Tipos de demanda restaurados para o padrão.');
   };
 
@@ -1072,6 +1127,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = [...eventCategories, newCat];
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     success('Nova categoria de evento adicionada!');
   };
 
@@ -1079,6 +1135,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = eventCategories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     success('Categoria de evento atualizada!');
   };
 
@@ -1086,6 +1143,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = eventCategories.filter((c) => c.id !== catId);
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     info('Categoria de evento removida.');
   };
 
@@ -1094,6 +1152,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = [...departments, newDept];
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     success('Novo ministério/departamento adicionado!');
   };
 
@@ -1101,6 +1160,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = departments.map((d) => (d.id === updatedDept.id ? updatedDept : d));
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     success('Departamento atualizado!');
   };
 
@@ -1108,6 +1168,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = departments.filter((d) => d.id !== deptId);
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
+    FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     info('Departamento removido.');
   };
 

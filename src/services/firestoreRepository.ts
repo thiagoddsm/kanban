@@ -404,4 +404,113 @@ export class FirestoreRepository {
       console.error('Erro ao gravar auditoria no Firestore:', e);
     }
   }
+
+  /**
+   * Save Comment to /organizations/{orgId}/comments/{commentId}
+   */
+  public static async saveComment(comment: Comment): Promise<void> {
+    StorageService.addComment(comment);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const commentRef = doc(db, 'organizations', comment.organizationId, 'comments', comment.id);
+      const sanitized = sanitizeForFirestore(comment);
+      await setDoc(commentRef, sanitized, { merge: true });
+    } catch (e) {
+      console.error('Erro ao gravar comentário no Firestore:', e);
+    }
+  }
+
+  /**
+   * Fetch all comments for an organization from Firestore
+   */
+  public static async fetchComments(orgId: string): Promise<Comment[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getComments(orgId);
+    }
+    try {
+      const commentsCol = collection(db, 'organizations', orgId, 'comments');
+      const snap = await getDocs(commentsCol);
+      if (snap.empty) {
+        return [];
+      }
+      return snap.docs.map((d) => d.data() as Comment);
+    } catch (e) {
+      console.warn('Aviso: lendo comentários do cache local:', e);
+      return StorageService.getComments(orgId);
+    }
+  }
+
+  /**
+   * Realtime subscription for comments
+   */
+  public static subscribeComments(orgId: string, callback: (comments: Comment[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const commentsCol = collection(db, 'organizations', orgId, 'comments');
+      return onSnapshot(commentsCol, (snap) => {
+        const comments = snap.docs.map((d) => d.data() as Comment);
+        callback(comments);
+      }, (err) => {
+        console.warn('Subscription error for comments:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to comments:', e);
+      return () => {};
+    }
+  }
+
+  /**
+   * Save Organization Custom Configuration Lists (Demand Types, Event Categories, Departments)
+   */
+  public static async saveOrgConfig(orgId: string, config: { demandTypes?: any[]; eventCategories?: any[]; departments?: any[] }): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const configRef = doc(db, 'organizations', orgId, 'settings', 'config');
+      const sanitized = sanitizeForFirestore(config);
+      await setDoc(configRef, sanitized, { merge: true });
+    } catch (e) {
+      console.error('Erro ao gravar configurações no Firestore:', e);
+    }
+  }
+
+  /**
+   * Fetch Organization Custom Configuration Lists from Firestore
+   */
+  public static async fetchOrgConfig(orgId: string): Promise<{ demandTypes?: any[]; eventCategories?: any[]; departments?: any[] } | null> {
+    if (!isFirebaseConfigured || !db) return null;
+
+    try {
+      const configRef = doc(db, 'organizations', orgId, 'settings', 'config');
+      const snap = await getDoc(configRef);
+      if (!snap.exists()) return null;
+      return snap.data() as any;
+    } catch (e) {
+      console.warn('Aviso: erro ao ler configurações do Firestore:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Realtime subscription for organization custom configuration
+   */
+  public static subscribeOrgConfig(orgId: string, callback: (config: { demandTypes?: any[]; eventCategories?: any[]; departments?: any[] }) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const configRef = doc(db, 'organizations', orgId, 'settings', 'config');
+      return onSnapshot(configRef, (snap) => {
+        if (snap.exists()) {
+          callback(snap.data() as any);
+        }
+      }, (err) => {
+        console.warn('Subscription error for config:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to config:', e);
+      return () => {};
+    }
+  }
 }
