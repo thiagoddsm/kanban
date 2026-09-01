@@ -139,6 +139,14 @@ export const RoleSwitcher: React.FC = () => {
               <UserPlus className="w-4 h-4 text-purple-400" />
               <span>Criar Nova Conta</span>
             </button>
+            <Link
+              to="/"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left text-xs text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            >
+              <Globe className="w-4 h-4 text-emerald-400" />
+              <span>Ver Site & Planos</span>
+            </Link>
           </div>
 
           {/* Logout / Encerrar Sessão */}
