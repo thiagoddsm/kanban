@@ -319,39 +319,34 @@ export class FirestoreRepository {
       return StorageService.getTasks(orgId);
     }
     try {
-      const constraints: any[] = [];
-
-      // Filtro de arquivamento padrão: tarefas ativas (isArchived == false)
-      const isArchived = filter?.isArchived ?? false;
-      constraints.push(where('isArchived', '==', isArchived));
-
-      if (filter?.campusId) {
-        constraints.push(where('campusId', '==', filter.campusId));
-      }
-      if (filter?.status) {
-        constraints.push(where('status', '==', filter.status));
-      }
-      if (filter?.eventId) {
-        constraints.push(where('eventId', '==', filter.eventId));
-      }
-
-      // Ordenação padrão por updatedAt desc
-      const sortField = filter?.orderByField || 'updatedAt';
-      const sortDir = filter?.orderDirection || 'desc';
-      constraints.push(orderBy(sortField, sortDir));
-
-      if (filter?.limitCount && filter.limitCount > 0) {
-        constraints.push(limit(filter.limitCount));
-      }
-
       const tasksCol = collection(db, 'organizations', orgId, 'tasks');
-      const q = query(tasksCol, ...constraints);
-      const snap = await getDocs(q);
+      const snap = await getDocs(tasksCol);
 
       if (snap.empty) {
         return [];
       }
-      return snap.docs.map((d) => d.data() as Task);
+      let tasks = snap.docs.map((d) => d.data() as Task);
+
+      if (filter?.isArchived !== undefined) {
+        tasks = tasks.filter((t) => !!t.isArchived === filter.isArchived);
+      }
+      if (filter?.campusId) {
+        tasks = tasks.filter((t) => t.campusId === filter.campusId);
+      }
+      if (filter?.status) {
+        tasks = tasks.filter((t) => t.status === filter.status);
+      }
+      if (filter?.eventId) {
+        tasks = tasks.filter((t) => t.eventId === filter.eventId);
+      }
+
+      tasks.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+
+      if (filter?.limitCount && filter.limitCount > 0) {
+        tasks = tasks.slice(0, filter.limitCount);
+      }
+
+      return tasks;
     } catch (e) {
       console.warn('Aviso: lendo tarefas do cache local:', e);
       return StorageService.getTasks(orgId);
@@ -369,34 +364,30 @@ export class FirestoreRepository {
     if (!isFirebaseConfigured || !db) return () => {};
 
     try {
-      const constraints: any[] = [];
-
-      const isArchived = filter?.isArchived ?? false;
-      constraints.push(where('isArchived', '==', isArchived));
-
-      if (filter?.campusId) {
-        constraints.push(where('campusId', '==', filter.campusId));
-      }
-      if (filter?.status) {
-        constraints.push(where('status', '==', filter.status));
-      }
-      if (filter?.eventId) {
-        constraints.push(where('eventId', '==', filter.eventId));
-      }
-
-      const sortField = filter?.orderByField || 'updatedAt';
-      const sortDir = filter?.orderDirection || 'desc';
-      constraints.push(orderBy(sortField, sortDir));
-
-      if (filter?.limitCount && filter.limitCount > 0) {
-        constraints.push(limit(filter.limitCount));
-      }
-
       const tasksCol = collection(db, 'organizations', orgId, 'tasks');
-      const q = query(tasksCol, ...constraints);
 
-      return onSnapshot(q, (snap) => {
-        const tasks = snap.docs.map((d) => d.data() as Task);
+      return onSnapshot(tasksCol, (snap) => {
+        let tasks = snap.docs.map((d) => d.data() as Task);
+
+        if (filter?.isArchived !== undefined) {
+          tasks = tasks.filter((t) => !!t.isArchived === filter.isArchived);
+        }
+        if (filter?.campusId) {
+          tasks = tasks.filter((t) => t.campusId === filter.campusId);
+        }
+        if (filter?.status) {
+          tasks = tasks.filter((t) => t.status === filter.status);
+        }
+        if (filter?.eventId) {
+          tasks = tasks.filter((t) => t.eventId === filter.eventId);
+        }
+
+        tasks.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
+
+        if (filter?.limitCount && filter.limitCount > 0) {
+          tasks = tasks.slice(0, filter.limitCount);
+        }
+
         callback(tasks);
       }, (err) => {
         console.warn('Subscription error for tasks:', err);
@@ -416,16 +407,14 @@ export class FirestoreRepository {
     }
     try {
       const eventsCol = collection(db, 'organizations', orgId, 'events');
-      const q = query(
-        eventsCol,
-        where('isArchived', '==', isArchived),
-        orderBy('startDate', 'asc')
-      );
-      const snap = await getDocs(q);
+      const snap = await getDocs(eventsCol);
       if (snap.empty) {
         return [];
       }
-      return snap.docs.map((d) => d.data() as ChurchEvent);
+      return snap.docs
+        .map((d) => d.data() as ChurchEvent)
+        .filter((e) => (isArchived ? !!e.isArchived : !e.isArchived))
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
     } catch (e) {
       console.warn('Aviso: lendo eventos do cache local:', e);
       return StorageService.getEvents(orgId);
@@ -444,13 +433,11 @@ export class FirestoreRepository {
 
     try {
       const eventsCol = collection(db, 'organizations', orgId, 'events');
-      const q = query(
-        eventsCol,
-        where('isArchived', '==', isArchived),
-        orderBy('startDate', 'asc')
-      );
-      return onSnapshot(q, (snap) => {
-        const events = snap.docs.map((d) => d.data() as ChurchEvent);
+      return onSnapshot(eventsCol, (snap) => {
+        const events = snap.docs
+          .map((d) => d.data() as ChurchEvent)
+          .filter((e) => (isArchived ? !!e.isArchived : !e.isArchived))
+          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
         callback(events);
       }, (err) => {
         console.warn('Subscription error for events:', err);
