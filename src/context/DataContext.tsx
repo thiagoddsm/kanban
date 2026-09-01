@@ -706,6 +706,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = StorageService.archiveTask(currentOrganization.id, taskId, isArchived);
     setRawTasks(updated);
     if (task) {
+      const updatedTask = { ...task, isArchived, updatedAt: new Date().toISOString() };
+      FirestoreRepository.saveTask(updatedTask);
       const act: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
@@ -719,6 +721,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         timestamp: new Date().toISOString(),
       };
       setActivities(StorageService.addActivity(act));
+      FirestoreRepository.recordActivity(act);
     }
     success(isArchived ? 'Tarefa arquivada!' : 'Tarefa restaurada!');
   };
@@ -896,9 +899,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const archiveEvent = (eventId: string, isArchived: boolean) => {
+    const event = rawEvents.find((e) => e.id === eventId);
     const updated = StorageService.archiveEvent(currentOrganization.id, eventId, isArchived);
     setRawEvents(updated);
-    success(isArchived ? 'Evento arquivado!' : 'Evento restaurado!');
+    if (event) {
+      const updatedEvent = { ...event, isArchived, updatedAt: new Date().toISOString() };
+      FirestoreRepository.saveEvent(updatedEvent);
+      const act: ActivityLog = {
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: currentOrganization.id,
+        campusId: event.campusId,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        action: isArchived ? 'arquivou o projeto' : 'restaurou o projeto',
+        targetType: 'event',
+        targetId: event.id,
+        targetTitle: event.title,
+        timestamp: new Date().toISOString(),
+      };
+      setActivities(StorageService.addActivity(act));
+      FirestoreRepository.recordActivity(act);
+    }
+    success(isArchived ? 'Projeto arquivado com sucesso!' : 'Projeto restaurado com sucesso!');
   };
 
   const deleteEvent = (eventId: string) => {

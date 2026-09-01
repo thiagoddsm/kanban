@@ -18,7 +18,8 @@ import {
   Layers,
   Edit3,
   Sparkles,
-  Building2
+  Building2,
+  Archive
 } from 'lucide-react';
 import { NewDemandModal } from '../kanban/NewDemandModal';
 import { EventModal } from './EventModal';
@@ -38,7 +39,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 }) => {
   if (!isOpen || !event) return null;
 
-  const { tasks, users, getEventStats, updateEvent } = useData();
+  const { tasks, users, getEventStats, updateEvent, archiveEvent } = useData();
   const { canManageEvents, canCreateDemand } = useAccess();
 
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
@@ -268,7 +269,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">
-          <div>
+          <div className="flex items-center gap-2">
             {canManageEvents && event.status !== 'FINISHED' && (
               <button
                 onClick={handleFinishProject}
@@ -276,6 +277,21 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
                 title="Finalizar este projeto (exige 100% das tarefas concluídas)"
               >
                 Concluir Projeto
+              </button>
+            )}
+            {canManageEvents && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Tem certeza que deseja arquivar o projeto "${event.title}"?`)) {
+                    archiveEvent(event.id, true);
+                    onClose();
+                  }
+                }}
+                className="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-colors flex items-center gap-1.5"
+                title="Arquivar este projeto"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>Arquivar Projeto</span>
               </button>
             )}
           </div>

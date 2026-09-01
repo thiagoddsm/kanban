@@ -31,7 +31,7 @@ interface EventsViewProps {
 }
 
 export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
-  const { events, users, getEventStats, setFilterEventId } = useData();
+  const { events, users, getEventStats, setFilterEventId, archiveEvent } = useData();
   const { canManageEvents } = useAccess();
   const { currentOrganization, currentCampus } = useTenant();
 
@@ -128,16 +128,30 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <EventStatusBadge status={evt.status} />
                     {canManageEvents && (
-                      <button
-                        onClick={(e) => handleEditEvent(e, evt)}
-                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-                        title="Editar Evento"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => handleEditEvent(e, evt)}
+                          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                          title="Editar Projeto"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Tem certeza que deseja arquivar o projeto "${evt.title}"?`)) {
+                              archiveEvent(evt.id, true);
+                            }
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Arquivar Projeto"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
