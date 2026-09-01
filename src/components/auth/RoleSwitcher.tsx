@@ -18,7 +18,7 @@ const ROLES: { role: UserRole; label: string; desc: string; color: string }[] = 
 export const RoleSwitcher: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, users, switchUser, logout } = useAuth();
-  const { currentRole, switchRoleInCurrentOrg } = useAccess();
+  const { currentRole } = useAccess();
   const { currentOrganization } = useTenant();
   const { success } = useNotification();
 
@@ -36,11 +36,6 @@ export const RoleSwitcher: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const handleRoleSelect = (role: UserRole) => {
-    switchRoleInCurrentOrg(role);
-    setIsOpen(false);
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -82,35 +77,6 @@ export const RoleSwitcher: React.FC = () => {
               <span className="inline-block mt-0.5 text-[9px] font-bold text-indigo-400 uppercase tracking-wider">
                 {currentOrganization.name}
               </span>
-            </div>
-          </div>
-
-          {/* Role / Function Switcher (Simulação RBAC) */}
-          <div className="space-y-1 pt-1 border-t border-slate-800">
-            <div className="flex items-center justify-between px-1 py-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Função / Papel Ativo
-              </span>
-              <span className="text-[9px] text-indigo-400">Simulação RBAC</span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
-              {ROLES.map(({ role, label, color }) => {
-                const isActive = currentRole === role;
-                return (
-                  <button
-                    key={role}
-                    onClick={() => handleRoleSelect(role)}
-                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold border transition-all text-left ${
-                      isActive
-                        ? `${color} ring-1 ring-white/20 font-bold`
-                        : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    <span className="truncate">{role}</span>
-                    {isActive && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
-                  </button>
-                );
-              })}
             </div>
           </div>
 
