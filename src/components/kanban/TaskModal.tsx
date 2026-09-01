@@ -218,6 +218,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
     updateTask({ ...task, attachmentLinks: updated });
   };
 
+  const handleAddDependency = (depId: string) => {
+    if (!depId || dependencies.includes(depId)) return;
+    const updated = [...dependencies, depId];
+    setDependencies(updated);
+    updateTask({ ...task, dependencies: updated });
+  };
+
+  const handleRemoveDependency = (depId: string) => {
+    const updated = dependencies.filter((id) => id !== depId);
+    setDependencies(updated);
+    updateTask({ ...task, dependencies: updated });
+  };
+
   const handleAddCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
@@ -692,7 +705,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                         )}
                         <button
                           type="button"
-                          onClick={() => setDependencies((prev) => prev.filter((id) => id !== dep.id))}
+                          onClick={() => handleRemoveDependency(dep.id)}
                           className="text-slate-500 hover:text-rose-400 p-1"
                           title="Remover dependência"
                         >
@@ -713,8 +726,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
               <select
                 value=""
                 onChange={(e) => {
-                  if (e.target.value && !dependencies.includes(e.target.value)) {
-                    setDependencies([...dependencies, e.target.value]);
+                  if (e.target.value) {
+                    handleAddDependency(e.target.value);
                   }
                 }}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
