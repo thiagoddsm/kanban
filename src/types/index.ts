@@ -471,3 +471,21 @@ export interface DepartmentDefinition {
   leaderName?: string;
   description?: string;
 }
+
+export interface TaskQueryFilter {
+  campusId?: string | null;
+  status?: TaskStatus;
+  eventId?: string;
+  isArchived?: boolean;
+  limitCount?: number;
+  lastDocId?: string;
+  orderByField?: 'updatedAt' | 'createdAt' | 'deadline';
+  orderDirection?: 'asc' | 'desc';
+}
+
+export interface PagedResponse<T> {
+  items: T[];
+  hasMore: boolean;
+  lastDocId?: string;
+}
+

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useAccess } from '../../context/AccessContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -22,6 +23,7 @@ import { EditOrganizationModal } from './EditOrganizationModal';
 import { OrganizationManagerModal } from './OrganizationManagerModal';
 
 export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ variant = 'sidebar' }) => {
+  const navigate = useNavigate();
   const { 
     organizations, 
     currentOrganization, 
@@ -236,6 +238,7 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
                     <button
                       onClick={() => {
                         switchOrganization(org.id);
+                        navigate(`/${org.slug}/dashboard`);
                         setIsOpen(false);
                       }}
                       className="flex items-center gap-2 min-w-0 flex-1 text-left"

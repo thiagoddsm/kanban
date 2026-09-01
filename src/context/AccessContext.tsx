@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
+import { EntitlementsService } from '../services/entitlementsService';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { useNotification } from './NotificationContext';
@@ -206,13 +207,11 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     hasOrgWideAccess = false,
     department = 'Comunicação'
   ): boolean => {
-    // Check Subscription Limit for Members
+    // Validação centralizada de limites de membros via EntitlementsService
     const currentMembersCount = memberships.filter((m) => m.organizationId === currentOrganization.id).length;
-    if (currentMembersCount >= currentOrganization.limits.maxMembers) {
-      notifyError(
-        'Limite do plano atingido!',
-        `O plano ${currentOrganization.subscription.plan} permite no máximo ${currentOrganization.limits.maxMembers} membros. Faça upgrade para adicionar mais.`
-      );
+    const check = EntitlementsService.checkMemberLimit(currentOrganization, currentMembersCount);
+    if (!check.allowed) {
+      notifyError('Limite do plano atingido!', check.message || 'Limite de membros da equipe atingido.');
       return false;
     }
 

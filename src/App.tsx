@@ -1,4 +1,5 @@
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { TenantProvider } from './context/TenantContext';
 import { AccessProvider } from './context/AccessContext';
@@ -15,7 +16,14 @@ export function App() {
           <TenantProvider>
             <AccessProvider>
               <DataProvider>
-                <Layout />
+                <Routes>
+                  {/* Rota principal com slug da organização e tab ativa */}
+                  <Route path="/:orgSlug/:tab" element={<Layout />} />
+                  <Route path="/:orgSlug" element={<Navigate to="dashboard" replace />} />
+
+                  {/* Fallback: redireciona para o slug padrão */}
+                  <Route path="*" element={<Navigate to="/minha-igreja/dashboard" replace />} />
+                </Routes>
               </DataProvider>
             </AccessProvider>
           </TenantProvider>

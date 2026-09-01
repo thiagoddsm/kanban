@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Kanban, 
@@ -9,9 +10,6 @@ import {
   Users2, 
   X,
   Sparkles,
-  MapPin,
-  Layers,
-  HelpCircle,
   Settings
 } from 'lucide-react';
 import { NavigationTab } from '../../types';
@@ -22,23 +20,21 @@ import { TenantSwitcher } from '../tenants/TenantSwitcher';
 
 interface SidebarProps {
   activeTab: NavigationTab;
-  setActiveTab: (tab: NavigationTab) => void;
+  onNavigate: (tab: NavigationTab) => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
-  setActiveTab,
+  onNavigate,
   isOpenMobile,
   onCloseMobile,
 }) => {
   const { currentRole, isAdmin } = useAccess();
   const { currentUser } = useAuth();
-  const { currentOrganization, currentCampus } = useTenant();
+  const { currentOrganization } = useTenant();
 
-  // Menu items:
-  // 1. Painel, 2. Tarefas, 3. Eventos, 4. Gantt, 5. Calendário, 6. Arquivados, 7. Usuários, 8. Configurações
   const menuItems: { id: NavigationTab; label: string; icon: any; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
     { id: 'tasks', label: 'Tarefas (Kanban)', icon: Kanban },
@@ -49,6 +45,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'users', label: 'Usuários & Convites', icon: Users2, adminOnly: true },
     { id: 'settings', label: 'Configurações & Listas', icon: Settings, adminOnly: true },
   ];
+
+  const slug = currentOrganization.slug;
 
   return (
     <>
@@ -106,12 +104,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = activeTab === item.id;
 
             return (
-              <button
+              <NavLink
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  onCloseMobile();
-                }}
+                to={`/${slug}/${item.id}`}
+                onClick={onCloseMobile}
                 className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 group ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
@@ -124,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 />
                 <span className="truncate">{item.label}</span>
-              </button>
+              </NavLink>
             );
           })}
         </nav>

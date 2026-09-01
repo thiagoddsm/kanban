@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
@@ -6,11 +6,17 @@ import { RotateCcw, Trash2, Archive, Calendar, Layers, MapPin } from 'lucide-rea
 import { PriorityBadge, DemandTypeBadge } from '../common/Badge';
 
 export const ArchivedView: React.FC = () => {
-  const { tasks, events, archiveTask, archiveEvent, deleteTask, deleteEvent } = useData();
+  const { tasks, events, archiveTask, archiveEvent, deleteTask, deleteEvent, fetchArchivedData } = useData();
   const { isLeader, isAdmin } = useAccess();
   const { currentOrganization, currentCampus } = useTenant();
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'events'>('tasks');
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+
+  useEffect(() => {
+    setIsLoadingArchived(true);
+    fetchArchivedData().finally(() => setIsLoadingArchived(false));
+  }, [currentOrganization.id]);
 
   const archivedTasks = tasks.filter((t) => {
     if (!t.isArchived) return false;

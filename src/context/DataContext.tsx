@@ -22,6 +22,7 @@ import { AutomationEngine } from '../services/automationEngine';
 import { NotificationService } from '../services/notificationService';
 import { ApprovalService } from '../services/approvalService';
 import { FirestoreRepository } from '../services/firestoreRepository';
+import { EntitlementsService } from '../services/entitlementsService';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { useAccess } from './AccessContext';
@@ -155,7 +156,8 @@ interface DataContextType {
   addComment: (taskId: string, content: string, mentionedUserIds?: string[]) => void;
   getCommentsForTask: (taskId: string) => Comment[];
 
-  // Reset
+  // Reset & Archive Loader
+  fetchArchivedData: () => Promise<void>;
   resetAllData: () => void;
 }
 
@@ -189,17 +191,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setDepartments(StorageService.getDepartments(currentOrganization.id));
     setAllUsers(StorageService.getUsers());
 
-    // Async Fetch from Firestore
-    FirestoreRepository.fetchTasks(currentOrganization.id).then((remoteTasks) => {
+    // Async Fetch from Firestore usando queries filtradas (isArchived: false)
+    FirestoreRepository.fetchTasks(currentOrganization.id, { isArchived: false }).then((remoteTasks) => {
       if (remoteTasks && remoteTasks.length > 0) {
-        setRawTasks(remoteTasks);
+        setRawTasks((prev) => {
+          const map = new Map(prev.map((t) => [t.id, t]));
+          remoteTasks.forEach((t) => map.set(t.id, t));
+          return Array.from(map.values());
+        });
         remoteTasks.forEach((t) => StorageService.updateTask(t));
       }
     });
 
-    FirestoreRepository.fetchEvents(currentOrganization.id).then((remoteEvents) => {
+    FirestoreRepository.fetchEvents(currentOrganization.id, false).then((remoteEvents) => {
       if (remoteEvents && remoteEvents.length > 0) {
-        setRawEvents(remoteEvents);
+        setRawEvents((prev) => {
+          const map = new Map(prev.map((e) => [e.id, e]));
+          remoteEvents.forEach((e) => map.set(e.id, e));
+          return Array.from(map.values());
+        });
         remoteEvents.forEach((e) => StorageService.updateEvent(e));
       }
     });
@@ -235,20 +245,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    // Realtime listeners
-    const unsubTasks = FirestoreRepository.subscribeTasks(currentOrganization.id, (tasks) => {
-      if (tasks && tasks.length >= 0) {
-        setRawTasks(tasks);
-        tasks.forEach((t) => StorageService.updateTask(t));
-      }
-    });
+    // Realtime listeners filtrados por tarefas ativas
+    const unsubTasks = FirestoreRepository.subscribeTasks(
+      currentOrganization.id,
+      (tasks) => {
+        if (tasks && tasks.length >= 0) {
+          setRawTasks((prev) => {
+            const map = new Map(prev.map((t) => [t.id, t]));
+            tasks.forEach((t) => map.set(t.id, t));
+            return Array.from(map.values());
+          });
+          tasks.forEach((t) => StorageService.updateTask(t));
+        }
+      },
+      { isArchived: false }
+    );
 
-    const unsubEvents = FirestoreRepository.subscribeEvents(currentOrganization.id, (events) => {
-      if (events && events.length >= 0) {
-        setRawEvents(events);
-        events.forEach((e) => StorageService.updateEvent(e));
-      }
-    });
+    const unsubEvents = FirestoreRepository.subscribeEvents(
+      currentOrganization.id, 
+      (events) => {
+        if (events && events.length >= 0) {
+          setRawEvents((prev) => {
+            const map = new Map(prev.map((e) => [e.id, e]));
+            events.forEach((e) => map.set(e.id, e));
+            return Array.from(map.values());
+          });
+          events.forEach((e) => StorageService.updateEvent(e));
+        }
+      },
+      false
+    );
 
     const unsubUsers = FirestoreRepository.subscribeUsers((users) => {
       if (users && users.length > 0) {
@@ -289,6 +315,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       unsubConfig();
     };
   }, [currentOrganization.id]);
+
 
   // UNIFIED SCOPE ENGINE: Scoped Tasks
   const scopedTasks = useMemo(() => {
@@ -804,11 +831,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Event Project Actions
   const createEvent = (eventData: Omit<ChurchEvent, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>): ChurchEvent | null => {
-    if (rawEvents.filter((e) => !e.isArchived).length >= currentOrganization.limits.maxEvents) {
-      notifyError(
-        'Limite de Eventos atingido!',
-        `O plano ${currentOrganization.subscription.plan} permite no máximo ${currentOrganization.limits.maxEvents} eventos ativos.`
-      );
+    const activeEventsCount = rawEvents.filter((e) => !e.isArchived).length;
+    const check = EntitlementsService.checkEventLimit(currentOrganization, activeEventsCount);
+    if (!check.allowed) {
+      notifyError('Limite de Eventos atingido!', check.message || 'Limite de eventos atingido para o plano atual.');
       return null;
     }
 
@@ -1175,6 +1201,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     info('Departamento removido.');
   };
 
+  const fetchArchivedData = async () => {
+    if (!currentOrganization.id) return;
+    try {
+      const [archivedTasks, archivedEvents] = await Promise.all([
+        FirestoreRepository.fetchTasks(currentOrganization.id, { isArchived: true }),
+        FirestoreRepository.fetchEvents(currentOrganization.id, true),
+      ]);
+      if (archivedTasks && archivedTasks.length > 0) {
+        setRawTasks((prev) => {
+          const map = new Map(prev.map((t) => [t.id, t]));
+          archivedTasks.forEach((t) => map.set(t.id, t));
+          return Array.from(map.values());
+        });
+      }
+      if (archivedEvents && archivedEvents.length > 0) {
+        setRawEvents((prev) => {
+          const map = new Map(prev.map((e) => [e.id, e]));
+          archivedEvents.forEach((e) => map.set(e.id, e));
+          return Array.from(map.values());
+        });
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar dados arquivados do Firestore:', e);
+    }
+  };
+
   const resetAllData = () => {
     StorageService.resetData();
     setRawTasks(StorageService.getTasks(currentOrganization.id));
@@ -1248,10 +1300,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getEventStats,
         addComment,
         getCommentsForTask,
+        fetchArchivedData,
         resetAllData,
       }}
     >
       {children}
+
     </DataContext.Provider>
   );
 };

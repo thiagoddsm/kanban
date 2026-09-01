@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership } from '../types';
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
+import { EntitlementsService } from '../services/entitlementsService';
 import { useAuth } from './AuthContext';
 import { useNotification } from './NotificationContext';
 
@@ -33,19 +34,10 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const [organizations, setOrganizations] = useState<Organization[]>(() => StorageService.getOrganizations());
   
-  // Tenant Resolver: check URL query param ?org=... or path, or localStorage
+  // Tenant Resolver: o slug da organização vem do param de URL /:orgSlug (gerenciado pelo Layout).
+  // O estado inicial lê apenas o localStorage como fallback até o Layout sincronizar.
   const [currentOrganization, setCurrentOrganization] = useState<Organization>(() => {
     const orgs = StorageService.getOrganizations();
-    
-    // 1. URL search param ?org=ibm
-    const params = new URLSearchParams(window.location.search);
-    const orgParam = params.get('org') || params.get('tenant');
-    if (orgParam) {
-      const match = orgs.find((o) => o.slug.toLowerCase() === orgParam.toLowerCase() || o.id === orgParam);
-      if (match) return match;
-    }
-
-    // 2. Saved session in localStorage
     const savedOrgId = localStorage.getItem(ACTIVE_ORG_KEY);
     const found = orgs.find((o) => o.id === savedOrgId);
     return found || orgs[0];
@@ -117,12 +109,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       localStorage.setItem(ACTIVE_ORG_KEY, org.id);
       setCurrentCampus(null);
       localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
-
-      // Update URL param smoothly without reload
-      const url = new URL(window.location.href);
-      url.searchParams.set('org', org.slug);
-      window.history.replaceState({}, '', url.toString());
-
+      // A URL é atualizada pelo TenantSwitcher via useNavigate() no componente de UI
       success(`Organização alterada para: ${org.name}`);
     }
   };
@@ -293,12 +280,10 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const createCampus = (name: string, code: string, city: string, address?: string): Campus | null => {
-    // Check Plan Limits for Campuses
-    if (campuses.length >= currentOrganization.limits.maxCampuses) {
-      notifyError(
-        'Limite de Campi atingido!',
-        `O plano ${currentOrganization.subscription.plan} permite no máximo ${currentOrganization.limits.maxCampuses} campi. Faça upgrade para cadastrar novas filiais.`
-      );
+    // Validação centralizada de limites do plano via EntitlementsService
+    const check = EntitlementsService.checkCampusLimit(currentOrganization, campuses.length);
+    if (!check.allowed) {
+      notifyError('Limite de Campi atingido!', check.message || 'Limite de campi atingido para o plano atual.');
       return null;
     }
 

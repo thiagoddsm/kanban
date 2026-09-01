@@ -9,6 +9,8 @@ import {
   query, 
   where, 
   orderBy,
+  limit,
+  startAfter,
   onSnapshot
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
@@ -21,7 +23,9 @@ import {
   Membership, 
   User, 
   ActivityLog, 
-  Comment 
+  Comment,
+  TaskQueryFilter,
+  PagedResponse
 } from '../types';
 
 function sanitizeForFirestore<T>(data: T): any {
@@ -306,15 +310,42 @@ export class FirestoreRepository {
   }
 
   /**
-   * Fetch all tasks for an organization from Firestore
+   * Fetch tasks for an organization from Firestore with filtering and ordering
    */
-  public static async fetchTasks(orgId: string): Promise<Task[]> {
+  public static async fetchTasks(orgId: string, filter?: TaskQueryFilter): Promise<Task[]> {
     if (!isFirebaseConfigured || !db) {
       return StorageService.getTasks(orgId);
     }
     try {
+      const constraints: any[] = [];
+
+      // Filtro de arquivamento padrão: tarefas ativas (isArchived == false)
+      const isArchived = filter?.isArchived ?? false;
+      constraints.push(where('isArchived', '==', isArchived));
+
+      if (filter?.campusId) {
+        constraints.push(where('campusId', '==', filter.campusId));
+      }
+      if (filter?.status) {
+        constraints.push(where('status', '==', filter.status));
+      }
+      if (filter?.eventId) {
+        constraints.push(where('eventId', '==', filter.eventId));
+      }
+
+      // Ordenação padrão por updatedAt desc
+      const sortField = filter?.orderByField || 'updatedAt';
+      const sortDir = filter?.orderDirection || 'desc';
+      constraints.push(orderBy(sortField, sortDir));
+
+      if (filter?.limitCount && filter.limitCount > 0) {
+        constraints.push(limit(filter.limitCount));
+      }
+
       const tasksCol = collection(db, 'organizations', orgId, 'tasks');
-      const snap = await getDocs(tasksCol);
+      const q = query(tasksCol, ...constraints);
+      const snap = await getDocs(q);
+
       if (snap.empty) {
         return [];
       }
@@ -326,14 +357,43 @@ export class FirestoreRepository {
   }
 
   /**
-   * Realtime subscription for tasks
+   * Realtime subscription for tasks with filtering
    */
-  public static subscribeTasks(orgId: string, callback: (tasks: Task[]) => void): () => void {
+  public static subscribeTasks(
+    orgId: string, 
+    callback: (tasks: Task[]) => void,
+    filter?: TaskQueryFilter
+  ): () => void {
     if (!isFirebaseConfigured || !db) return () => {};
 
     try {
+      const constraints: any[] = [];
+
+      const isArchived = filter?.isArchived ?? false;
+      constraints.push(where('isArchived', '==', isArchived));
+
+      if (filter?.campusId) {
+        constraints.push(where('campusId', '==', filter.campusId));
+      }
+      if (filter?.status) {
+        constraints.push(where('status', '==', filter.status));
+      }
+      if (filter?.eventId) {
+        constraints.push(where('eventId', '==', filter.eventId));
+      }
+
+      const sortField = filter?.orderByField || 'updatedAt';
+      const sortDir = filter?.orderDirection || 'desc';
+      constraints.push(orderBy(sortField, sortDir));
+
+      if (filter?.limitCount && filter.limitCount > 0) {
+        constraints.push(limit(filter.limitCount));
+      }
+
       const tasksCol = collection(db, 'organizations', orgId, 'tasks');
-      return onSnapshot(tasksCol, (snap) => {
+      const q = query(tasksCol, ...constraints);
+
+      return onSnapshot(q, (snap) => {
         const tasks = snap.docs.map((d) => d.data() as Task);
         callback(tasks);
       }, (err) => {
@@ -346,15 +406,20 @@ export class FirestoreRepository {
   }
 
   /**
-   * Fetch all events for an organization from Firestore
+   * Fetch all active events for an organization from Firestore (ordered by startDate)
    */
-  public static async fetchEvents(orgId: string): Promise<ChurchEvent[]> {
+  public static async fetchEvents(orgId: string, isArchived: boolean = false): Promise<ChurchEvent[]> {
     if (!isFirebaseConfigured || !db) {
       return StorageService.getEvents(orgId);
     }
     try {
       const eventsCol = collection(db, 'organizations', orgId, 'events');
-      const snap = await getDocs(eventsCol);
+      const q = query(
+        eventsCol,
+        where('isArchived', '==', isArchived),
+        orderBy('startDate', 'asc')
+      );
+      const snap = await getDocs(q);
       if (snap.empty) {
         return [];
       }
@@ -368,12 +433,21 @@ export class FirestoreRepository {
   /**
    * Realtime subscription for events
    */
-  public static subscribeEvents(orgId: string, callback: (events: ChurchEvent[]) => void): () => void {
+  public static subscribeEvents(
+    orgId: string, 
+    callback: (events: ChurchEvent[]) => void,
+    isArchived: boolean = false
+  ): () => void {
     if (!isFirebaseConfigured || !db) return () => {};
 
     try {
       const eventsCol = collection(db, 'organizations', orgId, 'events');
-      return onSnapshot(eventsCol, (snap) => {
+      const q = query(
+        eventsCol,
+        where('isArchived', '==', isArchived),
+        orderBy('startDate', 'asc')
+      );
+      return onSnapshot(q, (snap) => {
         const events = snap.docs.map((d) => d.data() as ChurchEvent);
         callback(events);
       }, (err) => {

@@ -5,6 +5,7 @@ import { useData } from '../../context/DataContext';
 import { useNotification } from '../../context/NotificationContext';
 import { UserRole, MembershipStatus } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { EntitlementsService } from '../../services/entitlementsService';
 import { 
   Users as UsersIcon, 
   ShieldCheck, 
@@ -146,7 +147,7 @@ export const UsersView: React.FC = () => {
             </h3>
           </div>
           <span className="text-[11px] text-slate-400">
-            Plano: <strong className="text-white">{currentOrganization.subscription.plan}</strong> ({orgMemberships.length}/{currentOrganization.limits.maxMembers} vagas preenchidas)
+            Plano: <strong className="text-white">{currentOrganization.subscription.plan}</strong> ({orgMemberships.length}/{EntitlementsService.getEffectiveLimits(currentOrganization).maxMembers} vagas preenchidas)
           </span>
         </div>
 

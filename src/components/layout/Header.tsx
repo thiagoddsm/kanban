@@ -155,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={() => {
                       setIsToolsMenuOpen(false);
-                      onNavigate('settings');
+                      onNavigate?.('settings');
                     }}
                     className="w-full px-3.5 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-medium text-indigo-300"
                   >
