@@ -41,6 +41,8 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
+  const activeEvents = events.filter((e) => !e.isArchived);
+
   const handleOpenKanbanForEvent = (eventId: string) => {
     setFilterEventId(eventId);
     onNavigate('tasks');
@@ -67,7 +69,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
               Projetos & Campanhas
             </h1>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              {events.length} Projetos Ativos ({currentCampus ? currentCampus.name : 'Todos os Campi'})
+              {activeEvents.length} Projetos Ativos ({currentCampus ? currentCampus.name : 'Todos os Campi'})
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -99,9 +101,18 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
         )}
       </div>
 
-      {/* Grid of Events as Projects */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {events.map((evt) => {
+      {/* Grid of Active Events */}
+      {activeEvents.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-slate-900/40 border border-slate-800 space-y-3">
+          <CalendarCheck className="w-10 h-10 text-slate-600 mx-auto" />
+          <h3 className="text-base font-bold text-white">Nenhum projeto ativo</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Você não possui projetos ou eventos ativos no momento. Crie um novo projeto ou restaure um arquivado.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {activeEvents.map((evt) => {
           const stats = getEventStats(evt.id);
           const teamMembers = users.filter((u) => evt.teamIds?.includes(u.id));
 
@@ -258,6 +269,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
           );
         })}
       </div>
+      )}
 
       {/* Edit/Create Modal */}
       <EventModal
