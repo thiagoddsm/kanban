@@ -3,17 +3,18 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Automatic cache purger for legacy mock data
-const STORAGE_CLEAN_VERSION = 'v4_clean_production_2026';
-try {
-  if (typeof window !== 'undefined' && localStorage.getItem('oiko_app_version') !== STORAGE_CLEAN_VERSION) {
-    // Clear all legacy storage keys
-    localStorage.clear();
-    sessionStorage.clear();
-    localStorage.setItem('oiko_app_version', STORAGE_CLEAN_VERSION);
+// Purge any legacy browser caches and stale service workers
+if (typeof window !== 'undefined') {
+  if ('caches' in window) {
+    caches.keys().then((names) => {
+      names.forEach((name) => caches.delete(name));
+    });
   }
-} catch (e) {
-  console.warn('Cache purge notice:', e);
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((r) => r.unregister());
+    });
+  }
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

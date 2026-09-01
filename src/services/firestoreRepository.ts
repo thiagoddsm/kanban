@@ -8,7 +8,8 @@ import {
   deleteDoc, 
   query, 
   where, 
-  orderBy 
+  orderBy,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { StorageService } from './storageService';
@@ -22,6 +23,24 @@ import {
   ActivityLog, 
   Comment 
 } from '../types';
+
+function sanitizeForFirestore<T>(data: T): any {
+  if (data === undefined) return null;
+  if (data === null) return null;
+  if (Array.isArray(data)) {
+    return data.map(sanitizeForFirestore);
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const output: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        output[key] = sanitizeForFirestore(value);
+      }
+    }
+    return output;
+  }
+  return data;
+}
 
 export class FirestoreRepository {
   /**
@@ -125,11 +144,30 @@ export class FirestoreRepository {
       if (snap.empty) {
         return [];
       }
-      const remote = snap.docs.map((d) => d.data() as Task);
-      return remote;
+      return snap.docs.map((d) => d.data() as Task);
     } catch (e) {
       console.warn('Aviso: lendo tarefas do cache local:', e);
       return StorageService.getTasks(orgId);
+    }
+  }
+
+  /**
+   * Realtime subscription for tasks
+   */
+  public static subscribeTasks(orgId: string, callback: (tasks: Task[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const tasksCol = collection(db, 'organizations', orgId, 'tasks');
+      return onSnapshot(tasksCol, (snap) => {
+        const tasks = snap.docs.map((d) => d.data() as Task);
+        callback(tasks);
+      }, (err) => {
+        console.warn('Subscription error for tasks:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to tasks:', e);
+      return () => {};
     }
   }
 
@@ -154,6 +192,26 @@ export class FirestoreRepository {
   }
 
   /**
+   * Realtime subscription for events
+   */
+  public static subscribeEvents(orgId: string, callback: (events: ChurchEvent[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const eventsCol = collection(db, 'organizations', orgId, 'events');
+      return onSnapshot(eventsCol, (snap) => {
+        const events = snap.docs.map((d) => d.data() as ChurchEvent);
+        callback(events);
+      }, (err) => {
+        console.warn('Subscription error for events:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to events:', e);
+      return () => {};
+    }
+  }
+
+  /**
    * Save / Update Task to /organizations/{orgId}/tasks/{taskId}
    */
   public static async saveTask(task: Task): Promise<void> {
@@ -162,7 +220,9 @@ export class FirestoreRepository {
     
     try {
       const taskRef = doc(db, 'organizations', task.organizationId, 'tasks', task.id);
-      await setDoc(taskRef, task, { merge: true });
+      const sanitized = sanitizeForFirestore(task);
+      await setDoc(taskRef, sanitized, { merge: true });
+      console.log('✅ Tarefa gravada no Firestore com sucesso:', task.id);
     } catch (e) {
       console.error('Erro ao sincronizar tarefa com Firestore:', e);
     }
@@ -178,6 +238,7 @@ export class FirestoreRepository {
     try {
       const taskRef = doc(db, 'organizations', orgId, 'tasks', taskId);
       await deleteDoc(taskRef);
+      console.log('✅ Tarefa excluída do Firestore:', taskId);
     } catch (e) {
       console.error('Erro ao excluir tarefa do Firestore:', e);
     }
@@ -192,7 +253,9 @@ export class FirestoreRepository {
 
     try {
       const eventRef = doc(db, 'organizations', event.organizationId, 'events', event.id);
-      await setDoc(eventRef, event, { merge: true });
+      const sanitized = sanitizeForFirestore(event);
+      await setDoc(eventRef, sanitized, { merge: true });
+      console.log('✅ Evento gravado no Firestore com sucesso:', event.id);
     } catch (e) {
       console.error('Erro ao sincronizar evento com Firestore:', e);
     }
@@ -208,6 +271,7 @@ export class FirestoreRepository {
     try {
       const eventRef = doc(db, 'organizations', orgId, 'events', eventId);
       await deleteDoc(eventRef);
+      console.log('✅ Evento excluído do Firestore:', eventId);
     } catch (e) {
       console.error('Erro ao excluir evento do Firestore:', e);
     }

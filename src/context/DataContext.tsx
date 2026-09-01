@@ -172,8 +172,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [eventCategories, setEventCategories] = useState<EventCategoryDefinition[]>(() => StorageService.getEventCategories(currentOrganization.id));
   const [departments, setDepartments] = useState<DepartmentDefinition[]>(() => StorageService.getDepartments(currentOrganization.id));
 
-  // Reload data whenever current organization changes
+  // Reload data whenever current organization changes + Firestore Realtime Sync
   useEffect(() => {
+    if (!currentOrganization.id) return;
+
     setRawTasks(StorageService.getTasks(currentOrganization.id));
     setRawEvents(StorageService.getEvents(currentOrganization.id));
     setComments(StorageService.getComments(currentOrganization.id));
@@ -181,6 +183,41 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setDemandTypes(StorageService.getDemandTypes(currentOrganization.id));
     setEventCategories(StorageService.getEventCategories(currentOrganization.id));
     setDepartments(StorageService.getDepartments(currentOrganization.id));
+
+    // Async Fetch from Firestore
+    FirestoreRepository.fetchTasks(currentOrganization.id).then((remoteTasks) => {
+      if (remoteTasks && remoteTasks.length > 0) {
+        setRawTasks(remoteTasks);
+        remoteTasks.forEach((t) => StorageService.updateTask(t));
+      }
+    });
+
+    FirestoreRepository.fetchEvents(currentOrganization.id).then((remoteEvents) => {
+      if (remoteEvents && remoteEvents.length > 0) {
+        setRawEvents(remoteEvents);
+        remoteEvents.forEach((e) => StorageService.updateEvent(e));
+      }
+    });
+
+    // Realtime listeners
+    const unsubTasks = FirestoreRepository.subscribeTasks(currentOrganization.id, (tasks) => {
+      if (tasks && tasks.length >= 0) {
+        setRawTasks(tasks);
+        tasks.forEach((t) => StorageService.updateTask(t));
+      }
+    });
+
+    const unsubEvents = FirestoreRepository.subscribeEvents(currentOrganization.id, (events) => {
+      if (events && events.length >= 0) {
+        setRawEvents(events);
+        events.forEach((e) => StorageService.updateEvent(e));
+      }
+    });
+
+    return () => {
+      unsubTasks();
+      unsubEvents();
+    };
   }, [currentOrganization.id]);
 
   // UNIFIED SCOPE ENGINE: Scoped Tasks
