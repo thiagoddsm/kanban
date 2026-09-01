@@ -80,6 +80,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const [attUrl, setAttUrl] = useState('');
   const [attType, setAttType] = useState<AttachmentLink['type']>('canva');
 
+  // Dependencies
+  const [dependencies, setDependencies] = useState<string[]>(task.dependencies || []);
+
   // Blocking Modal State
   const [isBlockPromptOpen, setIsBlockPromptOpen] = useState(false);
   const [blockReasonInput, setBlockReasonInput] = useState(task.blockedReason || '');
@@ -162,6 +165,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
       effortEstimate,
       checklist,
       attachmentLinks,
+      dependencies,
     });
     onClose();
   };
@@ -607,6 +611,123 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                   Anexar
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Dependencies & Predecessors Section */}
+          <div className="space-y-3 p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-amber-400" />
+                Dependências & Pré-Requisitos ({dependencies.length})
+              </h4>
+              {dependencies.some((depId) => {
+                const dep = tasks.find((t) => t.id === depId);
+                return dep && dep.status !== 'DONE';
+              }) && (
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 animate-pulse">
+                  Bloqueio Ativo
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400">
+              Demandas que precisam ser concluídas antes que esta etapa possa avançar no fluxo.
+            </p>
+
+            {dependencies.length === 0 ? (
+              <p className="text-xs text-slate-500 py-1">Nenhuma dependência prévia cadastrada para esta demanda.</p>
+            ) : (
+              <div className="space-y-2">
+                {dependencies.map((depId) => {
+                  const dep = tasks.find((t) => t.id === depId);
+                  if (!dep) return null;
+                  const isDone = dep.status === 'DONE';
+
+                  return (
+                    <div
+                      key={dep.id}
+                      className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
+                        isDone
+                          ? 'bg-emerald-950/20 border-emerald-500/30 text-slate-300'
+                          : 'bg-amber-950/20 border-amber-500/30 text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="shrink-0">
+                          {isDone ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <Lock className="w-4 h-4 text-amber-400 animate-pulse" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="text-xs font-bold truncate">{dep.title}</h5>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                            <StatusBadge status={dep.status} />
+                            <span>•</span>
+                            <span>{dep.assigneeName || 'Sem responsável'}</span>
+                            <span>•</span>
+                            <span>Prazo: {new Date(dep.deadline + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!isDone && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const res = remindPredecessors(task.id);
+                              if (res.whatsappUrl) {
+                                window.open(res.whatsappUrl, '_blank');
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold flex items-center gap-1 transition-all"
+                            title="Cobrar via WhatsApp"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>Cobrar</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDependencies((prev) => prev.filter((id) => id !== dep.id))}
+                          className="text-slate-500 hover:text-rose-400 p-1"
+                          title="Remover dependência"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Link New Dependency Dropdown */}
+            <div className="pt-1">
+              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
+                Adicionar ou alterar dependência anterior:
+              </label>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value && !dependencies.includes(e.target.value)) {
+                    setDependencies([...dependencies, e.target.value]);
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="">Selecione uma demanda para vincular...</option>
+                {tasks
+                  .filter((t) => !t.isArchived && t.id !== task.id && !dependencies.includes(t.id))
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title} ({t.status === 'DONE' ? 'Concluída' : t.status})
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
 

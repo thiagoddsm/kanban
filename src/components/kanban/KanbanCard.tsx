@@ -88,9 +88,17 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       )}
 
       {hasPendingDependencies && task.status !== 'BLOCKED' && task.status !== 'DONE' && (
-        <div className="p-1.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 flex items-center gap-1">
-          <Lock className="w-3 h-3 text-amber-400 shrink-0" />
-          <span>Aguardando {depResult.pendingTasks.length} dependência(s)</span>
+        <div 
+          className="p-1.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-[10px] text-amber-300 space-y-0.5"
+          title={`Dependências pendentes: ${depResult.pendingTasks.map((t) => t.title).join(', ')}`}
+        >
+          <div className="flex items-center gap-1 font-semibold">
+            <Lock className="w-3 h-3 text-amber-400 shrink-0 animate-pulse" />
+            <span>Aguardando {depResult.pendingTasks.length} dependência(s):</span>
+          </div>
+          <div className="pl-4 text-[9.5px] text-amber-200/80 truncate font-medium">
+            {depResult.pendingTasks.map((t) => t.title).join(' • ')}
+          </div>
         </div>
       )}
 
