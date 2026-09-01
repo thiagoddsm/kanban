@@ -124,10 +124,108 @@ export class FirestoreRepository {
 
     try {
       const memRef = doc(db, 'organizations', membership.organizationId, 'memberships', membership.userId);
-      await setDoc(memRef, membership, { merge: true });
+      const sanitized = sanitizeForFirestore(membership);
+      await setDoc(memRef, sanitized, { merge: true });
       console.log('✅ Membership gravado no Firestore:', membership.id);
     } catch (e) {
       console.error('Erro ao gravar membership no Firestore:', e);
+    }
+  }
+
+  /**
+   * Fetch all memberships for an organization from Firestore
+   */
+  public static async fetchMemberships(orgId: string): Promise<Membership[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getMemberships().filter((m) => m.organizationId === orgId);
+    }
+    try {
+      const memCol = collection(db, 'organizations', orgId, 'memberships');
+      const snap = await getDocs(memCol);
+      if (snap.empty) {
+        return [];
+      }
+      return snap.docs.map((d) => d.data() as Membership);
+    } catch (e) {
+      console.warn('Aviso: lendo memberships do cache local:', e);
+      return StorageService.getMemberships().filter((m) => m.organizationId === orgId);
+    }
+  }
+
+  /**
+   * Realtime subscription for memberships
+   */
+  public static subscribeMemberships(orgId: string, callback: (memberships: Membership[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const memCol = collection(db, 'organizations', orgId, 'memberships');
+      return onSnapshot(memCol, (snap) => {
+        const memberships = snap.docs.map((d) => d.data() as Membership);
+        callback(memberships);
+      }, (err) => {
+        console.warn('Subscription error for memberships:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to memberships:', e);
+      return () => {};
+    }
+  }
+
+  /**
+   * Delete Membership from Firestore
+   */
+  public static async deleteMembership(orgId: string, userId: string): Promise<void> {
+    const mems = StorageService.getMemberships().filter((m) => !(m.organizationId === orgId && m.userId === userId));
+    StorageService.saveMemberships(mems);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
+      await deleteDoc(memRef);
+      console.log('✅ Membership excluído do Firestore:', userId);
+    } catch (e) {
+      console.error('Erro ao excluir membership do Firestore:', e);
+    }
+  }
+
+  /**
+   * Fetch all users from Firestore
+   */
+  public static async fetchUsers(): Promise<User[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getUsers();
+    }
+    try {
+      const usersCol = collection(db, 'users');
+      const snap = await getDocs(usersCol);
+      if (snap.empty) {
+        return [];
+      }
+      return snap.docs.map((d) => d.data() as User);
+    } catch (e) {
+      console.warn('Aviso: lendo usuários do cache local:', e);
+      return StorageService.getUsers();
+    }
+  }
+
+  /**
+   * Realtime subscription for users
+   */
+  public static subscribeUsers(callback: (users: User[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const usersCol = collection(db, 'users');
+      return onSnapshot(usersCol, (snap) => {
+        const users = snap.docs.map((d) => d.data() as User);
+        callback(users);
+      }, (err) => {
+        console.warn('Subscription error for users:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to users:', e);
+      return () => {};
     }
   }
 

@@ -174,6 +174,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [demandTypes, setDemandTypes] = useState<DemandTypeDefinition[]>(() => StorageService.getDemandTypes(currentOrganization.id));
   const [eventCategories, setEventCategories] = useState<EventCategoryDefinition[]>(() => StorageService.getEventCategories(currentOrganization.id));
   const [departments, setDepartments] = useState<DepartmentDefinition[]>(() => StorageService.getDepartments(currentOrganization.id));
+  const [allUsers, setAllUsers] = useState<User[]>(() => StorageService.getUsers());
 
   // Reload data whenever current organization changes + Firestore Realtime Sync
   useEffect(() => {
@@ -186,6 +187,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setDemandTypes(StorageService.getDemandTypes(currentOrganization.id));
     setEventCategories(StorageService.getEventCategories(currentOrganization.id));
     setDepartments(StorageService.getDepartments(currentOrganization.id));
+    setAllUsers(StorageService.getUsers());
 
     // Async Fetch from Firestore
     FirestoreRepository.fetchTasks(currentOrganization.id).then((remoteTasks) => {
@@ -199,6 +201,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (remoteEvents && remoteEvents.length > 0) {
         setRawEvents(remoteEvents);
         remoteEvents.forEach((e) => StorageService.updateEvent(e));
+      }
+    });
+
+    FirestoreRepository.fetchUsers().then((remoteUsers) => {
+      if (remoteUsers && remoteUsers.length > 0) {
+        setAllUsers(remoteUsers);
+        remoteUsers.forEach((u) => StorageService.addUser(u));
       }
     });
 
@@ -217,9 +226,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+    const unsubUsers = FirestoreRepository.subscribeUsers((users) => {
+      if (users && users.length > 0) {
+        setAllUsers(users);
+        users.forEach((u) => StorageService.addUser(u));
+      }
+    });
+
     return () => {
       unsubTasks();
       unsubEvents();
+      unsubUsers();
     };
   }, [currentOrganization.id]);
 
@@ -245,11 +262,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Organization Users
   const orgUsers = useMemo(() => {
-    const allUsers = StorageService.getUsers();
     const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id && m.status === 'ACTIVE');
     const userIds = orgMemberships.map((m) => m.userId);
     return allUsers.filter((u) => userIds.includes(u.id));
-  }, [memberships, currentOrganization.id]);
+  }, [allUsers, memberships, currentOrganization.id]);
 
   const leaderUserIds = useMemo(() => {
     const orgMemberships = memberships.filter(

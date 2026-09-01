@@ -10,6 +10,7 @@ import {
   ActivityLog
 } from '../types';
 import { StorageService } from '../services/storageService';
+import { FirestoreRepository } from '../services/firestoreRepository';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { useNotification } from './NotificationContext';
@@ -55,9 +56,32 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const [memberships, setMemberships] = useState<Membership[]>(() => StorageService.getMemberships());
 
-  // Refresh memberships on mount or change
+  // Refresh memberships on mount or change & listen to Firestore
   useEffect(() => {
     setMemberships(StorageService.getMemberships());
+    if (!currentOrganization.id) return;
+
+    FirestoreRepository.fetchMemberships(currentOrganization.id).then((remoteMems) => {
+      if (remoteMems && remoteMems.length > 0) {
+        setMemberships((prev) => {
+          const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
+          return [...others, ...remoteMems];
+        });
+        remoteMems.forEach((m) => StorageService.addMembership(m));
+      }
+    });
+
+    const unsub = FirestoreRepository.subscribeMemberships(currentOrganization.id, (remoteMems) => {
+      if (remoteMems && remoteMems.length > 0) {
+        setMemberships((prev) => {
+          const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
+          return [...others, ...remoteMems];
+        });
+        remoteMems.forEach((m) => StorageService.addMembership(m));
+      }
+    });
+
+    return () => unsub();
   }, [currentOrganization.id, currentUser.id]);
 
   // Current active membership in the selected organization
@@ -205,6 +229,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       };
       StorageService.addUser(user);
     }
+    // Sync user with Firestore
+    FirestoreRepository.syncUser(user);
 
     const newMem: Membership = {
       id: 'mem_' + user.id + '_' + currentOrganization.id,
@@ -221,6 +247,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const updated = StorageService.addMembership(newMem);
     setMemberships(updated);
+    // Sync membership with Firestore
+    FirestoreRepository.saveMembership(newMem);
 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -235,6 +263,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+    FirestoreRepository.recordActivity(auditLog);
 
     success(`Membro ${userName} adicionado a ${currentOrganization.name}!`);
     return true;
@@ -256,6 +285,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         updatedAt: new Date().toISOString(),
       };
       setMemberships(StorageService.updateMembership(updated));
+      FirestoreRepository.saveMembership(updated);
 
       const auditLog: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -272,6 +302,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         timestamp: new Date().toISOString(),
       };
       StorageService.addActivity(auditLog);
+      FirestoreRepository.recordActivity(auditLog);
 
       success('Permissões do membro atualizadas!');
     }
@@ -281,6 +312,9 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const mem = memberships.find((m) => m.id === membershipId);
     const updated = StorageService.deleteMembership(membershipId);
     setMemberships(updated);
+    if (mem) {
+      FirestoreRepository.deleteMembership(currentOrganization.id, mem.userId);
+    }
 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -295,6 +329,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+    FirestoreRepository.recordActivity(auditLog);
 
     success('Membro removido da organização.');
   };
