@@ -938,30 +938,40 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (mentionedUserIds && mentionedUserIds.length > 0) {
       targetUsersToNotify = allUsers.filter((u) => mentionedUserIds.includes(u.id));
-    } else {
-      // Auto-detect @names from content
-      targetUsersToNotify = allUsers.filter((u) => {
-        const cleanName = u.name.trim();
-        const firstName = cleanName.split(' ')[0];
-        return content.includes(`@${cleanName}`) || (firstName && content.includes(`@${firstName}`));
-      });
     }
 
-    // Trigger Notification for each mentioned user (except self)
-    targetUsersToNotify.forEach((targetUser) => {
-      if (targetUser.id !== currentUser.id) {
-        NotificationService.createNotification({
-          organizationId: currentOrganization.id,
-          campusId: currentCampus?.id || null,
-          userId: targetUser.id,
-          type: 'MENTION',
-          title: `${currentUser.name} mencionou você`,
-          message: `${currentUser.name} mencionou você na demanda "${taskTitle}": "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`,
-          entityType: 'TASK',
-          entityId: taskId,
-        });
+    // Also auto-detect any @names from content text
+    const textLower = content.toLowerCase();
+    allUsers.forEach((u) => {
+      const cleanName = u.name.trim().toLowerCase();
+      const firstName = cleanName.split(' ')[0];
+      if (
+        (cleanName && textLower.includes(`@${cleanName}`)) ||
+        (firstName && textLower.includes(`@${firstName}`))
+      ) {
+        if (!targetUsersToNotify.some((existing) => existing.id === u.id)) {
+          targetUsersToNotify.push(u);
+        }
       }
     });
+
+    // Trigger Notification for each mentioned user
+    targetUsersToNotify.forEach((targetUser) => {
+      NotificationService.createNotification({
+        organizationId: currentOrganization.id,
+        campusId: currentCampus?.id || null,
+        userId: targetUser.id,
+        type: 'MENTION',
+        title: `${currentUser.name} mencionou você`,
+        message: `${currentUser.name} mencionou você na demanda "${taskTitle}": "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`,
+        entityType: 'TASK',
+        entityId: taskId,
+      });
+    });
+
+    if (targetUsersToNotify.length > 0) {
+      info('Notificação de Menção', `${targetUsersToNotify.length} membro(s) notificado(s) com sucesso.`);
+    }
   };
 
   const getCommentsForTask = (taskId: string): Comment[] => {

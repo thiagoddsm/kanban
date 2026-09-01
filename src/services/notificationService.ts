@@ -55,6 +55,9 @@ export class NotificationService {
 
     list.unshift(newNotif);
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
+    }
     return newNotif;
   }
 
@@ -64,6 +67,9 @@ export class NotificationService {
     let list: Notification[] = JSON.parse(raw);
     list = list.map((n) => (n.id === notificationId ? { ...n, readAt: new Date().toISOString() } : n));
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
+    }
   }
 
   public static markAllAsRead(orgId: string, userId: string): void {
@@ -72,6 +78,9 @@ export class NotificationService {
     let list: Notification[] = JSON.parse(raw);
     list = list.map((n) => (n.userId === userId ? { ...n, readAt: new Date().toISOString() } : n));
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
+    }
   }
 
   public static getUnreadCount(orgId: string, userId: string): number {

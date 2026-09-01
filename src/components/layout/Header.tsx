@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
@@ -54,7 +54,19 @@ export const Header: React.FC<HeaderProps> = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-  const unreadNotifCount = NotificationService.getUnreadCount(currentOrganization.id, currentUser.id);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(() =>
+    NotificationService.getUnreadCount(currentOrganization.id, currentUser.id)
+  );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setUnreadNotifCount(NotificationService.getUnreadCount(currentOrganization.id, currentUser.id));
+    };
+    handleUpdate();
+    window.addEventListener('marketing_notifications_updated', handleUpdate);
+    return () => window.removeEventListener('marketing_notifications_updated', handleUpdate);
+  }, [currentOrganization.id, currentUser.id]);
+
   const pendingApprovalsCount = tasks.filter((t) => !t.isArchived && t.status === 'REVIEW').length;
 
   const handleOpenTask = (task: Task) => {

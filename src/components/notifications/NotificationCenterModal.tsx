@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
@@ -44,6 +44,15 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
   const [notifications, setNotifications] = useState<Notification[]>(() =>
     NotificationService.getNotifications(currentOrganization.id, currentUser.id)
   );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+    };
+    handleUpdate();
+    window.addEventListener('marketing_notifications_updated', handleUpdate);
+    return () => window.removeEventListener('marketing_notifications_updated', handleUpdate);
+  }, [currentOrganization.id, currentUser.id]);
 
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
   const [prefs, setPrefs] = useState(() => NotificationService.getPreferences(currentUser.id));
