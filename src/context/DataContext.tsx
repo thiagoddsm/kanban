@@ -607,7 +607,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updated = StorageService.updateTask(updatedTask);
     setRawTasks(updated);
-    FirestoreRepository.saveTask(updatedTask);
+    
+    // Gravação assíncrona com controle de concorrência otimista
+    FirestoreRepository.saveTask(updatedTask, task.version).then((res) => {
+      if (res.conflict && res.remoteTask) {
+        warning(
+          'Conflito de edição simultânea!',
+          `A tarefa "${res.remoteTask.title}" foi alterada recentemente por outro membro da equipe. A versão mais recente foi carregada.`
+        );
+        setRawTasks((prev) => prev.map((t) => (t.id === res.remoteTask!.id ? res.remoteTask! : t)));
+      }
+    });
 
     // Automation Trigger: TASK_ASSIGNED when assignee changed
     if (oldTask && oldTask.assigneeId !== updatedTask.assigneeId && updatedTask.assigneeId) {
@@ -619,6 +629,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     success('Tarefa atualizada!', updatedTask.title);
   };
+
 
   const moveTask = (taskId: string, newStatus: TaskStatus, force = false): { success: boolean; blockedBy?: Task[] } => {
     const task = rawTasks.find((t) => t.id === taskId);
@@ -971,7 +982,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     const updated = StorageService.updateEvent(updatedEvent);
     setRawEvents(updated);
-    FirestoreRepository.saveEvent(updatedEvent);
+    
+    FirestoreRepository.saveEvent(updatedEvent, event.version).then((res) => {
+      if (res.conflict && res.remoteEvent) {
+        warning(
+          'Conflito de edição simultânea!',
+          `O evento "${res.remoteEvent.title}" foi alterado recentemente por outro membro da equipe. A versão mais recente foi carregada.`
+        );
+        setRawEvents((prev) => prev.map((e) => (e.id === res.remoteEvent!.id ? res.remoteEvent! : e)));
+      }
+    });
+
 
     const act: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),

@@ -1,4 +1,5 @@
 import { Notification, UserNotificationPreferences } from '../types';
+import { FirestoreRepository } from './firestoreRepository';
 
 const NOTIFICATIONS_PREFIX = 'marketing_notifications_';
 const PREFS_PREFIX = 'marketing_user_prefs_';
@@ -41,6 +42,27 @@ export class NotificationService {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
+  public static async syncFromFirestore(orgId: string, userId: string): Promise<Notification[]> {
+    try {
+      const remote = await FirestoreRepository.fetchNotifications(orgId, userId);
+      if (remote && remote.length > 0) {
+        const raw = localStorage.getItem(this.getKey(orgId));
+        let localList: Notification[] = raw ? JSON.parse(raw) : [];
+        const map = new Map(localList.map((n) => [n.id, n]));
+        remote.forEach((n) => map.set(n.id, n));
+        const merged = Array.from(map.values());
+        localStorage.setItem(this.getKey(orgId), JSON.stringify(merged));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
+        }
+        return remote;
+      }
+    } catch (e) {
+      console.warn('Falha ao sincronizar notificações do Firestore:', e);
+    }
+    return this.getNotifications(orgId, userId);
+  }
+
   public static createNotification(notification: Omit<Notification, 'id' | 'createdAt' | 'readAt'>): Notification {
     const orgId = notification.organizationId;
     const raw = localStorage.getItem(this.getKey(orgId));
@@ -55,6 +77,10 @@ export class NotificationService {
 
     list.unshift(newNotif);
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+
+    // Dual-write ao Firestore
+    FirestoreRepository.saveNotification(newNotif);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
     }
@@ -67,6 +93,10 @@ export class NotificationService {
     let list: Notification[] = JSON.parse(raw);
     list = list.map((n) => (n.id === notificationId ? { ...n, readAt: new Date().toISOString() } : n));
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+
+    // Sincronizar com Firestore
+    FirestoreRepository.markNotificationRead(orgId, notificationId);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
     }
@@ -76,8 +106,13 @@ export class NotificationService {
     const raw = localStorage.getItem(this.getKey(orgId));
     if (!raw) return;
     let list: Notification[] = JSON.parse(raw);
+    const unreadIds = list.filter((n) => n.userId === userId && !n.readAt).map((n) => n.id);
     list = list.map((n) => (n.userId === userId ? { ...n, readAt: new Date().toISOString() } : n));
     localStorage.setItem(this.getKey(orgId), JSON.stringify(list));
+
+    // Sincronizar com Firestore
+    FirestoreRepository.markAllNotificationsRead(orgId, userId, unreadIds);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('marketing_notifications_updated'));
     }

@@ -1,6 +1,11 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager,
+  getFirestore
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
@@ -27,10 +32,21 @@ try {
     app = getApps()[0];
   }
   auth = getAuth(app);
-  db = getFirestore(app);
+
+  // Inicialização do Firestore com cache local persistente nativo em IndexedDB (suporte multi-abas)
+  try {
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch (e) {
+    db = getFirestore(app);
+  }
+
   storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
-  console.log("🔥 Firebase Firestore, Auth e Storage inicializados com sucesso no projeto studio-5589719834-7481b!");
+  console.log("🔥 Firebase Firestore inicializado com cache persistente IndexedDB nativo (SSOT)!");
 } catch (error) {
   console.warn("Aviso na inicialização do Firebase:", error);
 }

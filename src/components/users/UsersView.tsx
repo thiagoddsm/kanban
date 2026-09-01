@@ -32,6 +32,7 @@ export const UsersView: React.FC = () => {
     memberships, 
     addMemberToOrg, 
     updateMemberRole, 
+    updateMemberStatus,
     removeMemberFromOrg, 
     isAdmin 
   } = useAccess();
@@ -53,7 +54,17 @@ export const UsersView: React.FC = () => {
   const [editHasOrgWide, setEditHasOrgWide] = useState(true);
   const [editCampusIds, setEditCampusIds] = useState<string[]>([]);
 
-  const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id);
+  const orgMemberships = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: typeof memberships = [];
+    for (const m of memberships) {
+      if (m.organizationId === currentOrganization.id && !seen.has(m.userId)) {
+        seen.add(m.userId);
+        list.push(m);
+      }
+    }
+    return list;
+  }, [memberships, currentOrganization.id]);
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,17 +95,10 @@ export const UsersView: React.FC = () => {
   };
 
   const handleToggleSuspend = (memId: string, currentStatus: MembershipStatus) => {
-    const mem = memberships.find((m) => m.id === memId);
-    if (mem) {
-      const newStatus: MembershipStatus = currentStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
-      const updated = { ...mem, status: newStatus, updatedAt: new Date().toISOString() };
-      StorageService.updateMembership(updated);
-      success(
-        newStatus === 'SUSPENDED' ? 'Membro suspenso' : 'Acesso reativado',
-        `Status atualizado para: ${newStatus}`
-      );
-    }
+    const newStatus: MembershipStatus = currentStatus === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
+    updateMemberStatus(memId, newStatus);
   };
+
 
   const handleStartEdit = (memId: string, role: UserRole, campusList: string[], hasOrgWide: boolean) => {
     setEditingMemId(memId);

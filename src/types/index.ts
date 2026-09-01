@@ -270,7 +270,9 @@ export interface Task {
   createdByName: string;
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
+
 
 export type EventStatus = 'PLANNING' | 'IN_PROGRESS' | 'FINISHED';
 export type EventCategory = 'CULTO' | 'CONFERENCIA' | 'CAMPANHA' | 'SERIE' | 'WORKSHOP' | 'RETIRO' | 'OUTRO';
@@ -295,7 +297,9 @@ export interface ChurchEvent {
   bannerColor?: string;
   createdAt: string;
   updatedAt: string;
+  version?: number;
 }
+
 
 export interface EventProjectStats {
   totalTasks: number;
@@ -392,10 +396,14 @@ export interface AutomationRule {
 }
 
 export type SecurityAuditEvent = 
+
   | 'USER_INVITED' 
   | 'USER_ROLE_CHANGED' 
   | 'USER_REMOVED' 
+  | 'USER_SUSPENDED'
+  | 'USER_ACTIVATED'
   | 'MEMBERSHIP_CREATED' 
+
   | 'CAMPUS_CREATED' 
   | 'CAMPUS_DELETED' 
   | 'ORGANIZATION_UPDATED' 
@@ -408,6 +416,7 @@ export type SecurityAuditEvent =
   | 'CHANGES_REQUESTED'
   | 'AUTOMATION_TRIGGERED'
   | 'PERMISSION_DENIED';
+
 
 export interface ActivityLog {
   id: string;

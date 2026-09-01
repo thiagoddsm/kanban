@@ -102,26 +102,32 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return () => unsubCampuses();
   }, [currentOrganization.id]);
 
-  const switchOrganization = (orgId: string) => {
-    const org = organizations.find((o) => o.id === orgId);
+  const switchOrganization = (orgId: string, silent: boolean = false) => {
+    const org = organizations.find((o) => o.id === orgId || o.slug === orgId);
     if (org) {
-      setCurrentOrganization(org);
-      localStorage.setItem(ACTIVE_ORG_KEY, org.id);
-      setCurrentCampus(null);
-      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
-      // A URL é atualizada pelo TenantSwitcher via useNavigate() no componente de UI
-      success(`Organização alterada para: ${org.name}`);
+      if (currentOrganization.id !== org.id) {
+        setCurrentOrganization(org);
+        localStorage.setItem(ACTIVE_ORG_KEY, org.id);
+        setCurrentCampus(null);
+        localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+        if (!silent) {
+          success(`Organização alterada para: ${org.name}`);
+        }
+      }
     }
   };
 
   const switchOrganizationBySlug = (slug: string): boolean => {
-    const org = organizations.find((o) => o.slug.toLowerCase() === slug.toLowerCase());
+    const org = organizations.find(
+      (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
+    );
     if (org) {
-      switchOrganization(org.id);
+      switchOrganization(org.id, true);
       return true;
     }
     return false;
   };
+
 
   const switchCampus = (campusId: string | null) => {
     if (!campusId || campusId === 'all') {

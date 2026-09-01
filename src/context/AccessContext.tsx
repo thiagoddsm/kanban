@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { 
   Membership, 
+  MembershipStatus,
   UserRole, 
   Organization, 
   Campus, 
@@ -9,6 +10,7 @@ import {
   SecurityAuditEvent,
   ActivityLog
 } from '../types';
+
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
@@ -27,7 +29,9 @@ interface AccessContextType {
   switchRoleInCurrentOrg: (newRole: UserRole) => void;
   addMemberToOrg: (userEmail: string, userName: string, role: UserRole, campusIds: string[], hasOrgWideAccess?: boolean, department?: string) => boolean;
   updateMemberRole: (membershipId: string, newRole: UserRole, campusIds: string[], hasOrgWideAccess: boolean) => void;
+  updateMemberStatus: (membershipId: string, status: MembershipStatus) => void;
   removeMemberFromOrg: (membershipId: string) => void;
+
 
   // RBAC Derived Flags (Convenience shortcuts backed by hasPermission)
   isAdmin: boolean;
@@ -62,13 +66,27 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setMemberships(StorageService.getMemberships());
     if (!currentOrganization.id) return;
 
+    const dedupe = (list: Membership[]) => {
+      const seen = new Set<string>();
+      const res: Membership[] = [];
+      for (const m of list) {
+        const key = `${m.userId}_${m.organizationId}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          res.push(m);
+        }
+      }
+      return res;
+    };
+
     FirestoreRepository.fetchMemberships(currentOrganization.id).then((remoteMems) => {
       if (remoteMems && remoteMems.length > 0) {
         setMemberships((prev) => {
           const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
-          return [...others, ...remoteMems];
+          const combined = dedupe([...others, ...remoteMems]);
+          StorageService.saveMemberships(combined);
+          return combined;
         });
-        remoteMems.forEach((m) => StorageService.addMembership(m));
       }
     });
 
@@ -76,9 +94,10 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (remoteMems && remoteMems.length > 0) {
         setMemberships((prev) => {
           const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
-          return [...others, ...remoteMems];
+          const combined = dedupe([...others, ...remoteMems]);
+          StorageService.saveMemberships(combined);
+          return combined;
         });
-        remoteMems.forEach((m) => StorageService.addMembership(m));
       }
     });
 
@@ -304,6 +323,40 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  const updateMemberStatus = (membershipId: string, status: MembershipStatus) => {
+    const mem = memberships.find((m) => m.id === membershipId);
+    if (mem) {
+      const updated: Membership = {
+        ...mem,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      const updatedList = StorageService.updateMembership(updated);
+      setMemberships(updatedList);
+      FirestoreRepository.saveMembership(updated);
+
+      const auditLog: ActivityLog = {
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: currentOrganization.id,
+        userId: currentUser.id,
+        userName: currentUser.name,
+        action: status === 'SUSPENDED' ? 'suspendeu a função do membro' : 'reativou o acesso do membro',
+        securityEvent: status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_ACTIVATED',
+        targetType: 'security',
+        targetId: membershipId,
+        targetTitle: `Membro ID: ${mem.userId}`,
+        timestamp: new Date().toISOString(),
+      };
+      StorageService.addActivity(auditLog);
+      FirestoreRepository.recordActivity(auditLog);
+
+      success(
+        status === 'SUSPENDED' ? 'Função suspensa / encerrada' : 'Acesso reativado',
+        `Status atualizado para: ${status}`
+      );
+    }
+  };
+
   const removeMemberFromOrg = (membershipId: string) => {
     const mem = memberships.find((m) => m.id === membershipId);
     const updated = StorageService.deleteMembership(membershipId);
@@ -349,6 +402,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         switchRoleInCurrentOrg,
         addMemberToOrg,
         updateMemberRole,
+        updateMemberStatus,
         removeMemberFromOrg,
         isAdmin,
         isLeader,
@@ -356,6 +410,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         isRequester,
         canViewFullDashboard: hasPermission('reports.view') || isTeam,
         canCreateDemand: hasPermission('tasks.create'),
+
         canCreateTaskDirectly: hasPermission('tasks.edit'),
         canAssignResponsible: hasPermission('tasks.assign'),
         canChangePriority: hasPermission('tasks.assign') || isAdmin,

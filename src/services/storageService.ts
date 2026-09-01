@@ -176,30 +176,61 @@ export class StorageService {
         all = INITIAL_MEMBERSHIPS;
       }
     }
-    return orgId ? all.filter((m) => m.organizationId === orgId) : all;
+
+    // Deduplicate by userId + organizationId
+    const seen = new Set<string>();
+    const deduped: Membership[] = [];
+    for (const m of all) {
+      const key = `${m.userId}_${m.organizationId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(m);
+      }
+    }
+
+    if (deduped.length !== all.length) {
+      this.saveMemberships(deduped);
+    }
+
+    return orgId ? deduped.filter((m) => m.organizationId === orgId) : deduped;
   }
 
   static saveMemberships(memberships: Membership[]): void {
-    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(memberships));
+    const seen = new Set<string>();
+    const deduped: Membership[] = [];
+    for (const m of memberships) {
+      const key = `${m.userId}_${m.organizationId}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(m);
+      }
+    }
+    localStorage.setItem(MEMBERSHIPS_KEY, JSON.stringify(deduped));
   }
 
   static addMembership(membership: Membership): Membership[] {
     const all = this.getMemberships();
-    const updated = [...all, membership];
+    const existingIndex = all.findIndex(
+      (m) => m.id === membership.id || (m.userId === membership.userId && m.organizationId === membership.organizationId)
+    );
+    let updated: Membership[];
+    if (existingIndex >= 0) {
+      updated = [...all];
+      updated[existingIndex] = { ...updated[existingIndex], ...membership };
+    } else {
+      updated = [...all, membership];
+    }
     this.saveMemberships(updated);
     return updated;
   }
 
   static updateMembership(membership: Membership): Membership[] {
-    const all = this.getMemberships();
-    const updated = all.map((m) => (m.id === membership.id ? membership : m));
-    this.saveMemberships(updated);
-    return updated;
+    return this.addMembership(membership);
   }
 
   static deleteMembership(membershipId: string): Membership[] {
     const all = this.getMemberships();
-    const updated = all.filter((m) => m.id !== membershipId);
+    const updated = all.filter((m) => m.id !== membershipId && m.userId !== membershipId);
     this.saveMemberships(updated);
     return updated;
   }

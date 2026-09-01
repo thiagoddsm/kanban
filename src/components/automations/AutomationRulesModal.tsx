@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from '../../context/TenantContext';
 import { useAccess } from '../../context/AccessContext';
 import { AutomationEngine } from '../../services/automationEngine';
+import { FirestoreRepository } from '../../services/firestoreRepository';
 import { AutomationRule } from '../../types';
 import { 
   X, 
@@ -26,14 +27,31 @@ export const AutomationRulesModal: React.FC<AutomationRulesModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
-
   const { currentOrganization } = useTenant();
   const { isLeader } = useAccess();
 
   const [rules, setRules] = useState<AutomationRule[]>(() =>
     AutomationEngine.getRules(currentOrganization.id)
   );
+
+  useEffect(() => {
+    if (!isOpen || !currentOrganization.id) return;
+
+    AutomationEngine.syncFromFirestore(currentOrganization.id).then((remote) => {
+      if (remote && remote.length > 0) {
+        setRules(remote);
+      }
+    });
+
+    const unsub = FirestoreRepository.subscribeAutomationRules(currentOrganization.id, (remoteRules) => {
+      setRules(remoteRules);
+    });
+
+    return () => unsub();
+  }, [isOpen, currentOrganization.id]);
+
+  if (!isOpen) return null;
+
 
   const handleToggle = (ruleId: string, currentActive: boolean) => {
     if (!isLeader) return;

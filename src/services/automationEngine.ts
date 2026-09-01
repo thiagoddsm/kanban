@@ -1,6 +1,7 @@
 import { Task, ChurchEvent, AutomationRule, AutomationTrigger, User, ActivityLog } from '../types';
 import { NotificationService } from './notificationService';
 import { StorageService } from './storageService';
+import { FirestoreRepository } from './firestoreRepository';
 
 const AUTOMATION_RULES_KEY = 'marketing_automation_rules_';
 
@@ -47,6 +48,7 @@ export const INITIAL_AUTOMATION_RULES: AutomationRule[] = [
   },
 ];
 
+
 export class AutomationEngine {
   public static getRules(orgId: string): AutomationRule[] {
     const raw = localStorage.getItem(`${AUTOMATION_RULES_KEY}${orgId}_v3`);
@@ -62,9 +64,26 @@ export class AutomationEngine {
     }
   }
 
+  public static async syncFromFirestore(orgId: string): Promise<AutomationRule[]> {
+    try {
+      const remote = await FirestoreRepository.fetchAutomationRules(orgId);
+      if (remote && remote.length > 0) {
+        localStorage.setItem(`${AUTOMATION_RULES_KEY}${orgId}_v3`, JSON.stringify(remote));
+        return remote;
+      }
+    } catch (e) {
+      console.warn('Falha ao sincronizar regras de automação do Firestore:', e);
+    }
+    return this.getRules(orgId);
+  }
+
   public static toggleRule(orgId: string, ruleId: string, active: boolean): AutomationRule[] {
     const rules = this.getRules(orgId).map((r) => (r.id === ruleId ? { ...r, active, updatedAt: new Date().toISOString() } : r));
     localStorage.setItem(`${AUTOMATION_RULES_KEY}${orgId}_v3`, JSON.stringify(rules));
+
+    // Dual-write ao Firestore
+    FirestoreRepository.saveAutomationRules(orgId, rules);
+
     return rules;
   }
 

@@ -245,8 +245,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('Sign out error:', err);
       }
     }
+    const allUsers = StorageService.getUsers();
+    const fallbackUser: User = {
+      id: 'usr_' + Date.now().toString(36),
+      name: 'Visitante',
+      email: 'visitante@oiko.app',
+      createdAt: new Date().toISOString(),
+    };
+    const nextUser = allUsers.find((u) => u.id !== currentUser.id) || fallbackUser;
+    setCurrentUserState(nextUser);
     setIsLoadingAuth(false);
   };
+
 
   return (
     <AuthContext.Provider

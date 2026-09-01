@@ -25,7 +25,9 @@ import {
   ActivityLog, 
   Comment,
   TaskQueryFilter,
-  PagedResponse
+  PagedResponse,
+  Notification,
+  AutomationRule
 } from '../types';
 
 function sanitizeForFirestore<T>(data: T): any {
@@ -460,25 +462,54 @@ export class FirestoreRepository {
   }
 
   /**
-   * Save / Update Task to /organizations/{orgId}/tasks/{taskId}
+   * Save / Update Task to /organizations/{orgId}/tasks/{taskId} com controle de concorrência otimista
    */
-  public static async saveTask(task: Task): Promise<void> {
-    StorageService.updateTask(task);
-    if (!isFirebaseConfigured || !db) return;
+  public static async saveTask(
+    task: Task, 
+    expectedVersion?: number
+  ): Promise<{ success: boolean; conflict?: boolean; remoteTask?: Task }> {
+    if (!isFirebaseConfigured || !db) {
+      StorageService.updateTask(task);
+      return { success: true };
+    }
     
     try {
       const taskRef = doc(db, 'organizations', task.organizationId, 'tasks', task.id);
 
+      // Verificação de versão se expectedVersion foi fornecido
+      if (expectedVersion !== undefined) {
+        const snap = await getDoc(taskRef);
+        if (snap.exists()) {
+          const remote = snap.data() as Task;
+          const remoteVersion = remote.version || 1;
+          if (remoteVersion > expectedVersion) {
+            console.warn(`⚠️ Conflito de concorrência na tarefa ${task.id}: v${expectedVersion} local vs v${remoteVersion} remoto`);
+            return { success: false, conflict: true, remoteTask: remote };
+          }
+        }
+      }
+
       // Excluir campos legados desnormalizados antes de gravar no Firestore.
-      // Esses campos ficam apenas no estado React para compatibilidade de UI.
       // A fonte de verdade no Firestore é exclusivamente `assigneeIds`.
       const { assigneeId, assigneeName, assigneeAvatar, assignees, ...taskWithoutLegacy } = task;
 
-      const sanitized = sanitizeForFirestore(taskWithoutLegacy);
+      const nextVersion = (task.version || 0) + 1;
+      const taskToSave = {
+        ...taskWithoutLegacy,
+        version: nextVersion,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const sanitized = sanitizeForFirestore(taskToSave);
       await setDoc(taskRef, sanitized, { merge: true });
-      console.log('✅ Tarefa gravada no Firestore (sem campos legados de assignee):', task.id);
+      
+      StorageService.updateTask({ ...task, version: nextVersion, updatedAt: taskToSave.updatedAt });
+      console.log(`✅ Tarefa gravada no Firestore (v${nextVersion}):`, task.id);
+      return { success: true };
     } catch (e) {
       console.error('Erro ao sincronizar tarefa com Firestore:', e);
+      StorageService.updateTask(task);
+      return { success: false };
     }
   }
 
@@ -499,19 +530,49 @@ export class FirestoreRepository {
   }
 
   /**
-   * Save / Update Event to /organizations/{orgId}/events/{eventId}
+   * Save / Update Event to /organizations/{orgId}/events/{eventId} com controle de concorrência otimista
    */
-  public static async saveEvent(event: ChurchEvent): Promise<void> {
-    StorageService.updateEvent(event);
-    if (!isFirebaseConfigured || !db) return;
+  public static async saveEvent(
+    event: ChurchEvent,
+    expectedVersion?: number
+  ): Promise<{ success: boolean; conflict?: boolean; remoteEvent?: ChurchEvent }> {
+    if (!isFirebaseConfigured || !db) {
+      StorageService.updateEvent(event);
+      return { success: true };
+    }
 
     try {
       const eventRef = doc(db, 'organizations', event.organizationId, 'events', event.id);
-      const sanitized = sanitizeForFirestore(event);
+
+      if (expectedVersion !== undefined) {
+        const snap = await getDoc(eventRef);
+        if (snap.exists()) {
+          const remote = snap.data() as ChurchEvent;
+          const remoteVersion = remote.version || 1;
+          if (remoteVersion > expectedVersion) {
+            console.warn(`⚠️ Conflito de concorrência no evento ${event.id}: v${expectedVersion} local vs v${remoteVersion} remoto`);
+            return { success: false, conflict: true, remoteEvent: remote };
+          }
+        }
+      }
+
+      const nextVersion = (event.version || 0) + 1;
+      const eventToSave = {
+        ...event,
+        version: nextVersion,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const sanitized = sanitizeForFirestore(eventToSave);
       await setDoc(eventRef, sanitized, { merge: true });
-      console.log('✅ Evento gravado no Firestore com sucesso:', event.id);
+
+      StorageService.updateEvent(eventToSave);
+      console.log(`✅ Evento gravado no Firestore (v${nextVersion}):`, event.id);
+      return { success: true };
     } catch (e) {
       console.error('Erro ao sincronizar evento com Firestore:', e);
+      StorageService.updateEvent(event);
+      return { success: false };
     }
   }
 
@@ -669,4 +730,158 @@ export class FirestoreRepository {
       return () => {};
     }
   }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // NOTIFICAÇÕES & AUTOMAÇÕES (FASE 7)
+  // ═════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Grava uma notificação no Firestore em /organizations/{orgId}/notifications/{notifId}
+   */
+  public static async saveNotification(notification: Notification): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const notifRef = doc(db, 'organizations', notification.organizationId, 'notifications', notification.id);
+      const sanitized = sanitizeForFirestore(notification);
+      await setDoc(notifRef, sanitized, { merge: true });
+    } catch (e) {
+      console.error('Erro ao salvar notificação no Firestore:', e);
+    }
+  }
+
+  /**
+   * Busca notificações do usuário logado na organização
+   */
+  public static async fetchNotifications(orgId: string, userId: string): Promise<Notification[]> {
+    if (!isFirebaseConfigured || !db) return [];
+    try {
+      const notifsCol = collection(db, 'organizations', orgId, 'notifications');
+      const q = query(
+        notifsCol,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => d.data() as Notification);
+    } catch (e) {
+      console.warn('Aviso ao carregar notificações do Firestore:', e);
+      return [];
+    }
+  }
+
+  /**
+   * Escuta notificações do usuário logado em tempo real
+   */
+  public static subscribeNotifications(
+    orgId: string, 
+    userId: string, 
+    callback: (notifs: Notification[]) => void
+  ): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+    try {
+      const notifsCol = collection(db, 'organizations', orgId, 'notifications');
+      const q = query(
+        notifsCol,
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      );
+      return onSnapshot(q, (snap) => {
+        const notifs = snap.docs.map((d) => d.data() as Notification);
+        callback(notifs);
+      }, (err) => {
+        console.warn('Subscription error for notifications:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to notifications:', e);
+      return () => {};
+    }
+  }
+
+  /**
+   * Marca uma notificação como lida no Firestore
+   */
+  public static async markNotificationRead(orgId: string, notifId: string): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const notifRef = doc(db, 'organizations', orgId, 'notifications', notifId);
+      await updateDoc(notifRef, { readAt: new Date().toISOString() });
+    } catch (e) {
+      console.error('Erro ao marcar notificação como lida:', e);
+    }
+  }
+
+  /**
+   * Marca todas as notificações do usuário como lidas
+   */
+  public static async markAllNotificationsRead(orgId: string, userId: string, notifIds: string[]): Promise<void> {
+    if (!isFirebaseConfigured || !db || notifIds.length === 0) return;
+    try {
+      const now = new Date().toISOString();
+      const promises = notifIds.map((id) => {
+        const notifRef = doc(db, 'organizations', orgId, 'notifications', id);
+        return updateDoc(notifRef, { readAt: now }).catch(() => {});
+      });
+      await Promise.all(promises);
+    } catch (e) {
+      console.error('Erro ao marcar todas as notificações como lidas:', e);
+    }
+  }
+
+  /**
+   * Grava as regras de automação da organização no Firestore
+   */
+  public static async saveAutomationRules(orgId: string, rules: AutomationRule[]): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const rulesDocRef = doc(db, 'organizations', orgId, 'settings', 'automations');
+      await setDoc(rulesDocRef, { rules: sanitizeForFirestore(rules), updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.error('Erro ao salvar regras de automação no Firestore:', e);
+    }
+  }
+
+  /**
+   * Busca as regras de automação da organização
+   */
+  public static async fetchAutomationRules(orgId: string): Promise<AutomationRule[] | null> {
+    if (!isFirebaseConfigured || !db) return null;
+    try {
+      const rulesDocRef = doc(db, 'organizations', orgId, 'settings', 'automations');
+      const snap = await getDoc(rulesDocRef);
+      if (!snap.exists()) return null;
+      return (snap.data() as any)?.rules || null;
+    } catch (e) {
+      console.warn('Aviso ao ler regras de automação:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Escuta as regras de automação da organização em tempo real
+   */
+  public static subscribeAutomationRules(
+    orgId: string, 
+    callback: (rules: AutomationRule[]) => void
+  ): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+    try {
+      const rulesDocRef = doc(db, 'organizations', orgId, 'settings', 'automations');
+      return onSnapshot(rulesDocRef, (snap) => {
+        if (snap.exists()) {
+          const rules = (snap.data() as any)?.rules;
+          if (Array.isArray(rules)) {
+            callback(rules);
+          }
+        }
+      }, (err) => {
+        console.warn('Subscription error for automations:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to automations:', e);
+      return () => {};
+    }
+  }
 }
+

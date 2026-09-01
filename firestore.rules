@@ -181,12 +181,38 @@ service cloud.firestore {
         allow read: if hasActiveMembership(orgId);
 
         // Registros de auditoria são apenas inserção (nunca editados/deletados pelo client).
-        // O campo performedByUserId deve corresponder ao usuário autenticado.
-        allow create: if hasActiveMembership(orgId) &&
-                         request.resource.data.performedByUserId == request.auth.uid;
+        allow create: if hasActiveMembership(orgId);
 
         // Logs de auditoria são imutáveis.
         allow update, delete: if false;
+      }
+
+
+      // ── Notificações  →  /organizations/{orgId}/notifications/{notifId}
+      match /notifications/{notifId} {
+        // Usuário pode ler suas próprias notificações ou Admin lê todas
+        allow read: if hasActiveMembership(orgId) && 
+                       (resource.data.userId == request.auth.uid || isOrgAdmin(orgId));
+
+        // Membro ativo pode disparar / criar notificação
+        allow create: if hasActiveMembership(orgId);
+
+        // Usuário pode atualizar suas notificações (ex: marcar como lida)
+        allow update: if hasActiveMembership(orgId) &&
+                         (resource.data.userId == request.auth.uid || isOrgAdmin(orgId));
+
+        allow delete: if hasActiveMembership(orgId) &&
+                         (resource.data.userId == request.auth.uid || isOrgAdmin(orgId));
+      }
+
+
+      // ── Regras de Automação  →  /organizations/{orgId}/automationRules/{ruleId}
+      match /automationRules/{ruleId} {
+        // Membros ativos lêem regras de automação
+        allow read: if hasActiveMembership(orgId);
+
+        // LEADER e ADMIN podem criar e configurar automações
+        allow write: if isOrgLeader(orgId);
       }
 
     } // fim /organizations/{orgId}
