@@ -266,3 +266,25 @@ export const INITIAL_EVENTS: ChurchEvent[] = [];
 export const INITIAL_TASKS: Task[] = [];
 export const INITIAL_ACTIVITIES: ActivityLog[] = [];
 export const INITIAL_COMMENTS: Comment[] = [];
+
+// 6. Default Event Categories
+export const DEFAULT_EVENT_CATEGORIES = [
+  { id: 'cat_culto', name: 'Culto Especial / Celebração', color: 'from-blue-600 to-indigo-600', description: 'Cultos de domingo, ceia, batismos ou vigílias.' },
+  { id: 'cat_conferencia', name: 'Conferência / Congresso', color: 'from-purple-600 to-pink-600', description: 'Grandes eventos de múltiplos dias, convidados e preletores.' },
+  { id: 'cat_serie', name: 'Série de Mensagens', color: 'from-emerald-600 to-teal-600', description: 'Campanhas temáticas de pregações durante o mês.' },
+  { id: 'cat_retiro', name: 'Retiro / Acampamento', color: 'from-amber-600 to-orange-600', description: 'Retiros de jovens, casais, líderes ou famílias.' },
+  { id: 'cat_workshop', name: 'Workshop / Treinamento', color: 'from-cyan-600 to-blue-600', description: 'Capacitações ministeriais, voluntariado e cursos.' },
+  { id: 'cat_outro', name: 'Outro Evento Especial', color: 'from-slate-600 to-slate-700', description: 'Qualquer outro projeto ou iniciativa da igreja.' },
+];
+
+// 7. Default Departments / Ministries
+export const DEFAULT_DEPARTMENTS = [
+  { id: 'dep_pastoral', name: 'Diretoria Pastoral & Geral', description: 'Corpo pastoral e decisões estratégicas.' },
+  { id: 'dep_midias', name: 'Marketing & Comunicação', description: 'Design, audiovisual, social media e transmissão.' },
+  { id: 'dep_jovens', name: 'Ministério de Jovens', description: 'Eventos jovens, cultos de sábado e conferências.' },
+  { id: 'dep_kids', name: 'Ministério Infantil (Kids)', description: 'EBF, cultinho e materiais didáticos.' },
+  { id: 'dep_louvor', name: 'Louvor & Artes', description: 'Músicos, escalas e repertório.' },
+  { id: 'dep_mulheres', name: 'Ministério de Mulheres', description: 'Chá de mulheres, congressos e encontros.' },
+  { id: 'dep_homens', name: 'Ministério de Homens', description: 'Café de homens e projetos de edificação.' },
+  { id: 'dep_missoes', name: 'Missões & Ação Social', description: 'Projetos comunitários, viagens e campanhas.' },
+];

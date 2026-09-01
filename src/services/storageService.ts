@@ -6,7 +6,10 @@ import {
   Task, 
   ChurchEvent, 
   Comment, 
-  ActivityLog 
+  ActivityLog,
+  DemandTypeDefinition,
+  EventCategoryDefinition,
+  DepartmentDefinition
 } from '../types';
 import { 
   INITIAL_ORGANIZATIONS, 
@@ -16,7 +19,10 @@ import {
   INITIAL_EVENTS, 
   INITIAL_TASKS, 
   INITIAL_COMMENTS, 
-  INITIAL_ACTIVITIES 
+  INITIAL_ACTIVITIES,
+  DEMAND_TYPES,
+  DEFAULT_EVENT_CATEGORIES,
+  DEFAULT_DEPARTMENTS
 } from './mockData';
 
 // Global keys
@@ -321,6 +327,63 @@ export class StorageService {
     return updated;
   }
 
+  // --- CUSTOM DEMAND TYPES (Scoped by Org) ---
+  static getDemandTypes(orgId: string): DemandTypeDefinition[] {
+    const key = getOrgKey(orgId, 'demand_types');
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(DEMAND_TYPES));
+      return DEMAND_TYPES;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return DEMAND_TYPES;
+    }
+  }
+
+  static saveDemandTypes(orgId: string, types: DemandTypeDefinition[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'demand_types'), JSON.stringify(types));
+  }
+
+  // --- CUSTOM EVENT CATEGORIES (Scoped by Org) ---
+  static getEventCategories(orgId: string): EventCategoryDefinition[] {
+    const key = getOrgKey(orgId, 'event_categories');
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(DEFAULT_EVENT_CATEGORIES));
+      return DEFAULT_EVENT_CATEGORIES;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return DEFAULT_EVENT_CATEGORIES;
+    }
+  }
+
+  static saveEventCategories(orgId: string, categories: EventCategoryDefinition[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'event_categories'), JSON.stringify(categories));
+  }
+
+  // --- CUSTOM DEPARTMENTS / MINISTRIES (Scoped by Org) ---
+  static getDepartments(orgId: string): DepartmentDefinition[] {
+    const key = getOrgKey(orgId, 'departments');
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(DEFAULT_DEPARTMENTS));
+      return DEFAULT_DEPARTMENTS;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return DEFAULT_DEPARTMENTS;
+    }
+  }
+
+  static saveDepartments(orgId: string, departments: DepartmentDefinition[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'departments'), JSON.stringify(departments));
+  }
+
   // --- RESET ALL TENANTS ---
   static resetData(): void {
     localStorage.clear();
@@ -333,6 +396,9 @@ export class StorageService {
       localStorage.setItem(getOrgKey(org.id, 'events'), JSON.stringify(INITIAL_EVENTS.filter((e) => e.organizationId === org.id)));
       localStorage.setItem(getOrgKey(org.id, 'comments'), JSON.stringify(INITIAL_COMMENTS.filter((c) => c.organizationId === org.id)));
       localStorage.setItem(getOrgKey(org.id, 'activities'), JSON.stringify(INITIAL_ACTIVITIES.filter((a) => a.organizationId === org.id)));
+      localStorage.setItem(getOrgKey(org.id, 'demand_types'), JSON.stringify(DEMAND_TYPES));
+      localStorage.setItem(getOrgKey(org.id, 'event_categories'), JSON.stringify(DEFAULT_EVENT_CATEGORIES));
+      localStorage.setItem(getOrgKey(org.id, 'departments'), JSON.stringify(DEFAULT_DEPARTMENTS));
     });
   }
 }

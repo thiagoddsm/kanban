@@ -137,8 +137,19 @@ export const Header: React.FC<HeaderProps> = ({
                 />
                 <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-40 animate-fade-in text-xs">
                   <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
-                    Ferramentas
+                    Ferramentas & Ajustes
                   </div>
+
+                  <button
+                    onClick={() => {
+                      setIsToolsMenuOpen(false);
+                      onNavigate('settings');
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-medium text-indigo-300"
+                  >
+                    <Settings className="w-4 h-4 text-indigo-400" />
+                    <span>Configurações da Igreja & Listas</span>
+                  </button>
 
                   <button
                     onClick={() => {

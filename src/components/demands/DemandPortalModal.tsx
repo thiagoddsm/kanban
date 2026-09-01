@@ -30,12 +30,12 @@ interface DemandPortalModalProps {
 export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const { createTask, events } = useData();
+  const { createTask, events, demandTypes } = useData();
   const { currentUser } = useAuth();
   const { currentOrganization, campuses, currentCampus } = useTenant();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedType, setSelectedType] = useState<DemandType | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   // Form inputs
   const [title, setTitle] = useState('');
@@ -58,9 +58,9 @@ export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, on
   // Created Task reference
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
 
-  const selectedTypeDef = DEMAND_TYPES.find((d) => d.type === selectedType);
+  const selectedTypeDef = demandTypes.find((d) => d.type === selectedType);
 
-  const handleSelectCategory = (type: DemandType) => {
+  const handleSelectCategory = (type: string) => {
     setSelectedType(type);
     setStep(2);
   };
@@ -158,9 +158,9 @@ export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, on
               </p>
             </div>
 
-            {/* 10 Visual Demand Categories */}
+            {/* Dynamic Visual Demand Categories */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
-              {DEMAND_TYPES.map((d) => (
+              {demandTypes.map((d) => (
                 <div
                   key={d.type}
                   onClick={() => handleSelectCategory(d.type)}

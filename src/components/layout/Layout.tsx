@@ -9,6 +9,7 @@ import { GanttView } from '../gantt/GanttView';
 import { CalendarView } from '../calendar/CalendarView';
 import { ArchivedView } from '../archived/ArchivedView';
 import { UsersView } from '../users/UsersView';
+import { SettingsView } from '../settings/SettingsView';
 import { DemandPortalModal } from '../demands/DemandPortalModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { ToastContainer } from '../common/Toast';
@@ -49,6 +50,7 @@ export const Layout: React.FC = () => {
           {activeTab === 'calendar' && <CalendarView />}
           {activeTab === 'archived' && <ArchivedView />}
           {activeTab === 'users' && <UsersView />}
+          {activeTab === 'settings' && <SettingsView />}
         </main>
       </div>
 

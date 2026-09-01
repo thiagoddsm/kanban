@@ -11,10 +11,13 @@ import {
   ColumnDefinition,
   EventProjectStats,
   Campus,
-  EventTemplate
+  EventTemplate,
+  DemandTypeDefinition,
+  EventCategoryDefinition,
+  DepartmentDefinition
 } from '../types';
 import { StorageService } from '../services/storageService';
-import { EVENT_TEMPLATES } from '../services/mockData';
+import { EVENT_TEMPLATES, DEMAND_TYPES, DEFAULT_EVENT_CATEGORIES, DEFAULT_DEPARTMENTS } from '../services/mockData';
 import { AutomationEngine } from '../services/automationEngine';
 import { NotificationService } from '../services/notificationService';
 import { ApprovalService } from '../services/approvalService';
@@ -90,6 +93,21 @@ interface DataContextType {
   columns: ColumnDefinition[];
   templates: EventTemplate[];
 
+  // Dynamic Lists & Settings
+  demandTypes: DemandTypeDefinition[];
+  eventCategories: EventCategoryDefinition[];
+  departments: DepartmentDefinition[];
+  addDemandType: (type: DemandTypeDefinition) => void;
+  updateDemandType: (type: DemandTypeDefinition) => void;
+  deleteDemandType: (typeName: string) => void;
+  resetDemandTypesToDefault: () => void;
+  addEventCategory: (category: EventCategoryDefinition) => void;
+  updateEventCategory: (category: EventCategoryDefinition) => void;
+  deleteEventCategory: (categoryId: string) => void;
+  addDepartment: (dept: DepartmentDefinition) => void;
+  updateDepartment: (dept: DepartmentDefinition) => void;
+  deleteDepartment: (deptId: string) => void;
+
   // Filters
   filterOnlyMyTasks: boolean;
   setFilterOnlyMyTasks: (val: boolean) => void;
@@ -150,6 +168,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [rawEvents, setRawEvents] = useState<ChurchEvent[]>(() => StorageService.getEvents(currentOrganization.id));
   const [comments, setComments] = useState<Comment[]>(() => StorageService.getComments(currentOrganization.id));
   const [activities, setActivities] = useState<ActivityLog[]>(() => StorageService.getActivities(currentOrganization.id));
+  const [demandTypes, setDemandTypes] = useState<DemandTypeDefinition[]>(() => StorageService.getDemandTypes(currentOrganization.id));
+  const [eventCategories, setEventCategories] = useState<EventCategoryDefinition[]>(() => StorageService.getEventCategories(currentOrganization.id));
+  const [departments, setDepartments] = useState<DepartmentDefinition[]>(() => StorageService.getDepartments(currentOrganization.id));
 
   // Reload data whenever current organization changes
   useEffect(() => {
@@ -157,6 +178,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawEvents(StorageService.getEvents(currentOrganization.id));
     setComments(StorageService.getComments(currentOrganization.id));
     setActivities(StorageService.getActivities(currentOrganization.id));
+    setDemandTypes(StorageService.getDemandTypes(currentOrganization.id));
+    setEventCategories(StorageService.getEventCategories(currentOrganization.id));
+    setDepartments(StorageService.getDepartments(currentOrganization.id));
   }, [currentOrganization.id]);
 
   // UNIFIED SCOPE ENGINE: Scoped Tasks
@@ -873,12 +897,87 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   };
 
+  // Demand Types Management
+  const addDemandType = (newType: DemandTypeDefinition) => {
+    const updated = [...demandTypes, newType];
+    setDemandTypes(updated);
+    StorageService.saveDemandTypes(currentOrganization.id, updated);
+    success('Novo tipo de demanda adicionado!', `Tipo "${newType.label}" agora disponível nas solicitações.`);
+  };
+
+  const updateDemandType = (updatedType: DemandTypeDefinition) => {
+    const updated = demandTypes.map((dt) => (dt.type === updatedType.type ? updatedType : dt));
+    setDemandTypes(updated);
+    StorageService.saveDemandTypes(currentOrganization.id, updated);
+    success('Tipo de demanda atualizado com sucesso!');
+  };
+
+  const deleteDemandType = (typeName: string) => {
+    const updated = demandTypes.filter((dt) => dt.type !== typeName);
+    setDemandTypes(updated);
+    StorageService.saveDemandTypes(currentOrganization.id, updated);
+    info('Tipo de demanda removido.');
+  };
+
+  const resetDemandTypesToDefault = () => {
+    setDemandTypes(DEMAND_TYPES);
+    StorageService.saveDemandTypes(currentOrganization.id, DEMAND_TYPES);
+    success('Tipos de demanda restaurados para o padrão.');
+  };
+
+  // Event Categories Management
+  const addEventCategory = (newCat: EventCategoryDefinition) => {
+    const updated = [...eventCategories, newCat];
+    setEventCategories(updated);
+    StorageService.saveEventCategories(currentOrganization.id, updated);
+    success('Nova categoria de evento adicionada!');
+  };
+
+  const updateEventCategory = (updatedCat: EventCategoryDefinition) => {
+    const updated = eventCategories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
+    setEventCategories(updated);
+    StorageService.saveEventCategories(currentOrganization.id, updated);
+    success('Categoria de evento atualizada!');
+  };
+
+  const deleteEventCategory = (catId: string) => {
+    const updated = eventCategories.filter((c) => c.id !== catId);
+    setEventCategories(updated);
+    StorageService.saveEventCategories(currentOrganization.id, updated);
+    info('Categoria de evento removida.');
+  };
+
+  // Departments Management
+  const addDepartment = (newDept: DepartmentDefinition) => {
+    const updated = [...departments, newDept];
+    setDepartments(updated);
+    StorageService.saveDepartments(currentOrganization.id, updated);
+    success('Novo ministério/departamento adicionado!');
+  };
+
+  const updateDepartment = (updatedDept: DepartmentDefinition) => {
+    const updated = departments.map((d) => (d.id === updatedDept.id ? updatedDept : d));
+    setDepartments(updated);
+    StorageService.saveDepartments(currentOrganization.id, updated);
+    success('Departamento atualizado!');
+  };
+
+  const deleteDepartment = (deptId: string) => {
+    const updated = departments.filter((d) => d.id !== deptId);
+    setDepartments(updated);
+    StorageService.saveDepartments(currentOrganization.id, updated);
+    info('Departamento removido.');
+  };
+
   const resetAllData = () => {
     StorageService.resetData();
     setRawTasks(StorageService.getTasks(currentOrganization.id));
     setRawEvents(StorageService.getEvents(currentOrganization.id));
     setComments(StorageService.getComments(currentOrganization.id));
     setActivities(StorageService.getActivities(currentOrganization.id));
+    setDemandTypes(StorageService.getDemandTypes(currentOrganization.id));
+    setEventCategories(StorageService.getEventCategories(currentOrganization.id));
+    setDepartments(StorageService.getDepartments(currentOrganization.id));
     clearFilters();
     success('Dados restaurados para o padrão de demonstração multi-tenant!');
   };
@@ -893,6 +992,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         activities,
         columns: KANBAN_COLUMNS,
         templates: EVENT_TEMPLATES,
+        demandTypes,
+        eventCategories,
+        departments,
+        addDemandType,
+        updateDemandType,
+        deleteDemandType,
+        resetDemandTypesToDefault,
+        addEventCategory,
+        updateEventCategory,
+        deleteEventCategory,
+        addDepartment,
+        updateDepartment,
+        deleteDepartment,
         filterOnlyMyTasks,
         setFilterOnlyMyTasks,
         filterEventId,

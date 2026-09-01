@@ -147,7 +147,8 @@ export type DemandType =
   | 'APRESENTACAO' 
   | 'COMUNICACAO_INTERNA' 
   | 'EVENTO' 
-  | 'OUTRO';
+  | 'OUTRO'
+  | (string & {});
 
 export interface AttachmentLink {
   id: string;
@@ -405,7 +406,8 @@ export type NavigationTab =
   | 'gantt' 
   | 'calendar' 
   | 'archived' 
-  | 'users';
+  | 'users'
+  | 'settings';
 
 export interface ColumnDefinition {
   id: TaskStatus;
@@ -417,11 +419,28 @@ export interface ColumnDefinition {
 }
 
 export interface DemandTypeDefinition {
-  type: DemandType;
+  id?: string;
+  type: string;
   label: string;
   icon: string;
   description: string;
   color: string;
   bgLight: string;
   placeholderText: string;
+  isCustom?: boolean;
+}
+
+export interface EventCategoryDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon?: string;
+}
+
+export interface DepartmentDefinition {
+  id: string;
+  name: string;
+  leaderName?: string;
+  description?: string;
 }

@@ -11,7 +11,8 @@ import {
   Sparkles,
   MapPin,
   Layers,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from 'lucide-react';
 import { NavigationTab } from '../../types';
 import { useAccess } from '../../context/AccessContext';
@@ -36,8 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentUser } = useAuth();
   const { currentOrganization, currentCampus } = useTenant();
 
-  // Menu items strictly following requested 7-order sequence:
-  // 1. Painel, 2. Tarefas, 3. Eventos, 4. Gantt, 5. Calendário, 6. Arquivados, 7. Usuários
+  // Menu items:
+  // 1. Painel, 2. Tarefas, 3. Eventos, 4. Gantt, 5. Calendário, 6. Arquivados, 7. Usuários, 8. Configurações
   const menuItems: { id: NavigationTab; label: string; icon: any; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
     { id: 'tasks', label: 'Tarefas (Kanban)', icon: Kanban },
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'calendar', label: 'Calendário', icon: Calendar },
     { id: 'archived', label: 'Arquivados', icon: Archive },
     { id: 'users', label: 'Usuários & Convites', icon: Users2, adminOnly: true },
+    { id: 'settings', label: 'Configurações & Listas', icon: Settings, adminOnly: true },
   ];
 
   return (

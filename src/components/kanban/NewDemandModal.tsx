@@ -18,13 +18,13 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
   onClose,
   defaultStatus = 'INBOX',
 }) => {
-  const { events, users, tasks, createTask } = useData();
+  const { events, users, tasks, createTask, demandTypes } = useData();
   const { currentUser } = useAuth();
   const { campuses, currentCampus } = useTenant();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [demandType, setDemandType] = useState<DemandType>('ARTE');
+  const [demandType, setDemandType] = useState<string>(() => demandTypes[0]?.type || 'ARTE');
   const [status, setStatus] = useState<TaskStatus>(defaultStatus);
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [eventId, setEventId] = useState('');
@@ -187,10 +187,10 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
               </label>
               <select
                 value={demandType}
-                onChange={(e) => setDemandType(e.target.value as DemandType)}
+                onChange={(e) => setDemandType(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
               >
-                {DEMAND_TYPES.map((d) => (
+                {demandTypes.map((d) => (
                   <option key={d.type} value={d.type}>{d.label}</option>
                 ))}
               </select>

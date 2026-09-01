@@ -11,7 +11,8 @@ import {
   Globe, 
   Megaphone, 
   Calendar,
-  Package 
+  Package,
+  Sparkles
 } from 'lucide-react';
 
 export const PriorityBadge: React.FC<{ priority: TaskPriority; size?: 'sm' | 'md' }> = ({
@@ -94,13 +95,14 @@ export const StatusBadge: React.FC<{ status: TaskStatus }> = ({ status }) => {
   }
 };
 
-export const DemandTypeBadge: React.FC<{ type: DemandType; size?: 'sm' | 'md' }> = ({
+export const DemandTypeBadge: React.FC<{ type: string; label?: string; size?: 'sm' | 'md' }> = ({
   type,
+  label,
   size = 'md',
 }) => {
   const sizeClasses = size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5';
 
-  const map: Record<DemandType, { label: string; icon: any; color: string }> = {
+  const map: Record<string, { label: string; icon: any; color: string }> = {
     ARTE: { label: 'Arte', icon: Palette, color: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/30' },
     VIDEO: { label: 'Vídeo', icon: Video, color: 'text-rose-300 bg-rose-500/10 border-rose-500/30' },
     SOCIAL_MEDIA: { label: 'Social Media', icon: Share2, color: 'text-purple-300 bg-purple-500/10 border-purple-500/30' },
@@ -114,13 +116,17 @@ export const DemandTypeBadge: React.FC<{ type: DemandType; size?: 'sm' | 'md' }>
     OUTRO: { label: 'Outro', icon: Package, color: 'text-slate-300 bg-slate-500/10 border-slate-500/30' },
   };
 
-  const item = map[type] || map.OUTRO;
+  const item = map[type] || {
+    label: label || type.replace(/^CUSTOM_/, '').replace(/_/g, ' '),
+    icon: Sparkles,
+    color: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/30',
+  };
   const IconComponent = item.icon;
 
   return (
     <span className={`inline-flex items-center gap-1 font-semibold rounded-md border ${item.color} ${sizeClasses}`}>
       <IconComponent className="w-3 h-3" />
-      <span>{item.label}</span>
+      <span>{label || item.label}</span>
     </span>
   );
 };
