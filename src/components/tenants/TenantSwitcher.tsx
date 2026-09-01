@@ -34,8 +34,13 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
     deleteCampus,
     deleteOrganization 
   } = useTenant();
-  const { isAdmin, canManageCampuses } = useAccess();
+  const { accessibleOrganizations, accessibleCampuses, isAdmin, canManageCampuses } = useAccess();
   const { error: notifyError } = useNotification();
+
+  const visibleCampuses = accessibleCampuses && accessibleCampuses.length > 0 ? accessibleCampuses : campuses;
+  const visibleOrgs = accessibleOrganizations && accessibleOrganizations.length > 0 
+    ? accessibleOrganizations 
+    : organizations.filter((o) => o.id === currentOrganization.id);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -150,7 +155,7 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
               </button>
 
               {/* Specific Campuses */}
-              {campuses.map((camp) => {
+              {visibleCampuses.map((camp) => {
                 const isSelected = currentCampus?.id === camp.id;
                 return (
                   <div
@@ -224,7 +229,7 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
             </div>
 
             <div className="space-y-1 max-h-36 overflow-y-auto custom-scrollbar">
-              {organizations.map((org) => {
+              {visibleOrgs.map((org) => {
                 const isActive = org.id === currentOrganization.id;
                 return (
                   <div
