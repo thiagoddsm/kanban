@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { UserRole } from '../../types';
-import { Shield, ChevronDown, Check, LogIn, LogOut, UserPlus, UserCheck, Sparkles } from 'lucide-react';
+import { Shield, ChevronDown, Check, LogIn, LogOut, UserPlus, UserCheck, Sparkles, Globe } from 'lucide-react';
 import { AuthModal } from './AuthModal';
 
 const ROLES: { role: UserRole; label: string; desc: string; color: string }[] = [
@@ -15,6 +16,7 @@ const ROLES: { role: UserRole; label: string; desc: string; color: string }[] = 
 ];
 
 export const RoleSwitcher: React.FC = () => {
+  const navigate = useNavigate();
   const { currentUser, users, switchUser, logout } = useAuth();
   const { currentRole, switchRoleInCurrentOrg } = useAccess();
   const { currentOrganization } = useTenant();
@@ -44,6 +46,7 @@ export const RoleSwitcher: React.FC = () => {
     await logout();
     setIsOpen(false);
     success('Sessão encerrada com sucesso!');
+    navigate('/login');
   };
 
   const currentRoleConfig = ROLES.find((r) => r.role === currentRole) || ROLES[0];

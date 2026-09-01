@@ -7,6 +7,9 @@ import { DataProvider } from './context/DataContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Layout } from './components/layout/Layout';
+import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
 
 export function App() {
   return (
@@ -17,12 +20,18 @@ export function App() {
             <AccessProvider>
               <DataProvider>
                 <Routes>
-                  {/* Rota principal com slug da organização e tab ativa */}
+                  {/* Páginas Públicas / Institucionais & Autenticação */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/signup" element={<RegisterPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+
+                  {/* Painel Interno da Organização / Igreja */}
                   <Route path="/:orgSlug/:tab" element={<Layout />} />
                   <Route path="/:orgSlug" element={<Navigate to="dashboard" replace />} />
 
-                  {/* Fallback: redireciona para o slug padrão */}
-                  <Route path="*" element={<Navigate to="/minha-igreja/dashboard" replace />} />
+                  {/* Fallback de rotas desconhecidas */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </DataProvider>
             </AccessProvider>

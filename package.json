@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "start": "node server.js",
     "preview": "vite preview",
+
     "deploy": "npm run build && npx firebase deploy",
     "deploy:hosting": "npm run build && npx firebase deploy --only hosting",
     "deploy:firestore": "npx firebase deploy --only firestore",
