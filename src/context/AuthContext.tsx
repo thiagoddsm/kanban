@@ -68,6 +68,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Sincronizar todos os usuários conhecidos para /users/{userId} no Firestore
+    const localUsers = StorageService.getUsers();
+    localUsers.forEach((u) => {
+      FirestoreRepository.syncUser(u);
+    });
+
     if (auth) {
       const unsubscribe = onAuthStateChanged(auth, async (fbUser: any) => {
         if (fbUser) {

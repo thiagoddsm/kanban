@@ -588,7 +588,9 @@ export class FirestoreRepository {
 
     try {
       const userRef = doc(db, 'users', user.id);
-      await setDoc(userRef, user, { merge: true });
+      const sanitized = sanitizeForFirestore(user);
+      await setDoc(userRef, sanitized, { merge: true });
+      console.log('✅ Usuário gravado no Firestore (/users/' + user.id + '):', user.email);
     } catch (e) {
       console.error('Erro ao gravar usuário no Firestore:', e);
     }
