@@ -193,9 +193,10 @@ export class StorageService {
 
   static updateTask(task: Task): Task[] {
     const tasks = this.getTasks(task.organizationId);
-    const updated = tasks.map((t) =>
-      t.id === task.id ? { ...task, updatedAt: new Date().toISOString() } : t
-    );
+    const exists = tasks.some((t) => t.id === task.id);
+    const updated = exists
+      ? tasks.map((t) => (t.id === task.id ? { ...task, updatedAt: new Date().toISOString() } : t))
+      : [task, ...tasks];
     this.saveTasks(task.organizationId, updated);
     return updated;
   }
@@ -245,7 +246,10 @@ export class StorageService {
 
   static updateEvent(event: ChurchEvent): ChurchEvent[] {
     const events = this.getEvents(event.organizationId);
-    const updated = events.map((e) => (e.id === event.id ? event : e));
+    const exists = events.some((e) => e.id === event.id);
+    const updated = exists
+      ? events.map((e) => (e.id === event.id ? { ...event, updatedAt: new Date().toISOString() } : e))
+      : [event, ...events];
     this.saveEvents(event.organizationId, updated);
     return updated;
   }

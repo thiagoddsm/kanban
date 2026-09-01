@@ -899,22 +899,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const archiveEvent = (eventId: string, isArchived: boolean) => {
-    const event = rawEvents.find((e) => e.id === eventId);
     const updated = StorageService.archiveEvent(currentOrganization.id, eventId, isArchived);
     setRawEvents(updated);
-    if (event) {
-      const updatedEvent = { ...event, isArchived, updatedAt: new Date().toISOString() };
+    const targetEvent = updated.find((e) => e.id === eventId) || rawEvents.find((e) => e.id === eventId);
+    if (targetEvent) {
+      const updatedEvent = { ...targetEvent, isArchived, updatedAt: new Date().toISOString() };
       FirestoreRepository.saveEvent(updatedEvent);
       const act: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
-        campusId: event.campusId,
+        campusId: targetEvent.campusId,
         userId: currentUser.id,
         userName: currentUser.name,
         action: isArchived ? 'arquivou o projeto' : 'restaurou o projeto',
         targetType: 'event',
-        targetId: event.id,
-        targetTitle: event.title,
+        targetId: targetEvent.id,
+        targetTitle: targetEvent.title,
         timestamp: new Date().toISOString(),
       };
       setActivities(StorageService.addActivity(act));
