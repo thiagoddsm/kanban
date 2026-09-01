@@ -110,6 +110,8 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      case 'MENTION':
+        return <MessageSquare className="w-4 h-4 text-cyan-400" />;
       case 'TASK_REVIEW':
         return <Sparkles className="w-4 h-4 text-purple-400" />;
       case 'TASK_OVERDUE':

@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
-import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem } from '../../types';
+import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem, User } from '../../types';
 import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
 import { 
   X, 
   Calendar, 
-  User, 
+  User as UserIcon, 
   CheckSquare, 
   MessageSquare, 
   Link2, 
@@ -85,9 +85,48 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const [blockReasonInput, setBlockReasonInput] = useState(task.blockedReason || '');
   const [actionRequiredByInput, setActionRequiredByInput] = useState(task.blockedActionRequiredBy || '');
 
-  // Comments
+  // Comments with @mentions
   const [commentText, setCommentText] = useState('');
+  const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
+  const [isMentionOpen, setIsMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
   const taskComments = getCommentsForTask(task.id);
+
+  const filteredMentionUsers = useMemo(() => {
+    if (!mentionQuery) return users;
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+        u.email.toLowerCase().includes(mentionQuery.toLowerCase())
+    );
+  }, [users, mentionQuery]);
+
+  const handleCommentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setCommentText(val);
+
+    const lastAtIdx = val.lastIndexOf('@');
+    if (lastAtIdx !== -1) {
+      const afterAt = val.slice(lastAtIdx + 1);
+      if (!afterAt.includes('  ')) {
+        setMentionQuery(afterAt.trim().toLowerCase());
+        setIsMentionOpen(true);
+        return;
+      }
+    }
+    setIsMentionOpen(false);
+  };
+
+  const handleSelectMention = (user: User) => {
+    const lastAtIdx = commentText.lastIndexOf('@');
+    if (lastAtIdx !== -1) {
+      const beforeAt = commentText.slice(0, lastAtIdx);
+      const newText = `${beforeAt}@${user.name} `;
+      setCommentText(newText);
+      setMentionedUserIds((prev) => [...new Set([...prev, user.id])]);
+    }
+    setIsMentionOpen(false);
+  };
 
   const toggleAssignee = (userId: string) => {
     setSelectedAssigneeIds((prev) =>
@@ -178,8 +217,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const handleAddCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-    addComment(task.id, commentText.trim());
+    addComment(task.id, commentText.trim(), mentionedUserIds);
     setCommentText('');
+    setMentionedUserIds([]);
+    setIsMentionOpen(false);
   };
 
   const handleBlockConfirm = () => {
@@ -594,28 +635,73 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                         {new Date(c.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300">{c.content}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {c.content.split(/(@[a-zA-Z0-9_À-ÿ\s]+?)(?=[.,!?]?(\s|$))/g).map((part, pIdx) => {
+                        if (part && part.startsWith('@')) {
+                          return (
+                            <span
+                              key={pIdx}
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30 text-[11px] mx-0.5"
+                            >
+                              {part}
+                            </span>
+                          );
+                        }
+                        return <span key={pIdx}>{part}</span>;
+                      })}
+                    </p>
                   </div>
                 ))
               )}
             </div>
 
-            <form onSubmit={handleAddCommentSubmit} className="flex gap-2 pt-1">
-              <input
-                type="text"
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Escreva um comentário ou feedback para a equipe..."
-                className="flex-1 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Enviar</span>
-              </button>
-            </form>
+            <div className="relative pt-1">
+              {/* Mention Autocomplete Popup */}
+              {isMentionOpen && filteredMentionUsers.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 z-50 animate-scale-in max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block px-2 py-1 border-b border-slate-800">
+                    Mencionar Membro da Igreja
+                  </span>
+                  {filteredMentionUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => handleSelectMention(u)}
+                      className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-slate-800 transition-colors group"
+                    >
+                      <img
+                        src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                        alt={u.name}
+                        className="w-6 h-6 rounded-full object-cover ring-1 ring-indigo-500/40"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-white group-hover:text-indigo-300 truncate">
+                          {u.name}
+                        </p>
+                        <p className="text-[10px] text-slate-400 truncate">{u.email}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={handleAddCommentSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={handleCommentChange}
+                  placeholder="Escreva um comentário... (digite @ para mencionar membros)"
+                  className="flex-1 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Enviar</span>
+                </button>
+              </form>
+            </div>
           </div>
         </div>
 

@@ -15,51 +15,11 @@ export const DEFAULT_PREFERENCES: UserNotificationPreferences = {
   dailyDigest: true,
 };
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'notif_1',
-    organizationId: 'org_ibm',
-    campusId: 'camp_ibm_sede',
-    userId: 'usr_leader',
-    type: 'TASK_REVIEW',
-    title: 'Aprovação Necessária',
-    message: 'A demanda "Carrossel Instagram: Lote Promocional da Conferência" foi enviada para sua revisão.',
-    entityType: 'TASK',
-    entityId: 'tsk_104',
-    readAt: null,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'notif_2',
-    organizationId: 'org_ibm',
-    campusId: 'camp_ibm_sede',
-    userId: 'usr_team_lucas',
-    type: 'DEPENDENCY_BLOCKED',
-    title: 'Dependência Bloqueada',
-    message: '"Vinheta Telão em Loop" depende da conclusão do Vídeo Teaser Oficial.',
-    entityType: 'TASK',
-    entityId: 'tsk_105',
-    readAt: null,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'notif_3',
-    organizationId: 'org_ibm',
-    campusId: 'camp_ibm_alpha',
-    userId: 'usr_admin',
-    type: 'EVENT_APPROACHING',
-    title: 'Evento se Aproxima (20 dias)',
-    message: 'Conferência Aviva 2026 acontecerá em breve. 4 entregas ainda estão em produção.',
-    entityType: 'EVENT',
-    entityId: 'evt_aviva_2026',
-    readAt: null,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  }
-];
+const INITIAL_NOTIFICATIONS: Notification[] = [];
 
 export class NotificationService {
   private static getKey(orgId: string): string {
-    return `${NOTIFICATIONS_PREFIX}${orgId}_v3`;
+    return `${NOTIFICATIONS_PREFIX}${orgId}_v4_clean`;
   }
 
   public static getNotifications(orgId: string, userId: string): Notification[] {

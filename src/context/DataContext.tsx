@@ -149,7 +149,7 @@ interface DataContextType {
   getEventStats: (eventId: string) => EventProjectStats;
 
   // Comments
-  addComment: (taskId: string, content: string) => void;
+  addComment: (taskId: string, content: string, mentionedUserIds?: string[]) => void;
   getCommentsForTask: (taskId: string) => Comment[];
 
   // Reset
@@ -873,8 +873,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   };
 
-  // Comments
-  const addComment = (taskId: string, content: string) => {
+  // Comments with @mentions notification
+  const addComment = (taskId: string, content: string, mentionedUserIds?: string[]) => {
     const newComment: Comment = {
       id: 'cmt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       organizationId: currentOrganization.id,
@@ -889,6 +889,42 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = StorageService.addComment(newComment);
     setComments(updated);
     setRawTasks(StorageService.getTasks(currentOrganization.id));
+
+    // Find task title
+    const currentTasks = StorageService.getTasks(currentOrganization.id);
+    const targetTask = currentTasks.find((t) => t.id === taskId);
+    const taskTitle = targetTask ? targetTask.title : 'Demanda';
+
+    // Collect mentioned users
+    const allUsers = StorageService.getUsers();
+    let targetUsersToNotify: User[] = [];
+
+    if (mentionedUserIds && mentionedUserIds.length > 0) {
+      targetUsersToNotify = allUsers.filter((u) => mentionedUserIds.includes(u.id));
+    } else {
+      // Auto-detect @names from content
+      targetUsersToNotify = allUsers.filter((u) => {
+        const cleanName = u.name.trim();
+        const firstName = cleanName.split(' ')[0];
+        return content.includes(`@${cleanName}`) || (firstName && content.includes(`@${firstName}`));
+      });
+    }
+
+    // Trigger Notification for each mentioned user (except self)
+    targetUsersToNotify.forEach((targetUser) => {
+      if (targetUser.id !== currentUser.id) {
+        NotificationService.createNotification({
+          organizationId: currentOrganization.id,
+          campusId: currentCampus?.id || null,
+          userId: targetUser.id,
+          type: 'MENTION',
+          title: `${currentUser.name} mencionou você`,
+          message: `${currentUser.name} mencionou você na demanda "${taskTitle}": "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`,
+          entityType: 'TASK',
+          entityId: taskId,
+        });
+      }
+    });
   };
 
   const getCommentsForTask = (taskId: string): Comment[] => {

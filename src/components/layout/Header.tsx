@@ -217,15 +217,23 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* Notification Bell */}
+          {/* Notification Button */}
           <button
             onClick={() => setIsNotifOpen(true)}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors relative"
-            title="Notificações"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:border-slate-600 text-slate-300 hover:text-white transition-all text-xs font-semibold relative"
+            title="Central de Notificações"
           >
-            <Bell className="w-4 h-4" />
+            <div className="relative">
+              <Bell className="w-4 h-4 text-amber-400" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              )}
+            </div>
+            <span className="hidden md:inline text-xs">Notificações</span>
             {unreadNotifCount > 0 && (
-              <span className="absolute 1 top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500" />
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-black">
+                {unreadNotifCount}
+              </span>
             )}
           </button>
 
