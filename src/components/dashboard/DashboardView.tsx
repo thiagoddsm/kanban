@@ -93,7 +93,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
-              Bem-vindo ao centro de operações de comunicação e marketing da igreja. Por onde você deseja começar hoje?
+              Bem-vindo ao centro de gestão integrada de tarefas, operações, projetos e demandas da igreja. Por onde você deseja começar hoje?
             </p>
           </div>
 

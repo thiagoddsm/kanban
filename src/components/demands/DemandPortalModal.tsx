@@ -151,10 +151,10 @@ export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, on
                 <span>Central de Solicitações (Pipefy Style)</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                O que você precisa solicitar para o Marketing?
+                Qual é a sua solicitação ou demanda?
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                Escolha a categoria da sua demanda para abrirmos o formulário estruturado de briefing.
+                Escolha a categoria da sua necessidade (Logística, Obra, Compras, Mídias, etc.) para abrirmos o formulário estruturado.
               </p>
             </div>
 

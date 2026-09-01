@@ -73,7 +73,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Cada evento opera como um projeto estruturado, consolidando métricas, entregas, bloqueios e avanço das demandas.
+            Central operacional para projetos, eventos, reformas, compras e logística, consolidando cronogramas e entregas.
           </p>
         </div>
 
@@ -153,9 +153,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Tem certeza que deseja arquivar o projeto "${evt.title}"?`)) {
-                              archiveEvent(evt.id, true);
-                            }
+                            archiveEvent(evt.id, true);
                           }}
                           className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                           title="Arquivar Projeto"
