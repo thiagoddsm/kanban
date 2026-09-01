@@ -658,6 +658,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updated = StorageService.updateTask(updatedTask);
     setRawTasks(updated);
+    FirestoreRepository.saveTask(updatedTask);
 
     // Automation Trigger: TASK_REVIEW
     if (newStatus === 'REVIEW') {
@@ -695,6 +696,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       timestamp: new Date().toISOString(),
     };
     setActivities(StorageService.addActivity(newActivity));
+    FirestoreRepository.recordActivity(newActivity);
 
     return { success: true };
   };
@@ -712,6 +714,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     setRawTasks(StorageService.updateTask(updatedTask));
+    FirestoreRepository.saveTask(updatedTask);
 
     // Automation Trigger: TASK_BLOCKED
     AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_BLOCKED', {
@@ -737,6 +740,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       timestamp: new Date().toISOString(),
     };
     setActivities(StorageService.addActivity(act));
+    FirestoreRepository.recordActivity(act);
     warning('Tarefa marcada como bloqueada', reason);
   };
 
@@ -753,6 +757,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     setRawTasks(StorageService.updateTask(updatedTask));
+    FirestoreRepository.saveTask(updatedTask);
 
     const act: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -770,6 +775,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       timestamp: new Date().toISOString(),
     };
     setActivities(StorageService.addActivity(act));
+    FirestoreRepository.recordActivity(act);
     success('Tarefa desbloqueada com sucesso!');
   };
 
@@ -787,6 +793,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     setRawTasks(StorageService.updateTask(updatedTask));
+    FirestoreRepository.saveTask(updatedTask);
 
     const act: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -805,6 +812,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       timestamp: new Date().toISOString(),
     };
     setActivities(StorageService.addActivity(act));
+    FirestoreRepository.recordActivity(act);
     success('Demanda aprovada e concluída com sucesso! 🎉');
   };
 
