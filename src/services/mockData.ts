@@ -269,28 +269,26 @@ export const INITIAL_CAMPUSES: Campus[] = [
   }
 ];
 
-// 3. Thiago Master Admin
+// 3. Admin Inicial (placeholder — será substituído pelo usuário real após primeiro login)
 export const INITIAL_USERS: User[] = [
   {
-    id: 'usr_thiago_master',
-    name: 'Thiago Master Admin',
-    email: 'thiagoddsm@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    phone: '(11) 99999-8888',
+    id: 'usr_admin_placeholder',
+    name: 'Administrador',
+    email: '',
     createdAt: new Date().toISOString(),
   }
 ];
 
-// 4. Clean Master Admin Membership
+// 4. Membership inicial do Admin Placeholder
 export const INITIAL_MEMBERSHIPS: Membership[] = [
   {
-    id: 'mem_thiago_master',
-    userId: 'usr_thiago_master',
+    id: 'mem_admin_placeholder',
+    userId: 'usr_admin_placeholder',
     organizationId: 'org_minha_igreja',
     hasOrgWideAccess: true,
     campusIds: [],
     role: 'ADMIN',
-    department: 'Diretoria Geral & Master Admin',
+    department: 'Diretoria Geral',
     status: 'ACTIVE',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

@@ -218,11 +218,34 @@ export interface Task {
   
   requesterId: string;
   requesterName: string;
+
+  /**
+   * Fonte de verdade para responsáveis. Sempre um array de user IDs.
+   * A exibição (nome, avatar) é derivada de lookup em orgUsers no client.
+   */
+  assigneeIds: string[];
+
+  /**
+   * @deprecated Usar assigneeIds[0]. Mantido apenas para compatibilidade de
+   * leitura de documentos antigos. NÃO é gravado no Firestore por saveTask().
+   */
   assigneeId?: string;
+  /**
+   * @deprecated Derivado de assigneeIds via lookup em orgUsers.
+   * NÃO é gravado no Firestore por saveTask().
+   */
   assigneeName?: string;
+  /**
+   * @deprecated Derivado de assigneeIds[0] via lookup em orgUsers.
+   * NÃO é gravado no Firestore por saveTask().
+   */
   assigneeAvatar?: string;
-  assigneeIds?: string[];
+  /**
+   * @deprecated Derivado de assigneeIds via lookup em orgUsers.
+   * NÃO é gravado no Firestore por saveTask().
+   */
   assignees?: TaskAssignee[];
+
   approverId?: string;
   approverName?: string;
 

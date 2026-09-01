@@ -55,6 +55,7 @@ export class E2ETestRunnerService {
       dependencies: [],
       checklist: [{ id: 'chk_1', text: 'Criação do layout', completed: false }],
       commentsCount: 0,
+      assigneeIds: [],
       isArchived: false,
       createdBy: requesterId,
       createdByName: 'Pr. Tiago Rocha',

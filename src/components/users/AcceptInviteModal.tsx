@@ -18,12 +18,22 @@ export const AcceptInviteModal: React.FC = () => {
     if (inviteId) {
       const allMemberships = StorageService.getMemberships();
       const mem = allMemberships.find((m) => m.id === inviteId);
-      if (mem) {
-        setInviteMembership(mem);
-        setIsOpen(true);
+      if (mem && mem.status === 'INVITED') {
+        // Validação de segurança: o convite deve ser para o usuário logado.
+        // Aceita se: (a) o userId do convite já é o uid atual, ou
+        //            (b) o convite ainda não tem userId vinculado (fluxo de e-mail externo).
+        const isForCurrentUser =
+          mem.userId === currentUser.id || !mem.userId;
+
+        if (isForCurrentUser) {
+          setInviteMembership(mem);
+          setIsOpen(true);
+        } else {
+          console.warn('Convite pertence a outro usuário — acesso negado.');
+        }
       }
     }
-  }, []);
+  }, [currentUser.id]);
 
   if (!isOpen || !inviteMembership) return null;
 
@@ -32,7 +42,7 @@ export const AcceptInviteModal: React.FC = () => {
   const handleAccept = () => {
     const updated: Membership = {
       ...inviteMembership,
-      userId: currentUser.id,
+      userId: currentUser.id,  // garante que o userId é o do usuário autenticado
       status: 'ACTIVE',
       updatedAt: new Date().toISOString(),
     };
@@ -49,6 +59,7 @@ export const AcceptInviteModal: React.FC = () => {
 
     setIsOpen(false);
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-fade-in">

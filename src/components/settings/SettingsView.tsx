@@ -18,9 +18,16 @@ import {
   Sparkles,
   Tag,
   Shield,
-  HelpCircle
+  HelpCircle,
+  MapPin,
+  ArrowRight,
+  Edit3
 } from 'lucide-react';
-import { DemandTypeDefinition, EventCategoryDefinition, DepartmentDefinition } from '../../types';
+import { Campus, Organization, DemandTypeDefinition, EventCategoryDefinition, DepartmentDefinition } from '../../types';
+import { EditCampusModal } from '../tenants/EditCampusModal';
+import { EditOrganizationModal } from '../tenants/EditOrganizationModal';
+import { NewCampusModal } from '../tenants/NewCampusModal';
+import { OnboardingModal } from '../tenants/OnboardingModal';
 
 const COLOR_PRESETS = [
   { label: 'Índigo', color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10', bgLight: 'hover:bg-indigo-950/40 hover:border-indigo-500/60' },
@@ -62,11 +69,27 @@ export const SettingsView: React.FC = () => {
     deleteDepartment
   } = useData();
 
-  const { currentOrganization, updateOrganizationBranding } = useTenant();
+  const { 
+    organizations,
+    currentOrganization, 
+    campuses,
+    currentCampus,
+    switchOrganization,
+    switchCampus,
+    deleteCampus,
+    deleteOrganization,
+    updateOrganizationBranding 
+  } = useTenant();
   const { isAdmin } = useAccess();
-  const { success, warning } = useNotification();
+  const { success, warning, error: notifyError } = useNotification();
 
-  const [activeSubTab, setActiveSubTab] = useState<'demands' | 'events' | 'departments' | 'branding'>('demands');
+  const [activeSubTab, setActiveSubTab] = useState<'campuses' | 'organizations' | 'demands' | 'events' | 'departments' | 'branding'>('campuses');
+
+  // Sub-modal states for Tenants
+  const [selectedCampusForEdit, setSelectedCampusForEdit] = useState<Campus | null>(null);
+  const [selectedOrgForEdit, setSelectedOrgForEdit] = useState<Organization | null>(null);
+  const [isNewCampusOpen, setIsNewCampusOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   // --- Demand Type Modal / Form State ---
   const [isDemandModalOpen, setIsDemandModalOpen] = useState(false);
@@ -230,8 +253,32 @@ export const SettingsView: React.FC = () => {
       {/* Subtabs Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
         <button
+          onClick={() => setActiveSubTab('campuses')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeSubTab === 'campuses'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5" />
+          <span>Sedes & Campi ({campuses.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('organizations')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeSubTab === 'organizations'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          <span>Igrejas / Organizações ({organizations.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveSubTab('demands')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'demands'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -243,7 +290,7 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('events')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'events'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -255,19 +302,19 @@ export const SettingsView: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('departments')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'departments'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
-          <Building2 className="w-3.5 h-3.5" />
+          <Layers className="w-3.5 h-3.5" />
           <span>Ministérios & Departamentos ({departments.length})</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('branding')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'branding'
               ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
@@ -277,6 +324,234 @@ export const SettingsView: React.FC = () => {
           <span>Identidade Visual da Igreja</span>
         </button>
       </div>
+
+      {/* TAB: SEDES & CAMPI */}
+      {activeSubTab === 'campuses' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+            <div>
+              <h3 className="text-sm font-bold text-white">Sedes e Campi da Igreja ({currentOrganization.name})</h3>
+              <p className="text-xs text-slate-400">
+                Gerencie todas as filiais e congregações. O Kanban e os eventos podem ser filtrados por unidade.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsNewCampusOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Campus / Sede</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {campuses.map((camp) => {
+              const isSelected = currentCampus?.id === camp.id;
+              return (
+                <div
+                  key={camp.id}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                    isSelected
+                      ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                          <MapPin className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white leading-tight">{camp.name}</h4>
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 uppercase mt-0.5 inline-block">
+                            {camp.code}
+                          </span>
+                        </div>
+                      </div>
+                      {camp.isMainCampus && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0">
+                          Principal (Sede)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-3 text-xs text-slate-400 space-y-1">
+                      {camp.city && (
+                        <p className="flex items-center gap-1.5">
+                          <span className="text-slate-500 font-semibold">Cidade:</span> {camp.city}
+                        </p>
+                      )}
+                      {camp.address && (
+                        <p className="flex items-center gap-1.5 truncate">
+                          <span className="text-slate-500 font-semibold">Endereço:</span> {camp.address}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                    <button
+                      onClick={() => switchCampus(camp.id)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
+                        isSelected
+                          ? 'text-indigo-400 bg-indigo-500/10 font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                      }`}
+                    >
+                      {isSelected ? '✓ Ativo no Filtro' : 'Filtrar por este'}
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSelectedCampusForEdit(camp)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        title="Editar Campus"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (campuses.length <= 1) {
+                            notifyError('Ação não permitida', 'Não é possível excluir o único campus cadastrado.');
+                            return;
+                          }
+                          deleteCampus(camp.id);
+                        }}
+                        disabled={campuses.length <= 1}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          campuses.length <= 1
+                            ? 'opacity-30 cursor-not-allowed text-slate-600'
+                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                        }`}
+                        title="Excluir Campus"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: IGREJAS / ORGANIZAÇÕES */}
+      {activeSubTab === 'organizations' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+            <div>
+              <h3 className="text-sm font-bold text-white">Organizações e Igrejas (Multi-tenant SaaS)</h3>
+              <p className="text-xs text-slate-400">
+                Cada organização possui seus próprios membros, projetos, demandas, orçamentos e permissões isoladas.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsOnboardingOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nova Organização (SaaS)</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {organizations.map((org) => {
+              const isActive = org.id === currentOrganization.id;
+              return (
+                <div
+                  key={org.id}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                    isActive
+                      ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm'
+                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-inner shrink-0"
+                          style={{ backgroundColor: org.branding?.primaryColor || '#4f46e5' }}
+                        >
+                          {org.name.substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-white leading-tight">{org.name}</h4>
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase mt-0.5 inline-block">
+                            Plano {org.subscription.plan}
+                          </span>
+                        </div>
+                      </div>
+                      {isActive && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                          Ativa no Momento
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-3 text-xs text-slate-400 space-y-1">
+                      <p className="flex items-center gap-1.5">
+                        <span className="text-slate-500 font-semibold">Identificador (Slug):</span> {org.slug}
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <span className="text-slate-500 font-semibold">Criado em:</span> {new Date(org.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                    {!isActive ? (
+                      <button
+                        onClick={() => switchOrganization(org.id)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-all flex items-center gap-1"
+                      >
+                        <span>Acessar Organização</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Sessão Atual
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSelectedOrgForEdit(org)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        title="Editar Organização"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (organizations.length <= 1) {
+                            notifyError('Ação não permitida', 'Não é possível excluir a única organização cadastrada.');
+                            return;
+                          }
+                          deleteOrganization(org.id);
+                        }}
+                        disabled={organizations.length <= 1}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          organizations.length <= 1
+                            ? 'opacity-30 cursor-not-allowed text-slate-600'
+                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                        }`}
+                        title="Excluir Organização"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: DEMAND TYPES */}
       {activeSubTab === 'demands' && (
@@ -799,6 +1074,29 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Sub-modals for Campuses and Organizations */}
+      <EditCampusModal
+        campus={selectedCampusForEdit}
+        isOpen={!!selectedCampusForEdit}
+        onClose={() => setSelectedCampusForEdit(null)}
+      />
+
+      <EditOrganizationModal
+        organization={selectedOrgForEdit}
+        isOpen={!!selectedOrgForEdit}
+        onClose={() => setSelectedOrgForEdit(null)}
+      />
+
+      <NewCampusModal
+        isOpen={isNewCampusOpen}
+        onClose={() => setIsNewCampusOpen(false)}
+      />
+
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
     </div>
   );
 };

@@ -53,9 +53,32 @@ export class StorageService {
   }
 
   static addOrganization(org: Organization): Organization[] {
+    return this.updateOrganization(org);
+  }
+
+  static updateOrganization(org: Organization): Organization[] {
     const orgs = this.getOrganizations();
-    const updated = [...orgs, org];
+    const exists = orgs.some((o) => o.id === org.id);
+    const updated = exists
+      ? orgs.map((o) => (o.id === org.id ? { ...org, updatedAt: new Date().toISOString() } : o))
+      : [...orgs, org];
     this.saveOrganizations(updated);
+    return updated;
+  }
+
+  static deleteOrganization(orgId: string): Organization[] {
+    const orgs = this.getOrganizations();
+    const updated = orgs.filter((o) => o.id !== orgId);
+    this.saveOrganizations(updated);
+    // Cleanup org keys
+    localStorage.removeItem(getOrgKey(orgId, 'campuses'));
+    localStorage.removeItem(getOrgKey(orgId, 'tasks'));
+    localStorage.removeItem(getOrgKey(orgId, 'events'));
+    localStorage.removeItem(getOrgKey(orgId, 'comments'));
+    localStorage.removeItem(getOrgKey(orgId, 'activities'));
+    localStorage.removeItem(getOrgKey(orgId, 'demand_types'));
+    localStorage.removeItem(getOrgKey(orgId, 'event_categories'));
+    localStorage.removeItem(getOrgKey(orgId, 'departments'));
     return updated;
   }
 
@@ -83,6 +106,23 @@ export class StorageService {
     const list = this.getCampuses(campus.organizationId);
     const updated = [...list, campus];
     this.saveCampuses(campus.organizationId, updated);
+    return updated;
+  }
+
+  static updateCampus(campus: Campus): Campus[] {
+    const list = this.getCampuses(campus.organizationId);
+    const exists = list.some((c) => c.id === campus.id);
+    const updated = exists
+      ? list.map((c) => (c.id === campus.id ? campus : c))
+      : [...list, campus];
+    this.saveCampuses(campus.organizationId, updated);
+    return updated;
+  }
+
+  static deleteCampus(orgId: string, campusId: string): Campus[] {
+    const list = this.getCampuses(orgId);
+    const updated = list.filter((c) => c.id !== campusId);
+    this.saveCampuses(orgId, updated);
     return updated;
   }
 

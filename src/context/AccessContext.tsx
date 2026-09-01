@@ -93,17 +93,16 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   }, [memberships, currentUser.id, currentOrganization.id]);
 
-  const isMasterAdmin = useMemo(() => {
-    return currentUser.email.toLowerCase() === 'thiagoddsm@gmail.com';
-  }, [currentUser.email]);
+  // O papel do usuário vem exclusivamente da membership ativa no Firestore.
+  // Não existe mais superadmin baseado em e-mail hardcoded.
+  // Se o usuário não tiver membership ativa, recebe 'REQUESTER' como fallback mínimo.
+  const currentRole: UserRole = currentMembership?.role || 'REQUESTER';
 
-  const currentRole: UserRole = isMasterAdmin ? 'ADMIN' : (currentMembership?.role || 'REQUESTER');
-
-  // Permission Checking Engine
+  // Permission Checking Engine — baseado 100% na matriz ROLE_PERMISSIONS
   const hasPermission = (permission: Permission): boolean => {
-    if (isMasterAdmin) return true; // Master Admin has unrestricted permissions
     if (!currentMembership) {
-      return permission === 'tasks.create'; // Requesters can create demands
+      // Usuário sem membership ativa: apenas pode criar demandas (acesso mínimo)
+      return permission === 'tasks.create';
     }
     const permissions = ROLE_PERMISSIONS[currentRole] || [];
     const granted = permissions.includes(permission);
@@ -126,28 +125,26 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return granted;
   };
 
-  // Accessible Organizations for current user
+  // Orgs acessíveis: apenas onde o usuário tem membership ACTIVE
   const accessibleOrganizations = useMemo(() => {
-    if (isMasterAdmin) return organizations; // Master Admin has access to all organizations
     const userOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
 
     return organizations.filter((o) => userOrgIds.includes(o.id));
-  }, [organizations, memberships, currentUser.id, isMasterAdmin]);
+  }, [organizations, memberships, currentUser.id]);
 
-  // Accessible Campuses in current organization
+  // Campi acessíveis: depende da membership e do hasOrgWideAccess
   const accessibleCampuses = useMemo(() => {
-    if (isMasterAdmin) return campuses;
     if (!currentMembership) return [];
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return campuses;
     }
     return campuses.filter((c) => currentMembership.campusIds.includes(c.id));
-  }, [campuses, currentMembership, isMasterAdmin]);
+  }, [campuses, currentMembership]);
 
   const hasCampusAccess = (campusId?: string | null): boolean => {
-    if (!campusId || isMasterAdmin) return true; // Null/undefined or Master Admin means Organization-wide
+    if (!campusId) return true; // null/undefined = visão de toda a organização
     if (!currentMembership) return false;
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return true;

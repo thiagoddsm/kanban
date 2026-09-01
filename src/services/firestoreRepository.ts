@@ -80,6 +80,42 @@ export class FirestoreRepository {
   }
 
   /**
+   * Realtime subscription for organizations
+   */
+  public static subscribeOrganizations(callback: (orgs: Organization[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const orgsCol = collection(db, 'organizations');
+      return onSnapshot(orgsCol, (snap) => {
+        const orgs = snap.docs.map((d) => d.data() as Organization);
+        callback(orgs);
+      }, (err) => {
+        console.warn('Subscription error for organizations:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to organizations:', e);
+      return () => {};
+    }
+  }
+
+  /**
+   * Delete Organization from Firestore
+   */
+  public static async deleteOrganization(orgId: string): Promise<void> {
+    StorageService.deleteOrganization(orgId);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const orgRef = doc(db, 'organizations', orgId);
+      await deleteDoc(orgRef);
+      console.log('✅ Organização excluída do Firestore:', orgId);
+    } catch (e) {
+      console.error('Erro ao excluir organização do Firestore:', e);
+    }
+  }
+
+  /**
    * Fetch all campuses for an organization from Firestore
    */
   public static async fetchCampuses(orgId: string): Promise<Campus[]> {
@@ -100,18 +136,55 @@ export class FirestoreRepository {
   }
 
   /**
+   * Realtime subscription for campuses
+   */
+  public static subscribeCampuses(orgId: string, callback: (campuses: Campus[]) => void): () => void {
+    if (!isFirebaseConfigured || !db) return () => {};
+
+    try {
+      const campusCol = collection(db, 'organizations', orgId, 'campuses');
+      return onSnapshot(campusCol, (snap) => {
+        const campuses = snap.docs.map((d) => d.data() as Campus);
+        callback(campuses);
+      }, (err) => {
+        console.warn('Subscription error for campuses:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to campuses:', e);
+      return () => {};
+    }
+  }
+
+  /**
    * Save / Update Campus in Firestore
    */
   public static async saveCampus(campus: Campus): Promise<void> {
-    StorageService.addCampus(campus);
+    StorageService.updateCampus(campus);
     if (!isFirebaseConfigured || !db) return;
 
     try {
       const campusRef = doc(db, 'organizations', campus.organizationId, 'campuses', campus.id);
-      await setDoc(campusRef, campus, { merge: true });
+      const sanitized = sanitizeForFirestore(campus);
+      await setDoc(campusRef, sanitized, { merge: true });
       console.log('✅ Campus gravado no Firestore:', campus.id);
     } catch (e) {
       console.error('Erro ao gravar campus no Firestore:', e);
+    }
+  }
+
+  /**
+   * Delete Campus from Firestore
+   */
+  public static async deleteCampus(orgId: string, campusId: string): Promise<void> {
+    StorageService.deleteCampus(orgId, campusId);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const campusRef = doc(db, 'organizations', orgId, 'campuses', campusId);
+      await deleteDoc(campusRef);
+      console.log('✅ Campus excluído do Firestore:', campusId);
+    } catch (e) {
+      console.error('Erro ao excluir campus do Firestore:', e);
     }
   }
 
@@ -123,10 +196,13 @@ export class FirestoreRepository {
     if (!isFirebaseConfigured || !db) return;
 
     try {
+      // IMPORTANTE: O documento de membership é keyed por userId (não pelo membership.id).
+      // As Firestore Rules fazem get() usando request.auth.uid como ID do documento,
+      // portanto esta chave DEVE ser o userId para que as rules funcionem corretamente.
       const memRef = doc(db, 'organizations', membership.organizationId, 'memberships', membership.userId);
       const sanitized = sanitizeForFirestore(membership);
       await setDoc(memRef, sanitized, { merge: true });
-      console.log('✅ Membership gravado no Firestore:', membership.id);
+      console.log('✅ Membership gravado no Firestore (doc key = userId):', membership.userId, '| membership.id:', membership.id);
     } catch (e) {
       console.error('Erro ao gravar membership no Firestore:', e);
     }
@@ -318,9 +394,15 @@ export class FirestoreRepository {
     
     try {
       const taskRef = doc(db, 'organizations', task.organizationId, 'tasks', task.id);
-      const sanitized = sanitizeForFirestore(task);
+
+      // Excluir campos legados desnormalizados antes de gravar no Firestore.
+      // Esses campos ficam apenas no estado React para compatibilidade de UI.
+      // A fonte de verdade no Firestore é exclusivamente `assigneeIds`.
+      const { assigneeId, assigneeName, assigneeAvatar, assignees, ...taskWithoutLegacy } = task;
+
+      const sanitized = sanitizeForFirestore(taskWithoutLegacy);
       await setDoc(taskRef, sanitized, { merge: true });
-      console.log('✅ Tarefa gravada no Firestore com sucesso:', task.id);
+      console.log('✅ Tarefa gravada no Firestore (sem campos legados de assignee):', task.id);
     } catch (e) {
       console.error('Erro ao sincronizar tarefa com Firestore:', e);
     }

@@ -1,50 +1,195 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper: Is user authenticated?
+
+    // ─────────────────────────────────────────────────────────────────
+    // HELPERS GLOBAIS
+    // ─────────────────────────────────────────────────────────────────
+
+    // Usuário autenticado no Firebase Auth?
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Global User Profiles
+
+    // Documento de membership do usuário autenticado dentro de uma org.
+    // O documento é keyed por membership.id (formato: mem_{userId}_{orgId}).
+    // Usamos a coleção e filtramos por userId para ser robusto independente do doc ID.
+    // ATENÇÃO: get() conta como 1 leitura extra por operação avaliada.
+    function getMembership(orgId) {
+      // Busca o documento cujo ID é o userId (chave legada ainda usada no Firestore)
+      // Após o ajuste de chave no firestoreRepository, usaremos a query abaixo.
+      // Por ora, tentamos pelo userId como document ID (como está hoje no Firestore).
+      return get(/databases/$(database)/documents/organizations/$(orgId)/memberships/$(request.auth.uid));
+    }
+
+    // O usuário tem uma membership ativa nessa organização?
+    function hasMembership(orgId) {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/organizations/$(orgId)/memberships/$(request.auth.uid));
+    }
+
+    // Qual é o papel (role) do usuário nessa organização?
+    function getRole(orgId) {
+      return getMembership(orgId).data.role;
+    }
+
+    // O usuário tem membership ATIVA (status == 'ACTIVE')?
+    function hasActiveMembership(orgId) {
+      return hasMembership(orgId) &&
+             getMembership(orgId).data.status == 'ACTIVE';
+    }
+
+    // Atalhos de papel
+    function isOrgAdmin(orgId) {
+      return hasActiveMembership(orgId) && getRole(orgId) == 'ADMIN';
+    }
+
+    function isOrgLeader(orgId) {
+      return hasActiveMembership(orgId) &&
+             (getRole(orgId) == 'ADMIN' || getRole(orgId) == 'LEADER');
+    }
+
+    function isOrgTeamOrAbove(orgId) {
+      return hasActiveMembership(orgId) &&
+             (getRole(orgId) == 'ADMIN' || getRole(orgId) == 'LEADER' || getRole(orgId) == 'TEAM');
+    }
+
+    // O usuário é o proprietário do documento (campo userId == auth.uid)?
+    function isOwner(resource) {
+      return isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────
+    // PERFIS DE USUÁRIO GLOBAIS  →  /users/{userId}
+    // ─────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read, write: if true;
+      // Qualquer usuário autenticado pode ler perfis públicos (nome, avatar).
+      // Necessário para exibir avatares de membros de outras orgs no Kanban.
+      allow read: if isAuthenticated();
+
+      // Cada usuário pode criar e editar apenas o próprio perfil.
+      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+
+      // Nenhum usuário pode deletar perfis (apenas via Admin SDK ou Cloud Function futura).
+      allow delete: if false;
     }
 
-    // Organizations (Tenants)
+
+    // ─────────────────────────────────────────────────────────────────
+    // ORGANIZAÇÕES (TENANTS)  →  /organizations/{orgId}
+    // ─────────────────────────────────────────────────────────────────
     match /organizations/{orgId} {
-      allow read, write: if true;
+      // Qualquer membro ativo pode ler os dados da organização (nome, plano, branding).
+      allow read: if hasActiveMembership(orgId);
 
-      // Campuses subcollection
+      // Apenas ADMIN pode criar ou atualizar os metadados da organização.
+      allow create: if isAuthenticated();   // durante o onboarding, o usuário cria a própria org
+      allow update: if isOrgAdmin(orgId);
+      allow delete: if false;               // deleção de org somente via Admin SDK
+
+
+      // ── Configurações personalizadas  →  /organizations/{orgId}/settings/{doc}
+      match /settings/{settingId} {
+        allow read:   if hasActiveMembership(orgId);
+        allow write:  if isOrgAdmin(orgId);
+      }
+
+
+      // ── Campi  →  /organizations/{orgId}/campuses/{campusId}
       match /campuses/{campusId} {
-        allow read, write: if true;
+        // Qualquer membro ativo lê campi.
+        allow read: if hasActiveMembership(orgId);
+
+        // Apenas ADMIN cria, edita ou exclui campi.
+        allow create, update, delete: if isOrgAdmin(orgId);
       }
 
-      // Memberships subcollection
+
+      // ── Memberships  →  /organizations/{orgId}/memberships/{membershipId}
+      // NOTA: Document ID ainda é userId (legado). O firestoreRepository.ts
+      // foi ajustado para usar membership.id após esta fase.
       match /memberships/{membershipId} {
-        allow read, write: if true;
+        // Membros ativos podem listar memberships (necessário para exibir equipe).
+        allow read: if hasActiveMembership(orgId);
+
+        // ADMIN pode adicionar, editar ou suspender membros.
+        allow create, update: if isOrgAdmin(orgId);
+
+        // Usuário pode ACEITAR o próprio convite (status: INVITED → ACTIVE).
+        // Apenas permite escrita se o documento é o próprio membership do usuário
+        // e o status está sendo alterado para 'ACTIVE'.
+        allow update: if isAuthenticated() &&
+                         membershipId == request.auth.uid &&
+                         request.resource.data.status == 'ACTIVE' &&
+                         resource.data.status == 'INVITED';
+
+        // Apenas ADMIN pode remover membros.
+        allow delete: if isOrgAdmin(orgId);
       }
 
-      // Tasks subcollection
+
+      // ── Tarefas  →  /organizations/{orgId}/tasks/{taskId}
       match /tasks/{taskId} {
-        allow read, write: if true;
+        // Qualquer membro ativo pode ler tarefas (filtros de campus ocorrem no client).
+        allow read: if hasActiveMembership(orgId);
+
+        // REQUESTER e acima podem criar tarefas.
+        allow create: if hasActiveMembership(orgId);
+
+        // TEAM e acima podem editar tarefas (mover, atualizar campos).
+        allow update: if isOrgTeamOrAbove(orgId);
+
+        // Apenas ADMIN pode excluir tarefas permanentemente.
+        allow delete: if isOrgAdmin(orgId);
       }
 
-      // Events subcollection
+
+      // ── Eventos (projetos)  →  /organizations/{orgId}/events/{eventId}
       match /events/{eventId} {
-        allow read, write: if true;
+        // Qualquer membro ativo lê eventos.
+        allow read: if hasActiveMembership(orgId);
+
+        // LEADER e acima criam e editam eventos.
+        allow create, update: if isOrgLeader(orgId);
+
+        // Apenas ADMIN exclui eventos.
+        allow delete: if isOrgAdmin(orgId);
       }
 
-      // Comments subcollection
+
+      // ── Comentários  →  /organizations/{orgId}/comments/{commentId}
       match /comments/{commentId} {
-        allow read, write: if true;
+        // Qualquer membro ativo lê comentários.
+        allow read: if hasActiveMembership(orgId);
+
+        // Qualquer membro ativo pode criar comentários.
+        allow create: if hasActiveMembership(orgId);
+
+        // Apenas o autor do comentário pode editá-lo.
+        allow update: if hasActiveMembership(orgId) && isOwner(resource);
+
+        // O autor ou um ADMIN pode excluir o comentário.
+        allow delete: if hasActiveMembership(orgId) &&
+                         (isOwner(resource) || isOrgAdmin(orgId));
       }
 
-      // Activities & Security Audit logs
+
+      // ── Log de Auditoria  →  /organizations/{orgId}/activities/{activityId}
       match /activities/{activityId} {
-        allow read, write: if true;
+        // Membros ativos podem ler o log de auditoria.
+        allow read: if hasActiveMembership(orgId);
+
+        // Registros de auditoria são apenas inserção (nunca editados/deletados pelo client).
+        // O campo performedByUserId deve corresponder ao usuário autenticado.
+        allow create: if hasActiveMembership(orgId) &&
+                         request.resource.data.performedByUserId == request.auth.uid;
+
+        // Logs de auditoria são imutáveis.
+        allow update, delete: if false;
       }
-    }
-  }
-}
+
+    } // fim /organizations/{orgId}
+
+  } // fim /databases/{database}/documents
+} // fim service cloud.firestore

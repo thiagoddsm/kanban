@@ -14,7 +14,11 @@ interface TenantContextType {
   switchOrganizationBySlug: (slug: string) => boolean;
   switchCampus: (campusId: string | null) => void;
   createOrganization: (name: string, slug: string, mainCampusName: string, city: string, plan?: TenantPlan) => Organization;
+  updateOrganization: (orgId: string, data: Partial<Organization>) => void;
+  deleteOrganization: (orgId: string) => boolean;
   createCampus: (name: string, code: string, city: string, address?: string) => Campus | null;
+  updateCampus: (campusId: string, data: Partial<Campus>) => void;
+  deleteCampus: (campusId: string) => boolean;
   updateOrganizationBranding: (branding: Partial<OrganizationBranding>) => void;
 }
 
@@ -25,7 +29,7 @@ const ACTIVE_CAMPUS_KEY = 'marketing_active_campus_id_v4_clean';
 
 export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
-  const { success, error: notifyError } = useNotification();
+  const { success, warning, error: notifyError } = useNotification();
 
   const [organizations, setOrganizations] = useState<Organization[]>(() => StorageService.getOrganizations());
   
@@ -58,23 +62,43 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return orgCampuses.find((c) => c.id === savedCampId) || null;
   });
 
-  // Initial sync with Firestore
+  // Initial sync & Realtime listener for Organizations
   useEffect(() => {
     FirestoreRepository.fetchOrganizations().then((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {
         setOrganizations(remoteOrgs);
+        remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
       }
     });
+
+    const unsubOrgs = FirestoreRepository.subscribeOrganizations((remoteOrgs) => {
+      if (remoteOrgs && remoteOrgs.length > 0) {
+        setOrganizations(remoteOrgs);
+        remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
+      }
+    });
+
+    return () => unsubOrgs();
   }, []);
 
-  // Keep campuses in sync when organization changes
+  // Keep campuses in sync when organization changes + Realtime listener
   useEffect(() => {
+    if (!currentOrganization.id) return;
+
     FirestoreRepository.fetchCampuses(currentOrganization.id).then((remoteCampuses) => {
       if (remoteCampuses && remoteCampuses.length > 0) {
         setCampuses(remoteCampuses);
+        remoteCampuses.forEach((c) => StorageService.updateCampus(c));
       } else {
         const orgCampuses = StorageService.getCampuses(currentOrganization.id);
         setCampuses(orgCampuses);
+      }
+    });
+
+    const unsubCampuses = FirestoreRepository.subscribeCampuses(currentOrganization.id, (remoteCampuses) => {
+      if (remoteCampuses && remoteCampuses.length >= 0) {
+        setCampuses(remoteCampuses);
+        remoteCampuses.forEach((c) => StorageService.updateCampus(c));
       }
     });
 
@@ -82,6 +106,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setCurrentCampus(null);
       localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
     }
+
+    return () => unsubCampuses();
   }, [currentOrganization.id]);
 
   const switchOrganization = (orgId: string) => {
@@ -175,7 +201,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       createdAt: new Date().toISOString(),
     };
 
-    // Save Locally
+    // Save Locally & Cloud
     const updatedOrgs = StorageService.addOrganization(newOrg);
     StorageService.addCampus(mainCampus);
 
@@ -220,6 +246,50 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     success(`Organização ${name} criada com sucesso!`);
     return newOrg;
+  };
+
+  const updateOrganization = (orgId: string, data: Partial<Organization>) => {
+    const org = organizations.find((o) => o.id === orgId);
+    if (!org) return;
+
+    const updatedOrg: Organization = {
+      ...org,
+      ...data,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedOrgs = StorageService.updateOrganization(updatedOrg);
+    FirestoreRepository.saveOrganization(updatedOrg);
+    setOrganizations(updatedOrgs);
+
+    if (currentOrganization.id === orgId) {
+      setCurrentOrganization(updatedOrg);
+    }
+
+    success(`Organização "${updatedOrg.name}" atualizada!`);
+  };
+
+  const deleteOrganization = (orgId: string): boolean => {
+    if (organizations.length <= 1) {
+      notifyError('Ação não permitida', 'Você não pode excluir a única organização cadastrada.');
+      return false;
+    }
+
+    const orgToDelete = organizations.find((o) => o.id === orgId);
+    const updatedOrgs = StorageService.deleteOrganization(orgId);
+    FirestoreRepository.deleteOrganization(orgId);
+    setOrganizations(updatedOrgs);
+
+    if (currentOrganization.id === orgId) {
+      const nextOrg = updatedOrgs[0];
+      setCurrentOrganization(nextOrg);
+      localStorage.setItem(ACTIVE_ORG_KEY, nextOrg.id);
+      setCurrentCampus(null);
+      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+    }
+
+    success(`Organização "${orgToDelete?.name || orgId}" excluída com sucesso.`);
+    return true;
   };
 
   const createCampus = (name: string, code: string, city: string, address?: string): Campus | null => {
@@ -267,6 +337,42 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return newCampus;
   };
 
+  const updateCampus = (campusId: string, data: Partial<Campus>) => {
+    const camp = campuses.find((c) => c.id === campusId);
+    if (!camp) return;
+
+    const updatedCampus: Campus = {
+      ...camp,
+      ...data,
+      organizationId: currentOrganization.id,
+    };
+
+    const updated = StorageService.updateCampus(updatedCampus);
+    FirestoreRepository.saveCampus(updatedCampus);
+    setCampuses(updated);
+
+    if (currentCampus?.id === campusId) {
+      setCurrentCampus(updatedCampus);
+    }
+
+    success(`Campus "${updatedCampus.name}" atualizado com sucesso!`);
+  };
+
+  const deleteCampus = (campusId: string): boolean => {
+    const campToDelete = campuses.find((c) => c.id === campusId);
+    const updated = StorageService.deleteCampus(currentOrganization.id, campusId);
+    FirestoreRepository.deleteCampus(currentOrganization.id, campusId);
+    setCampuses(updated);
+
+    if (currentCampus?.id === campusId) {
+      setCurrentCampus(null);
+      localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
+    }
+
+    success(`Campus "${campToDelete?.name || campusId}" excluído com sucesso.`);
+    return true;
+  };
+
   const updateOrganizationBranding = (branding: Partial<OrganizationBranding>) => {
     const updatedOrg: Organization = {
       ...currentOrganization,
@@ -277,10 +383,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updatedAt: new Date().toISOString(),
     };
 
-    const updatedOrgs = StorageService.getOrganizations().map((o) =>
-      o.id === updatedOrg.id ? updatedOrg : o
-    );
-    StorageService.saveOrganizations(updatedOrgs);
+    const updatedOrgs = StorageService.updateOrganization(updatedOrg);
     FirestoreRepository.saveOrganization(updatedOrg);
     setOrganizations(updatedOrgs);
     setCurrentOrganization(updatedOrg);
@@ -298,6 +401,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+    FirestoreRepository.recordActivity(auditLog);
 
     success('Identidade visual da organização atualizada!');
   };
@@ -313,7 +417,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         switchOrganizationBySlug,
         switchCampus,
         createOrganization,
+        updateOrganization,
+        deleteOrganization,
         createCampus,
+        updateCampus,
+        deleteCampus,
         updateOrganizationBranding,
       }}
     >

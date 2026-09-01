@@ -456,19 +456,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       ? campuses.find((c) => c.id === taskData.campusId) 
       : currentCampus || undefined;
 
-    const assigneeIds = taskData.assigneeIds && taskData.assigneeIds.length > 0 
-      ? taskData.assigneeIds 
-      : taskData.assigneeId ? [taskData.assigneeId] : [];
-    
+    // assigneeIds é a fonte canônica. Os campos legados (assigneeId, assigneeName, etc.)
+    // são derivados in-memory para a UI e NÃO são gravados no Firestore.
+    const assigneeIds: string[] =
+      taskData.assigneeIds && taskData.assigneeIds.length > 0
+        ? taskData.assigneeIds
+        : taskData.assigneeId ? [taskData.assigneeId] : [];
+
+    // Lookup de display data (nome, avatar) — derivado dos orgUsers em memória
     const assigneesList = assigneeIds.map((id) => {
       const u = orgUsers.find((user) => user.id === id);
-      return {
-        id,
-        name: u ? u.name : 'Responsável',
-        avatar: u ? u.avatar : undefined,
-      };
+      return { id, name: u?.name ?? 'Responsável', avatar: u?.avatar };
     });
-
     const primaryAssignee = assigneesList[0];
 
     const todayStr = new Date().toISOString().split('T')[0];
@@ -489,11 +488,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       eventName: event ? event.title : undefined,
       requesterId: taskData.requesterId || currentUser.id,
       requesterName: taskData.requesterName || currentUser.name,
-      assigneeId: primaryAssignee ? primaryAssignee.id : undefined,
-      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
-      assigneeAvatar: primaryAssignee ? primaryAssignee.avatar : undefined,
+      // ── Campos canônicos ──────────────────────────────────────────
       assigneeIds,
+      // ── Campos legados para compatibilidade de UI (não vão ao Firestore) ──
+      assigneeId: primaryAssignee?.id,
+      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
+      assigneeAvatar: primaryAssignee?.avatar,
       assignees: assigneesList,
+      // ─────────────────────────────────────────────────────────────
       approverId: taskData.approverId,
       approverName: taskData.approverName,
       requestedAt: new Date().toISOString(),
@@ -548,30 +550,31 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const event = task.eventId ? rawEvents.find((e) => e.id === task.eventId) : undefined;
     const campus = task.campusId ? campuses.find((c) => c.id === task.campusId) : undefined;
 
-    const assigneeIds = task.assigneeIds && task.assigneeIds.length > 0 
-      ? task.assigneeIds 
-      : task.assigneeId ? [task.assigneeId] : [];
-    
+    // Consolidar assigneeIds a partir de qualquer campo preenchido
+    const assigneeIds: string[] =
+      task.assigneeIds && task.assigneeIds.length > 0
+        ? task.assigneeIds
+        : task.assigneeId ? [task.assigneeId] : [];
+
+    // Lookup de display data — derivado dos orgUsers em memória (não persistido no Firestore)
     const assigneesList = assigneeIds.map((id) => {
       const u = orgUsers.find((user) => user.id === id);
-      return {
-        id,
-        name: u ? u.name : 'Responsável',
-        avatar: u ? u.avatar : undefined,
-      };
+      return { id, name: u?.name ?? 'Responsável', avatar: u?.avatar };
     });
-
     const primaryAssignee = assigneesList[0];
 
     const updatedTask: Task = {
       ...task,
       campusName: campus ? campus.name : 'Toda a Organização',
       eventName: event ? event.title : undefined,
-      assigneeId: primaryAssignee ? primaryAssignee.id : undefined,
-      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
-      assigneeAvatar: primaryAssignee ? primaryAssignee.avatar : undefined,
+      // ── Campos canônicos ──────────────────────────────────────────
       assigneeIds,
+      // ── Campos legados para compatibilidade de UI (não vão ao Firestore) ──
+      assigneeId: primaryAssignee?.id,
+      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
+      assigneeAvatar: primaryAssignee?.avatar,
       assignees: assigneesList,
+      // ─────────────────────────────────────────────────────────────
       updatedAt: new Date().toISOString(),
     };
 
