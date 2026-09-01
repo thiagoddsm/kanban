@@ -121,6 +121,9 @@ interface DataContextType {
   setFilterDemandType: (val: string) => void;
   filterCampusId: string;
   setFilterCampusId: (val: string) => void;
+  filterTag: string;
+  setFilterTag: (val: string) => void;
+  allTags: string[];
   searchQuery: string;
   setSearchQuery: (val: string) => void;
   clearFilters: () => void;
@@ -262,7 +265,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [filterPriority, setFilterPriority] = useState('');
   const [filterDemandType, setFilterDemandType] = useState('');
   const [filterCampusId, setFilterCampusId] = useState('');
+  const [filterTag, setFilterTag] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    scopedTasks.forEach((t) => {
+      if (t.tags) {
+        t.tags.forEach((tag) => {
+          if (tag.trim()) set.add(tag.trim());
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }, [scopedTasks]);
 
   const clearFilters = () => {
     setFilterOnlyMyTasks(false);
@@ -271,6 +287,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setFilterPriority('');
     setFilterDemandType('');
     setFilterCampusId('');
+    setFilterTag('');
     setSearchQuery('');
   };
 
@@ -289,6 +306,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       if (filterPriority && t.priority !== filterPriority) return false;
       if (filterDemandType && t.demandType !== filterDemandType) return false;
+      if (filterTag) {
+        if (!t.tags || !t.tags.includes(filterTag)) return false;
+      }
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesTitle = t.title.toLowerCase().includes(query);
@@ -310,6 +330,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     filterAssigneeId,
     filterPriority,
     filterDemandType,
+    filterTag,
     searchQuery,
     currentUser.id,
   ]);
@@ -1100,6 +1121,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setFilterDemandType,
         filterCampusId,
         setFilterCampusId,
+        filterTag,
+        setFilterTag,
+        allTags,
         searchQuery,
         setSearchQuery,
         clearFilters,
