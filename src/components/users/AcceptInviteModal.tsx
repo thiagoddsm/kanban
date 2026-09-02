@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { StorageService } from '../../services/storageService';
+import { FirestoreRepository } from '../../services/firestoreRepository';
 import { Membership } from '../../types';
 import { Sparkles, Building2, CheckCircle2, ArrowRight } from 'lucide-react';
 
@@ -47,6 +48,7 @@ export const AcceptInviteModal: React.FC = () => {
       updatedAt: new Date().toISOString(),
     };
     StorageService.updateMembership(updated);
+    FirestoreRepository.saveMembership(updated);
 
     if (org) {
       switchOrganization(org.id);
