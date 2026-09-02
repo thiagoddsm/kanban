@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { Organization, TenantPlan } from '../../types';
@@ -23,9 +24,9 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [plan, setPlan] = useState<TenantPlan>('PRO');
+  const [plan, setPlan] = useState<TenantPlan>('STARTER');
   const [primaryColor, setPrimaryColor] = useState('#4f46e5');
-  const [secondaryColor, setSecondaryColor] = useState('#818cf8');
+  const [secondaryColor, setSecondaryColor] = useState('#7c3aed');
   const [logoUrl, setLogoUrl] = useState('');
   const [isConfirmDelete, setIsConfirmDelete] = useState(false);
 
@@ -33,9 +34,9 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
     if (organization) {
       setName(organization.name || '');
       setSlug(organization.slug || '');
-      setPlan(organization.subscription?.plan || 'PRO');
+      setPlan(organization.subscription?.plan || 'STARTER');
       setPrimaryColor(organization.branding?.primaryColor || '#4f46e5');
-      setSecondaryColor(organization.branding?.secondaryColor || '#818cf8');
+      setSecondaryColor(organization.branding?.secondaryColor || '#7c3aed');
       setLogoUrl(organization.branding?.logoUrl || '');
       setIsConfirmDelete(false);
     }
@@ -45,8 +46,8 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !slug.trim()) {
-      notifyError('Campos obrigatórios', 'Por favor preencha o nome e o identificador (slug) da organização.');
+    if (!name.trim()) {
+      notifyError('Campo obrigatório', 'O nome da organização não pode ficar vazio.');
       return;
     }
 
@@ -79,7 +80,7 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
     }
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div 
         className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 space-y-6 animate-scale-up"
@@ -270,4 +271,6 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

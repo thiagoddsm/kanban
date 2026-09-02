@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useAccess } from '../../context/AccessContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -51,7 +52,7 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div 
         className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6 animate-scale-up max-h-[90vh] flex flex-col"
@@ -323,4 +324,6 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
       />
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { Campus } from '../../types';
@@ -71,7 +72,7 @@ export const EditCampusModal: React.FC<EditCampusModalProps> = ({ campus, isOpen
     }
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
       <div 
         className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 space-y-6 animate-scale-up"
@@ -242,4 +243,6 @@ export const EditCampusModal: React.FC<EditCampusModalProps> = ({ campus, isOpen
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

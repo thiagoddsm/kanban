@@ -276,10 +276,11 @@ export const Header: React.FC<HeaderProps> = ({
           {canCreateDemand && (
             <button
               onClick={onOpenDemandPortal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>Solicitar Demanda</span>
+              <span className="hidden sm:inline">Solicitar Demanda</span>
+              <span className="sm:hidden">Demanda</span>
             </button>
           )}
 
