@@ -79,20 +79,22 @@ export const RegisterPage: React.FC = () => {
 
     try {
       // 1. Create User in Firebase Auth
-      await signUpWithEmail(adminName.trim(), adminEmail.trim(), password);
+      const newAdminUser = await signUpWithEmail(adminName.trim(), adminEmail.trim(), password);
 
       // 2. Create Organization, Campus & Admin Membership in Firestore
       const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
       createOrganization(
         churchName.trim(),
         cleanSlug,
-        city.trim() || 'Cidade Principal',
         mainCampusName.trim() || 'Sede Principal',
-        selectedPlan
+        city.trim() || 'Cidade Principal',
+        selectedPlan,
+        newAdminUser
       );
 
       success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
       navigate(`/${cleanSlug}/dashboard`);
+
     } catch (err: any) {
       console.error('Registration Error:', err);
     } finally {

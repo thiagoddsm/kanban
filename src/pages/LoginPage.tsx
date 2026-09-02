@@ -20,7 +20,7 @@ import {
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { loginWithGoogle, loginWithEmail, resetPassword, isLoadingAuth, authError, setAuthError } = useAuth();
-  const { currentOrganization } = useTenant();
+  const { currentOrganization, findAndSwitchUserOrg } = useTenant();
   const { success } = useNotification();
 
   const [email, setEmail] = useState('');
@@ -35,9 +35,10 @@ export const LoginPage: React.FC = () => {
     if (!email.trim() || !password) return;
 
     try {
-      await loginWithEmail(email.trim(), password);
+      const loggedUser = await loginWithEmail(email.trim(), password);
       success('Login realizado com sucesso!');
-      navigate(`/${currentOrganization.slug || 'minha-igreja'}/dashboard`);
+      const targetOrg = loggedUser ? await findAndSwitchUserOrg(loggedUser.id) : currentOrganization;
+      navigate(`/${targetOrg?.slug || currentOrganization.slug || 'minha-igreja'}/dashboard`);
     } catch {
       // Error message is set in AuthContext
     }
@@ -45,13 +46,15 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      await loginWithGoogle();
+      const loggedUser = await loginWithGoogle();
       success('Login via Google realizado com sucesso!');
-      navigate(`/${currentOrganization.slug || 'minha-igreja'}/dashboard`);
+      const targetOrg = loggedUser ? await findAndSwitchUserOrg(loggedUser.id) : currentOrganization;
+      navigate(`/${targetOrg?.slug || currentOrganization.slug || 'minha-igreja'}/dashboard`);
     } catch {
       // Handled
     }
   };
+
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

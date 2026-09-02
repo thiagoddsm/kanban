@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership, Task, ChurchEvent, Comment } from '../types';
+import { User, Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership, Task, ChurchEvent, Comment } from '../types';
+
+
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
@@ -21,8 +23,10 @@ interface TenantContextType {
     mainCampusName: string, 
     city: string, 
     plan?: TenantPlan, 
-    creatorUser?: User
+    creatorUser?: User | null | void
   ) => Organization;
+
+
   findAndSwitchUserOrg: (userId: string) => Promise<Organization | null>;
   updateOrganization: (orgId: string, data: Partial<Organization>) => void;
 
@@ -159,8 +163,12 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     slug: string,
     mainCampusName: string,
     city: string,
-    plan: TenantPlan = 'PRO'
+    plan: TenantPlan = 'PRO',
+    creatorUser?: User | null | void
   ): Organization => {
+
+
+    const adminUser = creatorUser || currentUser;
     const orgId = 'org_' + slug.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36).substring(2, 5);
 
     const newOrg: Organization = {
@@ -209,8 +217,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     StorageService.addCampus(mainCampus);
 
     const membership: Membership = {
-      id: 'mem_' + currentUser.id + '_' + orgId,
-      userId: currentUser.id,
+      id: 'mem_' + adminUser.id + '_' + orgId,
+      userId: adminUser.id,
       organizationId: orgId,
       hasOrgWideAccess: true,
       campusIds: [],
@@ -225,8 +233,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: orgId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: adminUser.id,
+      userName: adminUser.name,
       action: `criou a organização ${name} (Plano ${plan})`,
       securityEvent: 'MEMBERSHIP_CREATED',
       targetType: 'organization',
@@ -249,9 +257,9 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       location: mainCampus.name,
       campusId: mainCampus.id,
       campusName: mainCampus.name,
-      leaderId: currentUser.id,
-      leaderName: currentUser.name,
-      teamIds: [currentUser.id],
+      leaderId: adminUser.id,
+      leaderName: adminUser.name,
+      teamIds: [adminUser.id],
       bannerColor: 'from-indigo-600 to-purple-600',
       isArchived: false,
       createdAt: new Date().toISOString(),
@@ -272,11 +280,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       demandType: 'EVENTO',
       eventId: initialEvent.id,
       eventName: initialEvent.title,
-      requesterId: currentUser.id,
-      requesterName: currentUser.name,
-      assigneeIds: [currentUser.id],
-      assigneeId: currentUser.id,
-      assigneeName: currentUser.name,
+      requesterId: adminUser.id,
+      requesterName: adminUser.name,
+      assigneeIds: [adminUser.id],
+      assigneeId: adminUser.id,
+      assigneeName: adminUser.name,
       requestedAt: new Date().toISOString(),
       startDate: new Date().toISOString().split('T')[0],
       deadline: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
@@ -291,8 +299,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ],
       commentsCount: 1,
       isArchived: false,
-      createdBy: currentUser.id,
-      createdByName: currentUser.name,
+      createdBy: adminUser.id,
+      createdByName: adminUser.name,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -303,9 +311,9 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       id: 'cmt_' + orgId + '_welcome',
       organizationId: orgId,
       taskId: initialTask.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
+      userId: adminUser.id,
+      userName: adminUser.name,
+      userAvatar: adminUser.avatar,
       userRole: 'ADMIN',
       content: 'Bem-vindo ao Oiko Gestão Integrada! Use este espaço para alinhar detalhes, briefing e anexos com sua equipe.',
       createdAt: new Date().toISOString(),
@@ -339,6 +347,42 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     success(`Organização ${name} criada com sucesso!`);
     return newOrg;
   };
+
+  const findAndSwitchUserOrg = async (userId: string): Promise<Organization | null> => {
+    // 1. Procurar nas memberships locais
+    const allMemberships = StorageService.getMemberships();
+    const userMem = allMemberships.find((m) => m.userId === userId && m.status === 'ACTIVE');
+    if (userMem) {
+      const org = organizations.find((o) => o.id === userMem.organizationId);
+      if (org) {
+        switchOrganization(org.id, true);
+        return org;
+      }
+    }
+
+    // 2. Se não encontrou nas memberships locais, verificar no Firestore
+    try {
+      const remoteOrgs = await FirestoreRepository.fetchOrganizations();
+      if (remoteOrgs && remoteOrgs.length > 0) {
+        setOrganizations(remoteOrgs);
+        for (const org of remoteOrgs) {
+          const mems = await FirestoreRepository.fetchMemberships(org.id);
+          if (mems && mems.some((m) => m.userId === userId && m.status === 'ACTIVE')) {
+            switchOrganization(org.id, true);
+            return org;
+          }
+        }
+        // Fallback: primeira org da lista
+        switchOrganization(remoteOrgs[0].id, true);
+        return remoteOrgs[0];
+      }
+    } catch (e) {
+      console.warn('Erro ao resolver organização do usuário no Firestore:', e);
+    }
+
+    return currentOrganization;
+  };
+
 
   const updateOrganization = (orgId: string, data: Partial<Organization>) => {
     const org = organizations.find((o) => o.id === orgId);
@@ -507,7 +551,9 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         switchOrganizationBySlug,
         switchCampus,
         createOrganization,
+        findAndSwitchUserOrg,
         updateOrganization,
+
         deleteOrganization,
         createCampus,
         updateCampus,
