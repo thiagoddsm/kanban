@@ -25,6 +25,7 @@ interface AuthContextType {
   loginWithEmail: (email: string, pass: string) => Promise<User | void>;
   signUpWithEmail: (name: string, email: string, pass: string) => Promise<User | void>;
   resetPassword: (email: string) => Promise<void>;
+  updateUserProfile: (data: Partial<User>) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -268,6 +269,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateUserProfile = async (data: Partial<User>) => {
+    const updatedUser: User = {
+      ...currentUser,
+      ...data,
+    };
+
+    if (auth && auth.currentUser) {
+      try {
+        await updateProfile(auth.currentUser, {
+          displayName: updatedUser.name,
+          photoURL: updatedUser.avatar || null,
+        });
+      } catch (e) {
+        console.warn('Erro ao atualizar perfil no Firebase Auth:', e);
+      }
+    }
+
+    const updated = StorageService.updateUser(updatedUser);
+    setUsers(updated);
+    setCurrentUserState(updatedUser);
+    await FirestoreRepository.syncUser(updatedUser);
+  };
+
   const logout = async () => {
     setIsLoadingAuth(true);
     if (auth) {
@@ -289,7 +313,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoadingAuth(false);
   };
 
-
   return (
     <AuthContext.Provider
       value={{
@@ -304,6 +327,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithEmail,
         signUpWithEmail,
         resetPassword,
+        updateUserProfile,
         logout,
       }}
     >

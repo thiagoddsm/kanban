@@ -102,16 +102,17 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
 
     return () => unsub();
-  }, [currentOrganization.id, currentUser.id]);
+  }, [currentOrganization.id, currentUser?.id]);
 
   // Current active membership in the selected organization
   const currentMembership = useMemo(() => {
+    if (!currentUser) return null;
     return (
       memberships.find(
         (m) => m.userId === currentUser.id && m.organizationId === currentOrganization.id && m.status === 'ACTIVE'
       ) || null
     );
-  }, [memberships, currentUser.id, currentOrganization.id]);
+  }, [memberships, currentUser?.id, currentOrganization.id]);
 
   // O papel do usuário vem exclusivamente da membership ativa no Firestore.
   // Não existe mais superadmin baseado em e-mail hardcoded.
@@ -131,8 +132,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const auditLog: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: currentUser?.id || 'anonymous',
+        userName: currentUser?.name || 'Anônimo',
         action: `tentou executar ação não autorizada: ${permission}`,
         securityEvent: 'PERMISSION_DENIED',
         targetType: 'security',
@@ -147,16 +148,18 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Orgs acessíveis: apenas onde o usuário tem membership ACTIVE
   const accessibleOrganizations = useMemo(() => {
+    if (!currentUser) return [];
     const userOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
 
     return organizations.filter((o) => userOrgIds.includes(o.id));
-  }, [organizations, memberships, currentUser.id]);
+  }, [organizations, memberships, currentUser?.id]);
 
   // Campi acessíveis: depende da membership e do hasOrgWideAccess
   const accessibleCampuses = useMemo(() => {
     if (!currentMembership) return [];
+
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return campuses;
     }
@@ -173,6 +176,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const switchRoleInCurrentOrg = (newRole: UserRole) => {
+    if (!currentUser) return;
     if (currentMembership) {
       const updated: Membership = {
         ...currentMembership,
@@ -217,6 +221,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       success(`Associado a ${currentOrganization.name} como: ${newRole}`);
     }
   };
+
 
   const addMemberToOrg = (
     userEmail: string,
@@ -268,8 +273,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Administrador',
       action: `convidou o membro ${userName} (${userEmail}) como ${role}`,
       securityEvent: 'USER_INVITED',
       targetType: 'security',
@@ -305,8 +310,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const auditLog: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: currentUser?.id || 'sys',
+        userName: currentUser?.name || 'Administrador',
         action: `alterou o papel do membro para ${newRole}`,
         securityEvent: 'USER_ROLE_CHANGED',
         oldValue: mem.role,
@@ -338,8 +343,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const auditLog: ActivityLog = {
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: currentUser?.id || 'sys',
+        userName: currentUser?.name || 'Administrador',
         action: status === 'SUSPENDED' ? 'suspendeu a função do membro' : 'reativou o acesso do membro',
         securityEvent: status === 'SUSPENDED' ? 'USER_SUSPENDED' : 'USER_ACTIVATED',
         targetType: 'security',
@@ -368,8 +373,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Administrador',
       action: `removeu o vínculo do membro`,
       securityEvent: 'USER_REMOVED',
       targetType: 'security',
@@ -378,6 +383,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
+
     FirestoreRepository.recordActivity(auditLog);
 
     success('Membro removido da organização.');

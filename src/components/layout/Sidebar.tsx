@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -17,6 +17,7 @@ import { useAccess } from '../../context/AccessContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { TenantSwitcher } from '../tenants/TenantSwitcher';
+import { MyAccountModal } from '../auth/MyAccountModal';
 
 interface SidebarProps {
   activeTab: NavigationTab;
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { currentRole, isAdmin } = useAccess();
   const { currentUser } = useAuth();
   const { currentOrganization } = useTenant();
+  const [isMyAccountOpen, setIsMyAccountOpen] = useState(false);
 
   const menuItems: { id: NavigationTab; label: string; icon: any; adminOnly?: boolean }[] = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
@@ -126,16 +128,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* User Footer with Role */}
-        <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/40">
+        <div 
+          onClick={() => setIsMyAccountOpen(true)}
+          className="p-3.5 border-t border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/80 cursor-pointer transition-colors group"
+          title="Clique para abrir Minha Conta & Perfil"
+        >
           <div className="flex items-center gap-3">
             <img
               src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt={currentUser.name}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-indigo-500/30 shrink-0"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 shrink-0"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-1">
-                <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                <p className="text-xs font-bold text-white group-hover:text-indigo-300 truncate transition-colors">{currentUser.name}</p>
                 <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase">
                   {currentRole}
                 </span>
@@ -145,6 +151,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       </aside>
+
+      {/* Modal Minha Conta & Perfil */}
+      <MyAccountModal
+        isOpen={isMyAccountOpen}
+        onClose={() => setIsMyAccountOpen(false)}
+      />
     </>
   );
 };

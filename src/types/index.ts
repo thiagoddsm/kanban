@@ -52,6 +52,9 @@ export interface User {
   email: string;
   avatar?: string;
   phone?: string;
+  whatsapp?: string;
+  notifyWhatsApp?: boolean;
+  notifyEmail?: boolean;
   createdAt?: string;
   organizationIds?: string[];
   activeOrganizationId?: string;

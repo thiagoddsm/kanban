@@ -5,7 +5,7 @@ import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { UserRole } from '../../types';
-import { Shield, ChevronDown, Check, LogIn, LogOut, UserPlus, UserCheck, Sparkles, Globe } from 'lucide-react';
+import { ChevronDown, Check, LogIn, LogOut, UserPlus, Globe } from 'lucide-react';
 import { AuthModal } from './AuthModal';
 
 const ROLES: { role: UserRole; label: string; desc: string; color: string }[] = [
@@ -17,8 +17,8 @@ const ROLES: { role: UserRole; label: string; desc: string; color: string }[] = 
 
 export const RoleSwitcher: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, users, switchUser, logout } = useAuth();
-  const { currentRole } = useAccess();
+  const { currentUser, logout } = useAuth();
+  const { currentRole, switchRoleInCurrentOrg } = useAccess();
   const { currentOrganization } = useTenant();
   const { success } = useNotification();
 
@@ -37,6 +37,11 @@ export const RoleSwitcher: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleRoleSelect = (role: UserRole) => {
+    switchRoleInCurrentOrg(role);
+    setIsOpen(false);
+  };
+
   const handleLogout = async () => {
     await logout();
     setIsOpen(false);
@@ -45,6 +50,18 @@ export const RoleSwitcher: React.FC = () => {
   };
 
   const currentRoleConfig = ROLES.find((r) => r.role === currentRole) || ROLES[0];
+
+  if (!currentUser) {
+    return (
+      <button
+        onClick={() => navigate('/login')}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-all shadow-md"
+      >
+        <LogIn className="w-3.5 h-3.5" />
+        <span>Fazer Login</span>
+      </button>
+    );
+  }
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -80,6 +97,35 @@ export const RoleSwitcher: React.FC = () => {
             </div>
           </div>
 
+          {/* Role / Function Switcher (Simulação RBAC) */}
+          <div className="space-y-1 pt-1 border-t border-slate-800">
+            <div className="flex items-center justify-between px-1 py-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Função / Papel Ativo
+              </span>
+              <span className="text-[9px] text-indigo-400">Simulação RBAC</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 pt-1">
+              {ROLES.map(({ role, color }) => {
+                const isActive = currentRole === role;
+                return (
+                  <button
+                    key={role}
+                    onClick={() => handleRoleSelect(role)}
+                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold border transition-all text-left ${
+                      isActive
+                        ? `${color} ring-1 ring-white/20 font-bold`
+                        : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <span className="truncate">{role}</span>
+                    {isActive && <Check className="w-3.5 h-3.5 shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Account Actions */}
           <div className="space-y-1 pt-1 border-t border-slate-800">
             <button
@@ -105,6 +151,7 @@ export const RoleSwitcher: React.FC = () => {
               <UserPlus className="w-4 h-4 text-purple-400" />
               <span>Criar Nova Conta</span>
             </button>
+
             <Link
               to="/"
               onClick={() => setIsOpen(false)}
