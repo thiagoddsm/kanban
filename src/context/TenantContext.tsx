@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership } from '../types';
+import { Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership, Task, ChurchEvent, Comment } from '../types';
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
+import { DEMAND_TYPES, DEFAULT_EVENT_CATEGORIES, DEFAULT_DEPARTMENTS } from '../services/mockData';
 import { useAuth } from './AuthContext';
 import { useNotification } from './NotificationContext';
 
@@ -226,11 +227,100 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
     StorageService.addActivity(auditLog);
 
-    // Sync to Cloud Firestore in Real-Time
+    // Initial Event / Project
+    const initialEvent: ChurchEvent = {
+      id: 'evt_' + orgId + '_inaugural',
+      organizationId: orgId,
+      title: 'Planejamento Estratégico & Implantação',
+      description: `Projeto inicial para a implantação e operação integrada de ${name}.`,
+      category: 'OUTRO',
+      status: 'PLANNING',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      location: mainCampus.name,
+      campusId: mainCampus.id,
+      campusName: mainCampus.name,
+      leaderId: currentUser.id,
+      leaderName: currentUser.name,
+      teamIds: [currentUser.id],
+      bannerColor: 'from-indigo-600 to-purple-600',
+      isArchived: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    StorageService.addEvent(initialEvent);
+
+    // Initial Task / Demand
+    const initialTask: Task = {
+      id: 'tsk_' + orgId + '_welcome',
+      organizationId: orgId,
+      campusId: mainCampus.id,
+      campusName: mainCampus.name,
+      title: 'Configurar equipe, congregações e primeiras demandas da igreja',
+      description: 'Seja bem-vindo ao Oiko Gestão! Convide seus líderes no menu Usuários & Convites e comece a registrar suas demandas operacionais.',
+      status: 'INBOX',
+      priority: 'HIGH',
+      demandType: 'EVENTO',
+      eventId: initialEvent.id,
+      eventName: initialEvent.title,
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      assigneeIds: [currentUser.id],
+      assigneeId: currentUser.id,
+      assigneeName: currentUser.name,
+      requestedAt: new Date().toISOString(),
+      startDate: new Date().toISOString().split('T')[0],
+      deadline: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      effortEstimate: 'Médio',
+      tags: ['Implantação', 'Configuração'],
+      attachmentLinks: [],
+      dependencies: [],
+      checklist: [
+        { id: 'chk_1', text: 'Convidar pastores e líderes de ministérios', completed: false },
+        { id: 'chk_2', text: 'Cadastrar outras congregações / campi se houver', completed: false },
+        { id: 'chk_3', text: 'Abrir a primeira solicitação no botão Solicitar Demanda', completed: false }
+      ],
+      commentsCount: 1,
+      isArchived: false,
+      createdBy: currentUser.id,
+      createdByName: currentUser.name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    StorageService.addTask(initialTask);
+
+    // Initial Comment
+    const initialComment: Comment = {
+      id: 'cmt_' + orgId + '_welcome',
+      organizationId: orgId,
+      taskId: initialTask.id,
+      userId: currentUser.id,
+      userName: currentUser.name,
+      userAvatar: currentUser.avatar,
+      userRole: 'ADMIN',
+      content: 'Bem-vindo ao Oiko Gestão Integrada! Use este espaço para alinhar detalhes, briefing e anexos com sua equipe.',
+      createdAt: new Date().toISOString(),
+    };
+    StorageService.addComment(initialComment);
+
+    // Initial Config
+    StorageService.saveDemandTypes(orgId, DEMAND_TYPES);
+    StorageService.saveEventCategories(orgId, DEFAULT_EVENT_CATEGORIES as any);
+    StorageService.saveDepartments(orgId, DEFAULT_DEPARTMENTS);
+
+    // Sync ALL to Cloud Firestore in Real-Time
     FirestoreRepository.saveOrganization(newOrg);
     FirestoreRepository.saveCampus(mainCampus);
     FirestoreRepository.saveMembership(membership);
     FirestoreRepository.recordActivity(auditLog);
+    FirestoreRepository.saveEvent(initialEvent);
+    FirestoreRepository.saveTask(initialTask);
+    FirestoreRepository.saveComment(initialComment);
+    FirestoreRepository.saveOrgConfig(orgId, {
+      demandTypes: DEMAND_TYPES,
+      eventCategories: DEFAULT_EVENT_CATEGORIES as any,
+      departments: DEFAULT_DEPARTMENTS,
+    });
 
     setOrganizations(updatedOrgs);
     setCurrentOrganization(newOrg);
