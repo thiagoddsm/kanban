@@ -11,7 +11,9 @@ import {
   orderBy,
   limit,
   startAfter,
-  onSnapshot
+  onSnapshot,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { StorageService } from './storageService';
@@ -208,6 +210,13 @@ export class FirestoreRepository {
       const memRef = doc(db, 'organizations', membership.organizationId, 'memberships', membership.userId);
       const sanitized = sanitizeForFirestore(membership);
       await setDoc(memRef, sanitized, { merge: true });
+
+      // Vínculo bidirecional: registra a organização no perfil do usuário
+      const userRef = doc(db, 'users', membership.userId);
+      await setDoc(userRef, {
+        organizationIds: arrayUnion(membership.organizationId),
+      }, { merge: true });
+
       console.log('✅ Membership gravado no Firestore (doc key = userId):', membership.userId, '| membership.id:', membership.id);
     } catch (e) {
       console.error('Erro ao gravar membership no Firestore:', e);
@@ -265,6 +274,13 @@ export class FirestoreRepository {
     try {
       const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
       await deleteDoc(memRef);
+
+      // Remove a organização do perfil do usuário
+      const userRef = doc(db, 'users', userId);
+      await setDoc(userRef, {
+        organizationIds: arrayRemove(orgId),
+      }, { merge: true });
+
       console.log('✅ Membership excluído do Firestore:', userId);
     } catch (e) {
       console.error('Erro ao excluir membership do Firestore:', e);

@@ -15,8 +15,17 @@ interface TenantContextType {
   switchOrganization: (orgId: string) => void;
   switchOrganizationBySlug: (slug: string) => boolean;
   switchCampus: (campusId: string | null) => void;
-  createOrganization: (name: string, slug: string, mainCampusName: string, city: string, plan?: TenantPlan) => Organization;
+  createOrganization: (
+    name: string, 
+    slug: string, 
+    mainCampusName: string, 
+    city: string, 
+    plan?: TenantPlan, 
+    creatorUser?: User
+  ) => Organization;
+  findAndSwitchUserOrg: (userId: string) => Promise<Organization | null>;
   updateOrganization: (orgId: string, data: Partial<Organization>) => void;
+
   deleteOrganization: (orgId: string) => boolean;
   createCampus: (name: string, code: string, city: string, address?: string) => Campus | null;
   updateCampus: (campusId: string, data: Partial<Campus>) => void;

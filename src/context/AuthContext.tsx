@@ -21,12 +21,13 @@ interface AuthContextType {
   setAuthError: (err: string | null) => void;
   setCurrentUser: (user: User) => void;
   switchUser: (userId: string) => void;
-  loginWithGoogle: () => Promise<void>;
-  loginWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (name: string, email: string, pass: string) => Promise<void>;
+  loginWithGoogle: () => Promise<User | null | void>;
+  loginWithEmail: (email: string, pass: string) => Promise<User | void>;
+  signUpWithEmail: (name: string, email: string, pass: string) => Promise<User | void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -115,24 +116,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (): Promise<User | null> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth && googleProvider) {
       try {
         const result = await signInWithPopup(auth, googleProvider);
         const fbUser = result.user;
-        const newUser: User = {
+        const allUsers = StorageService.getUsers();
+        const existing = allUsers.find((u) => u.email.toLowerCase() === fbUser.email?.toLowerCase());
+
+        const userObj: User = existing || {
           id: fbUser.uid,
           name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Novo Usuário',
           email: fbUser.email || '',
           avatar: fbUser.photoURL || undefined,
           createdAt: new Date().toISOString(),
         };
-        const updated = StorageService.addUser(newUser);
-        setUsers(updated);
-        FirestoreRepository.syncUser(newUser);
-        setCurrentUserState(newUser);
+
+        if (!existing) {
+          const updated = StorageService.addUser(userObj);
+          setUsers(updated);
+          FirestoreRepository.syncUser(userObj);
+        }
+        setCurrentUserState(userObj);
+        return userObj;
       } catch (err: any) {
         console.warn('Google Auth Error:', err);
         setAuthError(getFirebaseAuthErrorMessage(err?.code || ''));
@@ -142,10 +150,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } else {
       setIsLoadingAuth(false);
+      return currentUser;
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string) => {
+  const loginWithEmail = async (email: string, pass: string): Promise<User> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth) {
@@ -154,9 +163,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const fbUser = res.user;
         const allUsers = StorageService.getUsers();
         const existing = allUsers.find((u) => u.email.toLowerCase() === fbUser.email?.toLowerCase());
-        if (existing) {
-          setCurrentUserState(existing);
+        const userObj: User = existing || {
+          id: fbUser.uid,
+          name: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuário',
+          email: fbUser.email || email.trim(),
+          avatar: fbUser.photoURL || undefined,
+          createdAt: new Date().toISOString(),
+        };
+
+        if (!existing) {
+          const updated = StorageService.addUser(userObj);
+          setUsers(updated);
+          FirestoreRepository.syncUser(userObj);
         }
+        setCurrentUserState(userObj);
+        return userObj;
       } catch (err: any) {
         console.warn('Email Auth Error:', err);
         const msg = getFirebaseAuthErrorMessage(err?.code || '');
@@ -170,16 +191,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
       if (found) {
         setCurrentUserState(found);
+        setIsLoadingAuth(false);
+        return found;
       } else {
         const msg = 'Usuário não encontrado.';
         setAuthError(msg);
+        setIsLoadingAuth(false);
         throw new Error(msg);
       }
-      setIsLoadingAuth(false);
     }
   };
 
-  const signUpWithEmail = async (name: string, email: string, pass: string) => {
+  const signUpWithEmail = async (name: string, email: string, pass: string): Promise<User> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth) {
@@ -201,6 +224,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUsers(updated);
         FirestoreRepository.syncUser(newUser);
         setCurrentUserState(newUser);
+        return newUser;
       } catch (err: any) {
         console.warn('Sign Up Error:', err);
         const msg = getFirebaseAuthErrorMessage(err?.code || '');
@@ -220,8 +244,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUsers(updated);
       setCurrentUserState(newUser);
       setIsLoadingAuth(false);
+      return newUser;
     }
   };
+
 
   const resetPassword = async (email: string) => {
     setIsLoadingAuth(true);

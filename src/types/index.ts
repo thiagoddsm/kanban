@@ -53,6 +53,8 @@ export interface User {
   avatar?: string;
   phone?: string;
   createdAt?: string;
+  organizationIds?: string[];
+  activeOrganizationId?: string;
 }
 
 export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
