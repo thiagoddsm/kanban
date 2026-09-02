@@ -237,14 +237,13 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="pt-1 mt-1 border-t border-slate-800">
                     <button
                       onClick={() => {
-                        localStorage.clear();
-                        sessionStorage.clear();
+                        setIsToolsMenuOpen(false);
                         window.location.reload();
                       }}
-                      className="w-full px-3.5 py-2 text-left text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2.5 transition-colors"
+                      className="w-full px-3.5 py-2 text-left text-indigo-300 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-medium"
                     >
-                      <RotateCcw className="w-4 h-4 text-rose-400" />
-                      <span>Limpar Cache & Recarregar</span>
+                      <RotateCcw className="w-4 h-4 text-indigo-400" />
+                      <span>Atualizar Dados da Nuvem</span>
                     </button>
                   </div>
                 </div>
