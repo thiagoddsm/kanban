@@ -211,13 +211,16 @@ export class FirestoreRepository {
       const sanitized = sanitizeForFirestore(membership);
       await setDoc(memRef, sanitized, { merge: true });
 
-      // Vínculo bidirecional: registra a organização no perfil do usuário
+      // Vínculo bidirecional: registra o tenantId e a organização no perfil do usuário
       const userRef = doc(db, 'users', membership.userId);
       await setDoc(userRef, {
+        tenantId: membership.organizationId,
+        activeOrganizationId: membership.organizationId,
         organizationIds: arrayUnion(membership.organizationId),
       }, { merge: true });
 
-      console.log('✅ Membership gravado no Firestore (doc key = userId):', membership.userId, '| membership.id:', membership.id);
+      console.log('✅ Membership e tenantId gravados no Firestore para /users/' + membership.userId, '-> org:', membership.organizationId);
+
     } catch (e) {
       console.error('Erro ao gravar membership no Firestore:', e);
     }
@@ -699,7 +702,40 @@ export class FirestoreRepository {
   }
 
   /**
+   * Backfills missing tenantId on /users/{userId} based on active memberships
+   */
+  public static async backfillMissingUserTenants(): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const orgs = await this.fetchOrganizations();
+      for (const org of orgs) {
+        const mems = await this.fetchMemberships(org.id);
+        for (const mem of mems) {
+          if (mem.userId) {
+            const userRef = doc(db, 'users', mem.userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+              const uData = userSnap.data() as User;
+              if (!uData.tenantId) {
+                await setDoc(userRef, {
+                  tenantId: mem.organizationId,
+                  activeOrganizationId: mem.organizationId,
+                  organizationIds: arrayUnion(mem.organizationId),
+                }, { merge: true });
+                console.log(`✅ Backfill tenantId aplicado em /users/${mem.userId} -> ${mem.organizationId}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro durante backfillMissingUserTenants:', e);
+    }
+  }
+
+  /**
    * Fetch Organization Custom Configuration Lists from Firestore
+
    */
   public static async fetchOrgConfig(orgId: string): Promise<{ demandTypes?: any[]; eventCategories?: any[]; departments?: any[] } | null> {
     if (!isFirebaseConfigured || !db) return null;

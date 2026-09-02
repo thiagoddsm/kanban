@@ -58,7 +58,11 @@ export interface User {
   createdAt?: string;
   organizationIds?: string[];
   activeOrganizationId?: string;
+  tenantId?: string;
 }
+
+
+
 
 export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
 export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'SUSPENDED';

@@ -75,7 +75,10 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setOrganizations(remoteOrgs);
         remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
       }
+      // Auto-backfill: assegura que qualquer usuário pré-existente sem tenantId receba seu tenant no Firestore
+      FirestoreRepository.backfillMissingUserTenants();
     });
+
 
     const unsubOrgs = FirestoreRepository.subscribeOrganizations((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {

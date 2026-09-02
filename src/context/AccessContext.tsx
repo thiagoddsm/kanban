@@ -245,12 +245,24 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
         name: userName,
         email: userEmail,
+        tenantId: currentOrganization.id,
+        activeOrganizationId: currentOrganization.id,
+        organizationIds: [currentOrganization.id],
         createdAt: new Date().toISOString(),
       };
       StorageService.addUser(user);
+    } else {
+      user = {
+        ...user,
+        tenantId: user.tenantId || currentOrganization.id,
+        activeOrganizationId: user.activeOrganizationId || currentOrganization.id,
+        organizationIds: Array.from(new Set([...(user.organizationIds || []), currentOrganization.id])),
+      };
+      StorageService.updateUser(user);
     }
-    // Sync user with Firestore
+    // Sync user with Firestore (with tenantId)
     FirestoreRepository.syncUser(user);
+
 
     const newMem: Membership = {
       id: 'mem_' + user.id + '_' + currentOrganization.id,
