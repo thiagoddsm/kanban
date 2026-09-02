@@ -79,7 +79,39 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return res;
     };
 
-    FirestoreRepository.fetchMemberships(currentOrganization.id).then((remoteMems) => {
+    FirestoreRepository.fetchMemberships(currentOrganization.id).then(async (remoteMems) => {
+      try {
+        // Auto-reconciliação: recupera qualquer usuário criado que esteja sem documento de membership
+        const remoteUsers = await FirestoreRepository.fetchUsers();
+        for (const u of remoteUsers) {
+          const belongsToThisOrg = 
+            u.tenantId === currentOrganization.id || 
+            u.activeOrganizationId === currentOrganization.id || 
+            u.organizationIds?.includes(currentOrganization.id) ||
+            (!u.tenantId && !u.organizationIds?.length && u.id.startsWith('usr_'));
+
+          if (belongsToThisOrg && !remoteMems.some((m) => m.userId === u.id)) {
+            const recoveredMem: Membership = {
+              id: 'mem_' + u.id + '_' + currentOrganization.id,
+              userId: u.id,
+              organizationId: currentOrganization.id,
+              hasOrgWideAccess: true,
+              campusIds: [],
+              role: 'TEAM',
+              department: 'Comunicação',
+              status: 'ACTIVE',
+              createdAt: u.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            remoteMems.push(recoveredMem);
+            await FirestoreRepository.saveMembership(recoveredMem);
+            console.log('✅ Membro recuperado e gravado no Firestore:', u.name, u.email);
+          }
+        }
+      } catch (err) {
+        console.warn('Erro na reconciliação de membros:', err);
+      }
+
       if (remoteMems && remoteMems.length > 0) {
         setMemberships((prev) => {
           const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
@@ -89,6 +121,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         });
       }
     });
+
 
     const unsub = FirestoreRepository.subscribeMemberships(currentOrganization.id, (remoteMems) => {
       if (remoteMems && remoteMems.length > 0) {
