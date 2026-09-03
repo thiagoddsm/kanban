@@ -63,9 +63,9 @@ export const DailyDigestModal: React.FC<DailyDigestModalProps> = ({
             <span>Resumo do Dia</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            Bom dia, {currentUser.name.split(' ')[0]}!
+            Bom dia, {currentUser?.name ? currentUser.name.split(' ')[0] : 'Líder'}!
           </h2>
-          <p className="text-xs text-slate-400 capitalize">{todayFormatted} • {currentOrganization.name}</p>
+          <p className="text-xs text-slate-400 capitalize">{todayFormatted} • {currentOrganization?.name || 'Igreja'}</p>
         </div>
 
         {/* Quick KPI Highlights */}

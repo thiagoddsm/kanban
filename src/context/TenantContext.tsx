@@ -5,7 +5,7 @@ import { User, Organization, Campus, TenantPlan, OrganizationBranding, ActivityL
 import { StorageService } from '../services/storageService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
-import { DEMAND_TYPES, DEFAULT_EVENT_CATEGORIES, DEFAULT_DEPARTMENTS } from '../services/mockData';
+import { DEMAND_TYPES, DEFAULT_EVENT_CATEGORIES, DEFAULT_DEPARTMENTS, INITIAL_ORGANIZATIONS } from '../services/mockData';
 import { useAuth } from './AuthContext';
 import { useNotification } from './NotificationContext';
 
@@ -53,18 +53,18 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [currentOrganization, setCurrentOrganization] = useState<Organization>(() => {
     const orgs = StorageService.getOrganizations();
     const savedOrgId = localStorage.getItem(ACTIVE_ORG_KEY);
-    const found = orgs.find((o) => o.id === savedOrgId);
-    return found || orgs[0];
+    const found = orgs.find((o) => o?.id === savedOrgId);
+    return found || orgs[0] || INITIAL_ORGANIZATIONS[0];
   });
 
   const [campuses, setCampuses] = useState<Campus[]>(() => {
-    return StorageService.getCampuses(currentOrganization.id);
+    return StorageService.getCampuses(currentOrganization?.id || INITIAL_ORGANIZATIONS[0].id);
   });
 
   const [currentCampus, setCurrentCampus] = useState<Campus | null>(() => {
     const savedCampId = localStorage.getItem(ACTIVE_CAMPUS_KEY);
     if (!savedCampId || savedCampId === 'all') return null;
-    const orgCampuses = StorageService.getCampuses(currentOrganization.id);
+    const orgCampuses = StorageService.getCampuses(currentOrganization?.id || INITIAL_ORGANIZATIONS[0].id);
     return orgCampuses.find((c) => c.id === savedCampId) || null;
   });
 

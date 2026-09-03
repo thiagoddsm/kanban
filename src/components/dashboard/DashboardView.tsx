@@ -78,7 +78,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  const firstName = currentUser.name.split(' ')[0] || 'Líder';
+  const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : 'Líder';
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 custom-scrollbar max-w-7xl mx-auto">
@@ -93,7 +93,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   Olá, {firstName} 👋
                 </h1>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  {currentOrganization.name}
+                  {currentOrganization?.name || 'Igreja'}
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">

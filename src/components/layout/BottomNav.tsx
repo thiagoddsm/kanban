@@ -79,7 +79,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {currentUser?.avatar ? (
           <img
             src={currentUser.avatar}
-            alt={currentUser.name}
+            alt={currentUser?.name || 'Perfil'}
             className="w-5 h-5 rounded-full object-cover border border-slate-700"
           />
         ) : (

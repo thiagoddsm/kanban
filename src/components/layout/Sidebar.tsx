@@ -48,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Configurações & Listas', icon: Settings, adminOnly: true },
   ];
 
-  const slug = currentOrganization.slug;
+  const slug = currentOrganization?.slug || 'minha-igreja';
 
   return (
     <>
@@ -135,18 +135,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex items-center gap-3">
             <img
-              src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-              alt={currentUser.name}
+              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+              alt={currentUser?.name || 'Membro'}
               className="w-9 h-9 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 shrink-0"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-1">
-                <p className="text-xs font-bold text-white group-hover:text-indigo-300 truncate transition-colors">{currentUser.name}</p>
+                <p className="text-xs font-bold text-white group-hover:text-indigo-300 truncate transition-colors">{currentUser?.name || 'Membro'}</p>
                 <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase">
                   {currentRole}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate">{currentUser.email}</p>
+              <p className="text-[10px] text-slate-400 truncate">{currentUser?.email || ''}</p>
             </div>
           </div>
         </div>

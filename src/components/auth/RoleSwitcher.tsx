@@ -69,7 +69,7 @@ export const RoleSwitcher: React.FC = () => {
           {currentRole}
         </span>
         <span className="font-semibold text-slate-200 hidden md:inline truncate max-w-[140px]">
-          {currentUser.name}
+          {currentUser?.name || 'Usuário'}
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
       </button>
@@ -87,23 +87,23 @@ export const RoleSwitcher: React.FC = () => {
             title="Clique para gerenciar sua conta"
           >
             <img
-              src={currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-              alt={currentUser.name}
+              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+              alt={currentUser?.name || 'Membro'}
               className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500/40 group-hover:ring-indigo-400 shrink-0"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-1">
                 <h4 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
-                  {currentUser.name}
+                  {currentUser?.name || 'Usuário'}
                 </h4>
                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-black border uppercase ${roleBadgeColor}`}>
                   {currentRole}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+              <p className="text-[11px] text-slate-400 truncate">{currentUser?.email || ''}</p>
               <div className="flex items-center gap-1 mt-1 text-[10px] text-indigo-400 font-medium truncate">
                 <Building2 className="w-3 h-3 shrink-0" />
-                <span className="truncate">{currentOrganization.name}</span>
+                <span className="truncate">{currentOrganization?.name || 'Organização'}</span>
               </div>
             </div>
           </div>

@@ -40,7 +40,7 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
   const visibleCampuses = accessibleCampuses && accessibleCampuses.length > 0 ? accessibleCampuses : campuses;
   const visibleOrgs = accessibleOrganizations && accessibleOrganizations.length > 0 
     ? accessibleOrganizations 
-    : organizations.filter((o) => o.id === currentOrganization.id);
+    : organizations.filter((o) => o?.id === currentOrganization?.id);
 
   const [isOpen, setIsOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -75,10 +75,10 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
       >
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 p-0.5 shrink-0 overflow-hidden flex items-center justify-center text-white shadow-inner font-black text-xs">
-            {currentOrganization.branding?.logoUrl ? (
+            {currentOrganization?.branding?.logoUrl ? (
               <img
                 src={currentOrganization.branding.logoUrl}
-                alt={currentOrganization.name}
+                alt={currentOrganization?.name || 'Igreja'}
                 className="w-full h-full object-cover rounded-lg"
               />
             ) : (
@@ -89,10 +89,10 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-black text-white truncate">
-                {currentOrganization.name}
+                {currentOrganization?.name || 'Igreja'}
               </span>
               <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                {currentOrganization.subscription.plan}
+                {currentOrganization?.subscription?.plan || 'ENTERPRISE'}
               </span>
             </div>
             <div className="flex items-center gap-1 text-[11px] text-slate-400 truncate">
