@@ -42,34 +42,44 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
 
   const [filterUnreadOnly, setFilterUnreadOnly] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(() =>
-    NotificationService.getNotifications(currentOrganization.id, currentUser.id)
+    currentUser?.id ? NotificationService.getNotifications(currentOrganization.id, currentUser.id) : []
   );
 
   useEffect(() => {
     const handleUpdate = () => {
-      setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+      if (currentUser?.id) {
+        setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+      }
     };
     handleUpdate();
     window.addEventListener('marketing_notifications_updated', handleUpdate);
     return () => window.removeEventListener('marketing_notifications_updated', handleUpdate);
-  }, [currentOrganization.id, currentUser.id]);
+  }, [currentOrganization.id, currentUser?.id]);
 
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
-  const [prefs, setPrefs] = useState(() => NotificationService.getPreferences(currentUser.id));
+  const [prefs, setPrefs] = useState(() =>
+    NotificationService.getPreferences(currentUser?.id || '')
+  );
 
   const handleMarkAsRead = (id: string) => {
     NotificationService.markAsRead(currentOrganization.id, id);
-    setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+    if (currentUser?.id) {
+      setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+    }
   };
 
   const handleMarkAllAsRead = () => {
-    NotificationService.markAllAsRead(currentOrganization.id, currentUser.id);
-    setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+    if (currentUser?.id) {
+      NotificationService.markAllAsRead(currentOrganization.id, currentUser.id);
+      setNotifications(NotificationService.getNotifications(currentOrganization.id, currentUser.id));
+    }
   };
 
   const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
-    NotificationService.savePreferences(currentUser.id, prefs);
+    if (currentUser?.id) {
+      NotificationService.savePreferences(currentUser.id, prefs);
+    }
     setIsPrefsOpen(false);
   };
 

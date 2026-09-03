@@ -16,7 +16,7 @@ interface EventModalProps {
 export const EventModal: React.FC<EventModalProps> = ({ event, isOpen, onClose }) => {
   const { users, createEvent, updateEvent, archiveEvent } = useData();
   const { currentUser } = useAuth();
-  const { campuses, currentCampus } = useTenant();
+  const { campuses, currentCampus, currentOrganization } = useTenant();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -53,11 +53,11 @@ export const EventModal: React.FC<EventModalProps> = ({ event, isOpen, onClose }
       setEndDate(today);
       setLocation('');
       setCampusId(currentCampus?.id || '');
-      setLeaderId(currentUser.id);
+      setLeaderId(currentUser?.id || '');
       setTeamIds([]);
       setBannerColor('from-indigo-600 to-purple-600');
     }
-  }, [event, isOpen, currentUser.id, currentCampus?.id]);
+  }, [event, isOpen, currentUser?.id, currentCampus?.id]);
 
   if (!isOpen) return null;
 
@@ -76,22 +76,22 @@ export const EventModal: React.FC<EventModalProps> = ({ event, isOpen, onClose }
         endDate,
         location: location.trim() || undefined,
         campusId: campusId || undefined,
-        leaderId: leaderId || currentUser.id,
+        leaderId: leaderId || currentUser?.id || 'sys',
         teamIds,
         bannerColor,
       });
     } else {
       createEvent({
-        organizationId: '',
+        organizationId: currentOrganization.id,
         title: title.trim(),
         description: description.trim(),
         category,
         status,
         startDate,
         endDate,
-        location: location.trim() || undefined,
+        location: location.trim() || 'Templo Principal',
         campusId: campusId || undefined,
-        leaderId: leaderId || currentUser.id,
+        leaderId: leaderId || currentUser?.id || 'sys',
         leaderName: '',
         teamIds,
         bannerColor,

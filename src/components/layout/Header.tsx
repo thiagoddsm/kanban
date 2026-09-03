@@ -56,11 +56,11 @@ export const Header: React.FC<HeaderProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   const [unreadNotifCount, setUnreadNotifCount] = useState(() =>
-    NotificationService.getUnreadCount(currentOrganization.id, currentUser.id)
+    currentUser?.id ? NotificationService.getUnreadCount(currentOrganization.id, currentUser.id) : 0
   );
 
   useEffect(() => {
-    if (!currentOrganization.id || !currentUser.id) return;
+    if (!currentOrganization.id || !currentUser?.id) return;
 
     // Sincronização inicial do Firestore
     NotificationService.syncFromFirestore(currentOrganization.id, currentUser.id).then(() => {
@@ -79,7 +79,9 @@ export const Header: React.FC<HeaderProps> = ({
     );
 
     const handleUpdate = () => {
-      setUnreadNotifCount(NotificationService.getUnreadCount(currentOrganization.id, currentUser.id));
+      if (currentUser?.id) {
+        setUnreadNotifCount(NotificationService.getUnreadCount(currentOrganization.id, currentUser.id));
+      }
     };
     window.addEventListener('marketing_notifications_updated', handleUpdate);
 
@@ -87,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
       unsub();
       window.removeEventListener('marketing_notifications_updated', handleUpdate);
     };
-  }, [currentOrganization.id, currentUser.id]);
+  }, [currentOrganization.id, currentUser?.id]);
 
 
   const pendingApprovalsCount = tasks.filter((t) => !t.isArchived && t.status === 'REVIEW').length;

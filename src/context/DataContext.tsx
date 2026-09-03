@@ -375,7 +375,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (t.isArchived || t.isDeleted) return false;
       if (filterCampusId && t.campusId !== filterCampusId) return false;
       if (filterOnlyMyTasks) {
-        const isMine = (t.assigneeIds && t.assigneeIds.includes(currentUser.id)) || t.assigneeId === currentUser.id || t.requesterId === currentUser.id;
+        const myId = currentUser?.id || '';
+        const isMine = (t.assigneeIds && t.assigneeIds.includes(myId)) || t.assigneeId === myId || t.requesterId === myId;
         if (!isMine) return false;
       }
       if (filterEventId && t.eventId !== filterEventId) return false;
@@ -411,7 +412,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     filterDemandType,
     filterTag,
     searchQuery,
-    currentUser.id,
+    currentUser?.id,
   ]);
 
   // Dependency Checking
@@ -499,8 +500,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       demandType: taskData.demandType,
       eventId: taskData.eventId,
       eventName: event ? event.title : undefined,
-      requesterId: taskData.requesterId || currentUser.id,
-      requesterName: taskData.requesterName || currentUser.name,
+      requesterId: taskData.requesterId || currentUser?.id || 'sys',
+      requesterName: taskData.requesterName || currentUser?.name || 'Solicitante',
       // ── Campos canônicos ──────────────────────────────────────────
       assigneeIds,
       // ── Campos legados para compatibilidade de UI (não vão ao Firestore) ──
@@ -521,8 +522,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       checklist: taskData.checklist || [],
       commentsCount: 0,
       isArchived: false,
-      createdBy: currentUser.id,
-      createdByName: currentUser.name,
+      createdBy: currentUser?.id || 'sys',
+      createdByName: currentUser?.name || 'Sistema',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -535,7 +536,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (newTask.assigneeId) {
       AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_ASSIGNED', {
         task: newTask,
-        actorName: currentUser.name,
+        actorName: currentUser?.name || 'Sistema',
       });
     }
 
@@ -543,8 +544,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: newTask.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: 'abriu a demanda na Central de Demandas',
       targetType: 'demand',
       targetId: newTask.id,
@@ -651,14 +652,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_REVIEW', {
         task: updatedTask,
         leaderIds: leaderUserIds,
-        actorName: currentUser.name,
+        actorName: currentUser?.name || 'Sistema',
       });
       ApprovalService.recordAction(
         currentOrganization.id,
         updatedTask.id,
         'REQUESTED',
-        currentUser.id,
-        currentUser.name,
+        currentUser?.id || 'sys',
+        currentUser?.name || 'Sistema',
         undefined,
         undefined,
         'Enviado para revisão e controle de qualidade.'
@@ -670,8 +671,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: task.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: `moveu para ${colDef ? colDef.title : newStatus}`,
       fieldChanged: 'status',
       oldValue: task.status,
@@ -707,15 +708,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       task: updatedTask,
       leaderIds: leaderUserIds,
       reason,
-      actorName: currentUser.name,
+      actorName: currentUser?.name || 'Sistema',
     });
 
     const act: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: task.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: `bloqueou: "${reason}" (Ação necessária: ${actionRequiredBy})`,
       fieldChanged: 'status',
       oldValue: task.status,
@@ -749,8 +750,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: task.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: 'desbloqueou a tarefa e retornou para Em Andamento',
       fieldChanged: 'status',
       oldValue: 'BLOCKED',
@@ -772,8 +773,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updatedTask: Task = {
       ...task,
       status: 'DONE',
-      approverId: currentUser.id,
-      approverName: currentUser.name,
+      approverId: currentUser?.id || 'sys',
+      approverName: currentUser?.name || 'Administrador',
       completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -785,8 +786,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: task.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Administrador',
       action: 'aprovou a entrega e concluiu a tarefa',
       securityEvent: 'APPROVED',
       fieldChanged: 'status',
@@ -813,8 +814,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
         campusId: task.campusId,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: currentUser?.id || 'sys',
+        userName: currentUser?.name || 'Sistema',
         action: isArchived ? 'arquivou a tarefa' : 'restaurou a tarefa',
         targetType: 'task',
         targetId: task.id,
@@ -960,8 +961,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: newEvent.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: 'criou o projeto de evento',
       securityEvent: 'EVENT_CREATED',
       targetType: 'event',
@@ -1084,8 +1085,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'act_' + Math.random().toString(36).substring(2, 9),
       organizationId: currentOrganization.id,
       campusId: event.campusId,
-      userId: currentUser.id,
-      userName: currentUser.name,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
       action: `atualizou o projeto de evento (Status: ${event.status})`,
       securityEvent: event.status === 'FINISHED' ? 'EVENT_COMPLETED' : 'EVENT_STATUS_CHANGED',
       targetType: 'event',
@@ -1111,8 +1112,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: 'act_' + Math.random().toString(36).substring(2, 9),
         organizationId: currentOrganization.id,
         campusId: targetEvent.campusId,
-        userId: currentUser.id,
-        userName: currentUser.name,
+        userId: currentUser?.id || 'sys',
+        userName: currentUser?.name || 'Sistema',
         action: isArchived ? 'arquivou o projeto' : 'restaurou o projeto',
         targetType: 'event',
         targetId: targetEvent.id,
@@ -1161,9 +1162,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       id: 'cmt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       organizationId: currentOrganization.id,
       taskId,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userAvatar: currentUser.avatar,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Membro',
+      userAvatar: currentUser?.avatar,
       userRole: 'TEAM',
       content,
       createdAt: new Date().toISOString(),
@@ -1202,14 +1203,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     // Trigger Notification for each mentioned user
+    const actorName = currentUser?.name || 'Um membro';
     targetUsersToNotify.forEach((targetUser) => {
       NotificationService.createNotification({
         organizationId: currentOrganization.id,
         campusId: currentCampus?.id || null,
         userId: targetUser.id,
         type: 'MENTION',
-        title: `${currentUser.name} mencionou você`,
-        message: `${currentUser.name} mencionou você na demanda "${taskTitle}": "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`,
+        title: `${actorName} mencionou você`,
+        message: `${actorName} mencionou você na demanda "${taskTitle}": "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"`,
         entityType: 'TASK',
         entityId: taskId,
       });

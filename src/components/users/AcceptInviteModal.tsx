@@ -24,7 +24,7 @@ export const AcceptInviteModal: React.FC = () => {
         // Aceita se: (a) o userId do convite já é o uid atual, ou
         //            (b) o convite ainda não tem userId vinculado (fluxo de e-mail externo).
         const isForCurrentUser =
-          mem.userId === currentUser.id || !mem.userId;
+          (currentUser?.id && mem.userId === currentUser.id) || !mem.userId;
 
         if (isForCurrentUser) {
           setInviteMembership(mem);
@@ -34,9 +34,9 @@ export const AcceptInviteModal: React.FC = () => {
         }
       }
     }
-  }, [currentUser.id]);
+  }, [currentUser?.id]);
 
-  if (!isOpen || !inviteMembership) return null;
+  if (!isOpen || !inviteMembership || !currentUser) return null;
 
   const org = StorageService.getOrganizations().find((o) => o.id === inviteMembership.organizationId);
 

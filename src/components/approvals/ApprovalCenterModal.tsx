@@ -66,8 +66,8 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
       'APPROVED',
       task.requesterId,
       task.requesterName,
-      currentUser.id,
-      currentUser.name,
+      currentUser?.id || 'sys',
+      currentUser?.name || 'Aprovador',
       'Aprovado sem ressalvas.'
     );
 
@@ -79,13 +79,13 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
         userId: task.assigneeId,
         type: 'TASK_APPROVED',
         title: 'Demanda Aprovada! 🎉',
-        message: `Sua entrega para "${task.title}" foi aprovada por ${currentUser.name} e concluída.`,
+        message: `Sua entrega para "${task.title}" foi aprovada por ${currentUser?.name || 'um líder'} e concluída.`,
         entityType: 'TASK',
         entityId: task.id,
       });
     }
 
-    if (task.requesterId !== currentUser.id) {
+    if (task.requesterId !== currentUser?.id) {
       NotificationService.createNotification({
         organizationId: currentOrganization.id,
         campusId: task.campusId,
@@ -117,8 +117,8 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
       'CHANGES_REQUESTED',
       activeTask.requesterId,
       activeTask.requesterName,
-      currentUser.id,
-      currentUser.name,
+      currentUser?.id || 'sys',
+      currentUser?.name || 'Revisor',
       changeReason.trim()
     );
 

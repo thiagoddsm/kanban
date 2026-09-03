@@ -103,12 +103,12 @@ export const CalendarView: React.FC = () => {
     if (!showTasks) return [];
     return tasks.filter((t) => {
       if (t.isArchived) return false;
-      if (filterMyTasks && t.assigneeId !== currentUser.id && t.requesterId !== currentUser.id) return false;
+      if (filterMyTasks && t.assigneeId !== currentUser?.id && t.requesterId !== currentUser?.id) return false;
       if (filterOverdueOnly && (t.status === 'DONE' || t.deadline >= todayStr)) return false;
       if (filterBlockedOnly && t.status !== 'BLOCKED') return false;
       return true;
     });
-  }, [tasks, showTasks, filterMyTasks, filterOverdueOnly, filterBlockedOnly, currentUser.id, todayStr]);
+  }, [tasks, showTasks, filterMyTasks, filterOverdueOnly, filterBlockedOnly, currentUser?.id, todayStr]);
 
   const displayEvents = useMemo(() => {
     if (!showEvents) return [];
