@@ -8,7 +8,6 @@
     "build": "tsc && vite build",
     "start": "node server.js",
     "preview": "vite preview",
-
     "deploy": "npm run build && npx firebase deploy",
     "deploy:hosting": "npm run build && npx firebase deploy --only hosting",
     "deploy:firestore": "npx firebase deploy --only firestore",
@@ -28,6 +27,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.4.19",
+    "firebase-tools": "^15.29.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.4.5",
