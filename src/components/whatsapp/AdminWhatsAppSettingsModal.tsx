@@ -34,10 +34,9 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
 
   const orgConfig = currentOrganization?.evolutionConfig || {};
 
-  const orgInstanceName =
-    orgConfig.instanceName ||
-    EvolutionApiService.sanitizeSlug(`org_${currentOrganization?.slug || 'ib'}_sistema`);
-
+  const [instanceName, setInstanceName] = useState(
+    orgConfig.instanceName || DEFAULT_EVOLUTION_CONFIG.instanceName || 'IBM'
+  );
   const [baseUrl, setBaseUrl] = useState(orgConfig.baseUrl || DEFAULT_EVOLUTION_CONFIG.baseUrl);
   const [apiKey, setApiKey] = useState(orgConfig.apiKey || DEFAULT_EVOLUTION_CONFIG.apiKey);
   const [isEnabled, setIsEnabled] = useState(orgConfig.isEnabled !== false);
@@ -50,15 +49,15 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!baseUrl.trim() || !apiKey.trim()) {
-      notifyError('Campos obrigatórios', 'Preencha a URL e a Chave de API da Evolution.');
+    if (!baseUrl.trim() || !apiKey.trim() || !instanceName.trim()) {
+      notifyError('Campos obrigatórios', 'Preencha a URL, a Chave de API e o Nome da Instância da Evolution.');
       return;
     }
 
     const updatedConfig: EvolutionIntegrationConfig = {
       baseUrl: baseUrl.trim(),
       apiKey: apiKey.trim(),
-      instanceName: orgInstanceName,
+      instanceName: instanceName.trim(),
       isEnabled,
       notifyOnTaskCreated,
       notifyOnTaskBlocked,
@@ -73,6 +72,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
 
     success('Configurações salvas!', 'Integração Evolution API atualizada com sucesso.');
   };
+
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -137,14 +137,14 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
         <div className="p-5 sm:p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
           {activeTab === 'connect' ? (
             <WhatsAppConnectCard
-              instanceName={orgInstanceName}
+              instanceName={instanceName}
               title="Instância Oficial da Organização"
               subtitle="Conecte o número do WhatsApp da igreja/marketing para notificações gerais"
               badgeLabel="ORGANIZAÇÃO"
               configOverride={{
                 baseUrl,
                 apiKey,
-                instanceName: orgInstanceName,
+                instanceName,
               }}
             />
           ) : (
@@ -153,6 +153,24 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                 <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
                   Configurações do Servidor Evolution API
                 </h4>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Nome da Instância (ex: IBM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={instanceName}
+                    onChange={(e) => setInstanceName(e.target.value)}
+                    placeholder="IBM"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Nome da instância criada na sua Evolution API (padrão: <strong>IBM</strong>).
+                  </p>
+                </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
@@ -172,7 +190,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Global API Key (Chave Mestra)</span>
+                    <span>Token / Chave de API da Instância</span>
                   </label>
                   <input
                     type="password"
@@ -184,6 +202,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                   />
                 </div>
               </div>
+
 
               {/* Automation Toggles */}
               <div className="pt-4 border-t border-slate-800 space-y-3">

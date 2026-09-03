@@ -951,11 +951,11 @@ export class FirestoreRepository {
       const q = query(
         notifsCol,
         where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
         limit(100)
       );
       const snap = await getDocs(q);
-      return snap.docs.map((d) => d.data() as Notification);
+      const notifs = snap.docs.map((d) => d.data() as Notification);
+      return notifs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     } catch (e) {
       console.warn('Aviso ao carregar notificações do Firestore:', e);
       return [];
@@ -976,11 +976,11 @@ export class FirestoreRepository {
       const q = query(
         notifsCol,
         where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
         limit(100)
       );
       return onSnapshot(q, (snap) => {
         const notifs = snap.docs.map((d) => d.data() as Notification);
+        notifs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         callback(notifs);
       }, (err) => {
         console.warn('Subscription error for notifications:', err);
@@ -990,6 +990,7 @@ export class FirestoreRepository {
       return () => {};
     }
   }
+
 
   /**
    * Marca uma notificação como lida no Firestore

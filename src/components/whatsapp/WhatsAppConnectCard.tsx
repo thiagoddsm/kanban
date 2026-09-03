@@ -39,6 +39,7 @@ export const WhatsAppConnectCard: React.FC<WhatsAppConnectCardProps> = ({
 
   const [state, setState] = useState<'open' | 'connecting' | 'close' | 'not_found' | 'error' | 'checking'>('checking');
   const [phoneNumber, setPhoneNumber] = useState<string | undefined>();
+  const [profileName, setProfileName] = useState<string | undefined>();
   const [qrBase64, setQrBase64] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | undefined>();
   const [isLoadingQr, setIsLoadingQr] = useState(false);
@@ -52,12 +53,14 @@ export const WhatsAppConnectCard: React.FC<WhatsAppConnectCardProps> = ({
     const res = await EvolutionApiService.getConnectionState(instanceName, configOverride);
     setState(res.state);
     if (res.phoneNumber) setPhoneNumber(res.phoneNumber);
+    if (res.profileName) setProfileName(res.profileName);
 
     const isConnected = res.state === 'open';
     if (onConnectedChange) {
       onConnectedChange(isConnected, res.phoneNumber);
     }
   };
+
 
   useEffect(() => {
     checkStatus();
@@ -252,12 +255,15 @@ export const WhatsAppConnectCard: React.FC<WhatsAppConnectCardProps> = ({
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">Sessão Ativa & Pronta</h4>
-                  <p className="text-xs text-emerald-400/90 flex items-center gap-1">
+                  <h4 className="text-sm font-bold text-white">
+                    {profileName ? `WhatsApp: ${profileName}` : 'Sessão Ativa & Pronta'}
+                  </h4>
+                  <p className="text-xs text-emerald-400/90 flex items-center gap-1 font-mono">
                     <PhoneCall className="w-3 h-3" />
-                    <span>{phoneNumber ? `+${phoneNumber}` : 'Disparador pronto para envio'}</span>
+                    <span>{phoneNumber ? `+${phoneNumber.replace(/^55/, '+55 ')}` : 'Disparador pronto para envio'}</span>
                   </p>
                 </div>
+
               </div>
 
               <button

@@ -5,17 +5,20 @@
 
 import { EvolutionIntegrationConfig } from '../types';
 
-export const DEFAULT_EVOLUTION_CONFIG: Required<Pick<EvolutionIntegrationConfig, 'baseUrl' | 'apiKey'>> = {
+export const DEFAULT_EVOLUTION_CONFIG: Required<Pick<EvolutionIntegrationConfig, 'baseUrl' | 'apiKey' | 'instanceName'>> = {
   baseUrl: 'https://api.ibmanha.com.br',
   apiKey: '554C767EA3D2-4221-AB6A-C126C68A657E',
+  instanceName: 'IBM',
 };
 
 export interface ConnectionStateResult {
   instanceName: string;
   state: 'open' | 'connecting' | 'close' | 'not_found' | 'error';
   phoneNumber?: string;
+  profileName?: string;
   error?: string;
 }
+
 
 export interface QrCodeResult {
   success: boolean;
@@ -50,21 +53,42 @@ export class EvolutionApiService {
   /**
    * Resolve a configuração ativa (priorizando custom / org -> default)
    */
-  public static resolveConfig(override?: EvolutionIntegrationConfig): { baseUrl: string; apiKey: string } {
+  public static resolveConfig(override?: EvolutionIntegrationConfig): { baseUrl: string; apiKey: string; instanceName: string } {
     const baseUrl = (override?.baseUrl || DEFAULT_EVOLUTION_CONFIG.baseUrl).replace(/\/$/, '').trim();
     const apiKey = (override?.apiKey || DEFAULT_EVOLUTION_CONFIG.apiKey).trim();
-    return { baseUrl, apiKey };
+    const instanceName = (override?.instanceName || DEFAULT_EVOLUTION_CONFIG.instanceName || 'IBM').trim();
+    return { baseUrl, apiKey, instanceName };
+  }
+
+  /**
+   * Lista as instâncias registradas no servidor Evolution API
+   */
+  public static async fetchInstances(configOverride?: EvolutionIntegrationConfig): Promise<any[]> {
+    const { baseUrl, apiKey } = this.resolveConfig(configOverride);
+    try {
+      const res = await fetch(`${baseUrl}/instance/fetchInstances`, {
+        method: 'GET',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [data];
+    } catch {
+      return [];
+    }
   }
 
   /**
    * Sanitiza o slug da instância para um identificador seguro no Evolution
    */
   public static sanitizeSlug(name: string, maxLength: number = 32): string {
-    return (name || 'instancia')
+    return (name || 'IBM')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')
       .slice(0, maxLength);
@@ -83,17 +107,17 @@ export class EvolutionApiService {
   }
 
   /**
-   * Consulta o estado de conexão da instância
+   * Consulta o estado de conexão da instância (com fallback para auto-descoberta)
    */
   public static async getConnectionState(
-    instanceName: string,
+    instanceName?: string,
     configOverride?: EvolutionIntegrationConfig
   ): Promise<ConnectionStateResult> {
-    const { baseUrl, apiKey } = this.resolveConfig(configOverride);
-    const cleanName = this.sanitizeSlug(instanceName);
+    const { baseUrl, apiKey, instanceName: defaultInstance } = this.resolveConfig(configOverride);
+    let targetInstance = instanceName ? this.sanitizeSlug(instanceName) : defaultInstance;
 
     try {
-      const res = await fetch(`${baseUrl}/instance/connectionState/${cleanName}`, {
+      let res = await fetch(`${baseUrl}/instance/connectionState/${targetInstance}`, {
         method: 'GET',
         headers: {
           apikey: apiKey,
@@ -101,11 +125,26 @@ export class EvolutionApiService {
         },
       });
 
+      // Se a instância customizada retornar 404, busca a instância real ativa (ex: IBM)
+      if (res.status === 404 && targetInstance !== 'IBM') {
+        const available = await this.fetchInstances(configOverride);
+        if (available.length > 0 && available[0].name) {
+          targetInstance = available[0].name;
+          res = await fetch(`${baseUrl}/instance/connectionState/${targetInstance}`, {
+            method: 'GET',
+            headers: {
+              apikey: apiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      }
+
       if (res.status === 404) {
-        return { instanceName: cleanName, state: 'not_found' };
+        return { instanceName: targetInstance, state: 'not_found' };
       }
       if (!res.ok) {
-        return { instanceName: cleanName, state: 'error', error: `HTTP ${res.status}` };
+        return { instanceName: targetInstance, state: 'error', error: `HTTP ${res.status}` };
       }
 
       const data = await res.json();
@@ -114,15 +153,17 @@ export class EvolutionApiService {
         rawState === 'open' ? 'open' : rawState === 'connecting' ? 'connecting' : 'close';
 
       const phoneNumber = data.instance?.owner || data.owner || undefined;
+      const profileName = data.instance?.profileName || data.profileName || undefined;
 
       return {
-        instanceName: cleanName,
+        instanceName: targetInstance,
         state,
         phoneNumber,
+        profileName,
       };
     } catch (err: any) {
-      console.warn(`[EvolutionApiService] Erro ao consultar estado de ${cleanName}:`, err);
-      return { instanceName: cleanName, state: 'error', error: err?.message || 'Erro de conexão' };
+      console.warn(`[EvolutionApiService] Erro ao consultar estado de ${targetInstance}:`, err);
+      return { instanceName: targetInstance, state: 'error', error: err?.message || 'Erro de conexão' };
     }
   }
 
@@ -159,7 +200,12 @@ export class EvolutionApiService {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 401) {
-          return { success: false, error: 'Chave de API (apikey) não autorizada no servidor Evolution API.' };
+          // Se for 401 (token de instância e não master), verifica se já existe uma instância cadastrada
+          const available = await this.fetchInstances(configOverride);
+          if (available.length > 0) {
+            return { success: true };
+          }
+          return { success: false, error: 'Chave de API (apikey) não autorizada para criar novas instâncias.' };
         }
         if (res.status !== 403 && !data.error?.includes('already in use')) {
           return { success: false, error: data.message || `Erro HTTP ${res.status} ao criar instância.` };
@@ -176,14 +222,14 @@ export class EvolutionApiService {
    * Solicita o QR Code de pareamento da instância
    */
   public static async getQrCode(
-    instanceName: string,
+    instanceName?: string,
     configOverride?: EvolutionIntegrationConfig
   ): Promise<QrCodeResult> {
-    const { baseUrl, apiKey } = this.resolveConfig(configOverride);
-    const cleanName = this.sanitizeSlug(instanceName);
+    const { baseUrl, apiKey, instanceName: defaultInstance } = this.resolveConfig(configOverride);
+    let targetInstance = instanceName ? this.sanitizeSlug(instanceName) : defaultInstance;
 
     try {
-      const res = await fetch(`${baseUrl}/instance/connect/${cleanName}`, {
+      let res = await fetch(`${baseUrl}/instance/connect/${targetInstance}`, {
         method: 'GET',
         headers: {
           apikey: apiKey,
@@ -191,37 +237,52 @@ export class EvolutionApiService {
         },
       });
 
+      // Se 404, tenta auto-descobrir instância disponível no servidor (ex: IBM)
+      if (res.status === 404 && targetInstance !== 'IBM') {
+        const available = await this.fetchInstances(configOverride);
+        if (available.length > 0 && available[0].name) {
+          targetInstance = available[0].name;
+          res = await fetch(`${baseUrl}/instance/connect/${targetInstance}`, {
+            method: 'GET',
+            headers: {
+              apikey: apiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      }
+
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
         if (res.status === 401) {
-          return { success: false, instanceName: cleanName, error: 'Chave de API inválida ou não autorizada.' };
+          return { success: false, instanceName: targetInstance, error: 'Chave de API inválida ou não autorizada.' };
         }
         if (res.status === 404) {
-          const createRes = await this.createInstanceIfNotExists(cleanName, configOverride);
+          const createRes = await this.createInstanceIfNotExists(targetInstance, configOverride);
           if (createRes.success) {
-            return await this.getQrCode(cleanName, configOverride);
+            return await this.getQrCode(targetInstance, configOverride);
           }
-          return { success: false, instanceName: cleanName, error: createRes.error || 'Falha ao provisionar instância.' };
+          return { success: false, instanceName: targetInstance, error: createRes.error || 'Falha ao provisionar instância.' };
         }
-        return { success: false, instanceName: cleanName, error: data.message || `Erro HTTP ${res.status}` };
+        return { success: false, instanceName: targetInstance, error: data.message || `Erro HTTP ${res.status}` };
       }
 
       const base64 = data.base64 || data.qrcode?.base64;
       const code = data.code || data.qrcode?.code;
       const pairingCode = data.pairingCode;
-      const state = data.instance?.state || (base64 ? 'connecting' : 'unknown');
+      const state = data.instance?.state || (base64 ? 'connecting' : 'open');
 
       return {
         success: true,
-        instanceName: cleanName,
+        instanceName: targetInstance,
         base64,
         code,
         pairingCode,
         state,
       };
     } catch (err: any) {
-      return { success: false, instanceName: cleanName, error: err?.message || 'Erro ao obter QR Code.' };
+      return { success: false, instanceName: targetInstance, error: err?.message || 'Erro ao conectar à Evolution API.' };
     }
   }
 
