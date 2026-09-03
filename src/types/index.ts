@@ -246,6 +246,12 @@ export interface Task {
   
   requesterId: string;
   requesterName: string;
+  requesterEmail?: string;
+  requesterPhone?: string;
+  department?: string;
+  targetTeam?: string;
+  deliverables?: string[];
+  protocolId?: string;
 
   /**
    * Fonte de verdade para responsáveis. Sempre um array de user IDs.
