@@ -616,6 +616,137 @@ export class FirestoreRepository {
   }
 
   /**
+   * Get User profile from /users/{userId}
+   */
+  public static async getUser(userId: string): Promise<User | null> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getUsers().find((u) => u.id === userId) || null;
+    }
+    try {
+      const userRef = doc(db, 'users', userId);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        return snap.data() as User;
+      }
+      return null;
+    } catch (e) {
+      console.warn('Erro ao buscar usuário no Firestore:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Find user by email across /users
+   */
+  public static async getUserByEmail(email: string): Promise<User | null> {
+    if (!isFirebaseConfigured || !db || !email) {
+      return StorageService.getUsers().find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
+    }
+    try {
+      const usersCol = collection(db, 'users');
+      const q = query(usersCol, where('email', '==', email.trim().toLowerCase()), limit(1));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs[0].data() as User;
+      }
+      return null;
+    } catch (e) {
+      console.warn('Erro ao buscar usuário por email no Firestore:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Reconcile user profile on login:
+   * Migrates temporary/invite IDs (e.g. usr_...) to real Firebase Auth UID,
+   * transferring memberships and task assignments seamlessly.
+   */
+  public static async reconcileUserOnLogin(fbUid: string, email: string, displayName?: string, photoURL?: string): Promise<User> {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    let existingByUid = await this.getUser(fbUid);
+
+    // If doc already exists with this UID, update profile attributes
+    if (existingByUid) {
+      const updated: User = {
+        ...existingByUid,
+        name: displayName || existingByUid.name,
+        avatar: photoURL || existingByUid.avatar,
+        email: cleanEmail || existingByUid.email,
+      };
+      await this.syncUser(updated);
+      return updated;
+    }
+
+    // Check if there was an invited/placeholder user with the same email
+    const existingByEmail = await this.getUserByEmail(cleanEmail);
+    let organizationIds: string[] = existingByEmail?.organizationIds || [];
+    let activeOrganizationId = existingByEmail?.activeOrganizationId;
+
+    if (existingByEmail && existingByEmail.id !== fbUid) {
+      const oldId = existingByEmail.id;
+      console.log(`🔄 Reconciliando usuário convidado: ${oldId} -> ${fbUid} (${cleanEmail})`);
+
+      try {
+        const orgs = await this.fetchOrganizations();
+        for (const org of orgs) {
+          // Check membership
+          const oldMemRef = doc(db!, 'organizations', org.id, 'memberships', oldId);
+          const oldMemSnap = await getDoc(oldMemRef);
+          if (oldMemSnap.exists()) {
+            const memData = oldMemSnap.data() as Membership;
+            const newMem: Membership = {
+              ...memData,
+              userId: fbUid,
+              updatedAt: new Date().toISOString(),
+            };
+            await this.saveMembership(newMem);
+            await deleteDoc(oldMemRef);
+            if (!organizationIds.includes(org.id)) {
+              organizationIds.push(org.id);
+            }
+          }
+
+          // Check tasks assigned
+          const tasksCol = collection(db!, 'organizations', org.id, 'tasks');
+          const qTasks = query(tasksCol, where('assigneeIds', 'array-contains', oldId));
+          const tasksSnap = await getDocs(qTasks);
+          for (const tDoc of tasksSnap.docs) {
+            const tData = tDoc.data() as Task;
+            const newAssignees = (tData.assigneeIds || []).map((id) => (id === oldId ? fbUid : id));
+            const updates: any = { assigneeIds: newAssignees };
+            if (tData.assigneeId === oldId) {
+              updates.assigneeId = fbUid;
+            }
+            await updateDoc(tDoc.ref, updates);
+          }
+        }
+
+        // Delete old temporary placeholder doc if it was generated
+        if (oldId.startsWith('usr_')) {
+          await deleteDoc(doc(db!, 'users', oldId));
+        }
+      } catch (err) {
+        console.warn('Aviso durante reconciliação de usuário:', err);
+      }
+    }
+
+    const consolidatedUser: User = {
+      id: fbUid,
+      name: displayName || existingByEmail?.name || cleanEmail.split('@')[0] || 'Novo Usuário',
+      email: cleanEmail,
+      avatar: photoURL || existingByEmail?.avatar,
+      phone: existingByEmail?.phone,
+      whatsapp: existingByEmail?.whatsapp,
+      createdAt: existingByEmail?.createdAt || new Date().toISOString(),
+      organizationIds,
+      activeOrganizationId,
+    };
+
+    await this.syncUser(consolidatedUser);
+    return consolidatedUser;
+  }
+
+  /**
    * Record Audit Activity to /organizations/{orgId}/activities/{activityId}
    */
   public static async recordActivity(activity: ActivityLog): Promise<void> {

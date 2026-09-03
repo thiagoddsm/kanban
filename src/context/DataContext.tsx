@@ -193,24 +193,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Async Fetch from Firestore usando queries filtradas (isArchived: false)
     FirestoreRepository.fetchTasks(currentOrganization.id, { isArchived: false }).then((remoteTasks) => {
-      if (remoteTasks && remoteTasks.length > 0) {
-        setRawTasks((prev) => {
-          const map = new Map(prev.map((t) => [t.id, t]));
-          remoteTasks.forEach((t) => map.set(t.id, t));
-          return Array.from(map.values());
-        });
-        remoteTasks.forEach((t) => StorageService.updateTask(t));
+      if (remoteTasks) {
+        setRawTasks(remoteTasks);
+        StorageService.saveTasks(currentOrganization.id, remoteTasks);
       }
     });
 
     FirestoreRepository.fetchEvents(currentOrganization.id, false).then((remoteEvents) => {
-      if (remoteEvents && remoteEvents.length > 0) {
-        setRawEvents((prev) => {
-          const map = new Map(prev.map((e) => [e.id, e]));
-          remoteEvents.forEach((e) => map.set(e.id, e));
-          return Array.from(map.values());
-        });
-        remoteEvents.forEach((e) => StorageService.updateEvent(e));
+      if (remoteEvents) {
+        setRawEvents(remoteEvents);
+        StorageService.saveEvents(currentOrganization.id, remoteEvents);
       }
     });
 
@@ -245,17 +237,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    // Realtime listeners filtrados por tarefas ativas
+    // Realtime listeners filtrados por tarefas ativas - Firestore é a fonte única da verdade
     const unsubTasks = FirestoreRepository.subscribeTasks(
       currentOrganization.id,
       (tasks) => {
-        if (tasks && tasks.length >= 0) {
-          setRawTasks((prev) => {
-            const map = new Map(prev.map((t) => [t.id, t]));
-            tasks.forEach((t) => map.set(t.id, t));
-            return Array.from(map.values());
-          });
-          tasks.forEach((t) => StorageService.updateTask(t));
+        if (tasks) {
+          setRawTasks(tasks);
+          StorageService.saveTasks(currentOrganization.id, tasks);
         }
       },
       { isArchived: false }
@@ -264,13 +252,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubEvents = FirestoreRepository.subscribeEvents(
       currentOrganization.id, 
       (events) => {
-        if (events && events.length >= 0) {
-          setRawEvents((prev) => {
-            const map = new Map(prev.map((e) => [e.id, e]));
-            events.forEach((e) => map.set(e.id, e));
-            return Array.from(map.values());
-          });
-          events.forEach((e) => StorageService.updateEvent(e));
+        if (events) {
+          setRawEvents(events);
+          StorageService.saveEvents(currentOrganization.id, events);
         }
       },
       false

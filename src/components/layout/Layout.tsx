@@ -15,6 +15,7 @@ import { DemandPortalModal } from '../demands/DemandPortalModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
+import { useAuth } from '../../context/AuthContext';
 
 const VALID_TABS: NavigationTab[] = [
   'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'users', 'settings',
@@ -23,7 +24,15 @@ const VALID_TABS: NavigationTab[] = [
 export const Layout: React.FC = () => {
   const { orgSlug, tab } = useParams<{ orgSlug: string; tab: string }>();
   const navigate = useNavigate();
+  const { currentUser, isLoadingAuth } = useAuth();
   const { currentOrganization, switchOrganizationBySlug } = useTenant();
+
+  // Guard de Autenticação: redireciona para /login se a sessão não existir
+  React.useEffect(() => {
+    if (!isLoadingAuth && !currentUser) {
+      navigate('/login', { replace: true });
+    }
+  }, [isLoadingAuth, currentUser, navigate]);
 
   // Resolver a organização pelo slug da URL ao montar/mudar
   React.useEffect(() => {
@@ -50,6 +59,28 @@ export const Layout: React.FC = () => {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDemandPortalOpen, setIsDemandPortalOpen] = useState(false);
+
+  // Splash Screen de Carregamento Seguro
+  if (isLoadingAuth) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-100 font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 animate-pulse">
+            <span className="font-black text-xl">O</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+            <span>Validando sessão segura...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Se deslogado, evita flash de tela antes do redirecionamento
+  if (!currentUser) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
