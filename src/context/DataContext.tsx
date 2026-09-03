@@ -23,8 +23,10 @@ import { NotificationService } from '../services/notificationService';
 import { ApprovalService } from '../services/approvalService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
-import { EvolutionApiService } from '../services/evolutionApiService';
+import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from '../services/evolutionApiService';
+import { WhatsAppNotificationService } from '../services/whatsappNotificationService';
 import { useAuth } from './AuthContext';
+
 import { useTenant } from './TenantContext';
 import { useAccess } from './AccessContext';
 import { useNotification } from './NotificationContext';
@@ -561,13 +563,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawTasks(updated);
     FirestoreRepository.saveTask(newTask);
 
-    // Automation Trigger: TASK_ASSIGNED
+    // Automation Trigger: TASK_ASSIGNED (In-App + WhatsApp)
     if (newTask.assigneeId) {
       AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_ASSIGNED', {
         task: newTask,
         actorName: currentUser?.name || 'Sistema',
       });
+
+      const assignedUser = orgUsers.find((u) => u.id === newTask.assigneeId) || (newTask.assigneeId === currentUser?.id ? currentUser : undefined);
+      if (assignedUser) {
+        WhatsAppNotificationService.notifyTaskAssigned({
+          organization: currentOrganization,
+          task: newTask,
+          assigneeUser: assignedUser,
+          actorUser: currentUser,
+        });
+      }
     }
+
 
     const newActivity: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -635,13 +648,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    // Automation Trigger: TASK_ASSIGNED when assignee changed
+    // Automation Trigger: TASK_ASSIGNED when assignee changed (In-App + WhatsApp)
     if (oldTask && oldTask.assigneeId !== updatedTask.assigneeId && updatedTask.assigneeId) {
       AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_ASSIGNED', {
         task: updatedTask,
-        actorName: currentUser.name,
+        actorName: currentUser?.name || 'Liderança',
       });
+
+      const assignedUser = orgUsers.find((u) => u.id === updatedTask.assigneeId) || (updatedTask.assigneeId === currentUser?.id ? currentUser : undefined);
+      if (assignedUser) {
+        WhatsAppNotificationService.notifyTaskAssigned({
+          organization: currentOrganization,
+          task: updatedTask,
+          assigneeUser: assignedUser,
+          actorUser: currentUser,
+        });
+      }
     }
+
 
     success('Tarefa atualizada!', updatedTask.title);
   };
@@ -732,13 +756,27 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawTasks(StorageService.updateTask(updatedTask));
     FirestoreRepository.saveTask(updatedTask);
 
-    // Automation Trigger: TASK_BLOCKED
+    // Automation Trigger: TASK_BLOCKED (In-App + WhatsApp)
     AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_BLOCKED', {
       task: updatedTask,
       leaderIds: leaderUserIds,
       reason,
       actorName: currentUser?.name || 'Sistema',
     });
+
+    leaderUserIds.forEach((leaderId) => {
+      const leaderUser = orgUsers.find((u) => u.id === leaderId) || (leaderId === currentUser?.id ? currentUser : undefined);
+      if (leaderUser) {
+        WhatsAppNotificationService.notifyTaskBlocked({
+          organization: currentOrganization,
+          task: updatedTask,
+          targetUser: leaderUser,
+          reason,
+          actorUser: currentUser,
+        });
+      }
+    });
+
 
     const act: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -1233,12 +1271,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // Trigger Notification for each mentioned user (In-App + WhatsApp)
     const actorName = currentUser?.name || 'Um membro';
-    const authorPersonalInstance = currentUser?.id
-      ? EvolutionApiService.sanitizeSlug(`user_${currentUser.id}_${currentOrganization.slug || 'ib'}`)
-      : null;
-    const orgInstance =
-      currentOrganization.evolutionConfig?.instanceName ||
-      EvolutionApiService.sanitizeSlug(`org_${currentOrganization.slug || 'ib'}_sistema`);
 
     targetUsersToNotify.forEach(async (targetUser) => {
       NotificationService.createNotification({
@@ -1252,27 +1284,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         entityId: taskId,
       });
 
-      // Disparo WhatsApp Duas Linhas (Instância pessoal do autor -> Fallback Org)
-      const userPhone = targetUser.whatsapp || targetUser.phone;
-      if (userPhone && targetUser.notifyWhatsApp !== false) {
-        const text = `🔔 *Notificação Kanban Oiko*\n\nOlá, *${targetUser.name.split(' ')[0]}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${taskTitle}"*\n\n💬 _"${content}"_\n\n👉 Acesse agora para responder:\nhttps://studio-5589719834-7481b.web.app/tasks`;
-
-        // Se o autor tiver WhatsApp conectado, dispara pela conta dele; senão usa a da organização
-        let instanceToUse = orgInstance;
-        if (currentUser?.whatsappConnected && authorPersonalInstance) {
-          instanceToUse = authorPersonalInstance;
-        }
-
-        try {
-          await EvolutionApiService.sendTextMessage({
-            instanceName: instanceToUse,
-            to: userPhone,
-            text,
-            configOverride: currentOrganization.evolutionConfig,
-          });
-        } catch (e) {
-          console.warn('[WhatsApp Mention Error]:', e);
-        }
+      if (targetTask) {
+        WhatsAppNotificationService.notifyTaskMention({
+          organization: currentOrganization,
+          task: targetTask,
+          mentionedUser: targetUser,
+          actorUser: currentUser,
+          content,
+        });
       }
     });
 
@@ -1280,6 +1299,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       info('Notificação de Menção', `${targetUsersToNotify.length} membro(s) notificado(s) com sucesso.`);
     }
   };
+
 
   const getCommentsForTask = (taskId: string): Comment[] => {
     return comments

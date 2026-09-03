@@ -7,6 +7,8 @@ import { useTenant } from '../../context/TenantContext';
 import { Task, ApprovalRecord } from '../../types';
 import { ApprovalService } from '../../services/approvalService';
 import { NotificationService } from '../../services/notificationService';
+import { WhatsAppNotificationService } from '../../services/whatsappNotificationService';
+
 import { 
   X, 
   Sparkles, 
@@ -38,14 +40,15 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const { tasks, updateTask, approveTask } = useData();
+  const { tasks, updateTask, approveTask, users } = useData();
   const { currentUser } = useAuth();
   const { isLeader, isAdmin, canApproveTasks } = useAccess();
   const { currentOrganization } = useTenant();
 
+  const [filterCampus, setFilterCampus] = useState<string>('ALL');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [changeReason, setChangeReason] = useState<string>('');
   const [isRequestingChanges, setIsRequestingChanges] = useState(false);
-  const [changeReason, setChangeReason] = useState('');
 
   // Demands in REVIEW status
   const pendingApprovals = tasks.filter((t) => !t.isArchived && t.status === 'REVIEW');
@@ -71,7 +74,7 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
       'Aprovado sem ressalvas.'
     );
 
-    // Notify Assignee & Requester
+    // Notify Assignee & Requester (In-App + WhatsApp)
     if (task.assigneeId) {
       NotificationService.createNotification({
         organizationId: currentOrganization.id,
@@ -83,9 +86,19 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
         entityType: 'TASK',
         entityId: task.id,
       });
+
+      const assignee = users.find((u) => u.id === task.assigneeId) || (task.assigneeId === currentUser?.id ? currentUser : undefined);
+      if (assignee) {
+        WhatsAppNotificationService.notifyTaskApproved({
+          organization: currentOrganization,
+          task,
+          targetUser: assignee,
+          actorUser: currentUser,
+        });
+      }
     }
 
-    if (task.requesterId !== currentUser?.id) {
+    if (task.requesterId && task.requesterId !== currentUser?.id) {
       NotificationService.createNotification({
         organizationId: currentOrganization.id,
         campusId: task.campusId,
@@ -96,6 +109,16 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
         entityType: 'TASK',
         entityId: task.id,
       });
+
+      const requester = users.find((u) => u.id === task.requesterId);
+      if (requester) {
+        WhatsAppNotificationService.notifyTaskApproved({
+          organization: currentOrganization,
+          task,
+          targetUser: requester,
+          actorUser: currentUser,
+        });
+      }
     }
   };
 
