@@ -303,15 +303,43 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentOrganization.id]);
 
 
-  // UNIFIED SCOPE ENGINE: Scoped Tasks
+  // UNIFIED SCOPE ENGINE: Scoped Tasks com Resolução de Responsáveis
   const scopedTasks = useMemo(() => {
-    return rawTasks.filter((t) => {
-      if (currentCampus && t.campusId && t.campusId !== currentCampus.id) {
-        return false;
-      }
-      return true;
-    });
-  }, [rawTasks, currentCampus]);
+    return rawTasks
+      .filter((t) => {
+        if (currentCampus && t.campusId && t.campusId !== currentCampus.id) {
+          return false;
+        }
+        return true;
+      })
+      .map((t) => {
+        const assigneeIds: string[] =
+          t.assigneeIds && t.assigneeIds.length > 0
+            ? t.assigneeIds
+            : t.assigneeId ? [t.assigneeId] : [];
+
+        if (assigneeIds.length > 0) {
+          const resolvedAssignees = assigneeIds.map((id) => {
+            const u = allUsers.find((user) => user.id === id);
+            return {
+              id,
+              name: u?.name ?? 'Responsável',
+              avatar: u?.avatar,
+            };
+          });
+          const primary = resolvedAssignees[0];
+          return {
+            ...t,
+            assigneeIds,
+            assignees: resolvedAssignees,
+            assigneeId: primary?.id,
+            assigneeName: resolvedAssignees.map((a) => a.name).join(', '),
+            assigneeAvatar: primary?.avatar,
+          };
+        }
+        return t;
+      });
+  }, [rawTasks, currentCampus, allUsers]);
 
   // UNIFIED SCOPE ENGINE: Scoped Events
   const scopedEvents = useMemo(() => {

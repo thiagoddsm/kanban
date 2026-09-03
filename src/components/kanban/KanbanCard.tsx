@@ -26,7 +26,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
   onSelect,
   onDragStart,
 }) => {
-  const { checkDependencies } = useData();
+  const { checkDependencies, users } = useData();
 
   const todayStr = new Date().toISOString().split('T')[0];
   const isOverdue = task.status !== 'DONE' && task.deadline < todayStr;
@@ -37,6 +37,26 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
 
   const completedChecklistCount = task.checklist ? task.checklist.filter((i) => i.completed).length : 0;
   const totalChecklistCount = task.checklist ? task.checklist.length : 0;
+
+  // Robust Assignees Resolution
+  const cardAssignees = React.useMemo(() => {
+    if (task.assignees && task.assignees.length > 0) return task.assignees;
+    const ids =
+      task.assigneeIds && task.assigneeIds.length > 0
+        ? task.assigneeIds
+        : task.assigneeId
+        ? [task.assigneeId]
+        : [];
+    if (ids.length === 0) return [];
+    return ids.map((id) => {
+      const u = (users || []).find((user) => user.id === id);
+      return {
+        id,
+        name: u?.name ?? task.assigneeName ?? 'Responsável',
+        avatar: u?.avatar ?? task.assigneeAvatar,
+      };
+    });
+  }, [task.assignees, task.assigneeIds, task.assigneeId, task.assigneeName, task.assigneeAvatar, users]);
 
   return (
     <div
@@ -106,9 +126,9 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
       <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 text-xs">
         {/* Assignees (Single or Multiple) */}
         <div className="flex items-center gap-1.5 min-w-0">
-          {task.assignees && task.assignees.length > 0 ? (
+          {cardAssignees.length > 0 ? (
             <div className="flex items-center -space-x-2 overflow-hidden">
-              {task.assignees.slice(0, 3).map((a, idx) => (
+              {cardAssignees.slice(0, 3).map((a, idx) => (
                 <img
                   key={a.id || idx}
                   src={a.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
@@ -117,9 +137,14 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
                   className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-900 shrink-0"
                 />
               ))}
-              {task.assignees.length > 3 && (
+              {cardAssignees.length > 3 && (
                 <span className="w-5 h-5 rounded-full bg-slate-800 text-[9px] font-bold text-slate-300 flex items-center justify-center ring-1 ring-slate-900">
-                  +{task.assignees.length - 3}
+                  +{cardAssignees.length - 3}
+                </span>
+              )}
+              {cardAssignees.length === 1 && (
+                <span className="pl-3 text-[11px] text-slate-300 truncate font-medium max-w-[85px]">
+                  {cardAssignees[0].name.split(' ')[0]}
                 </span>
               )}
             </div>

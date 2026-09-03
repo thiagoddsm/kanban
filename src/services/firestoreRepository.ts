@@ -495,13 +495,10 @@ export class FirestoreRepository {
         }
       }
 
-      // Excluir campos legados desnormalizados antes de gravar no Firestore.
-      // A fonte de verdade no Firestore é exclusivamente `assigneeIds`.
-      const { assigneeId, assigneeName, assigneeAvatar, assignees, ...taskWithoutLegacy } = task;
-
+      // Gravar tarefa completa com versionamento e suporte total a múltiplos responsáveis
       const nextVersion = (task.version || 0) + 1;
       const taskToSave = {
-        ...taskWithoutLegacy,
+        ...task,
         version: nextVersion,
         updatedAt: new Date().toISOString(),
       };
