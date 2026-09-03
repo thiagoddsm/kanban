@@ -35,8 +35,9 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
   const orgConfig = currentOrganization?.evolutionConfig || {};
 
   const [instanceName, setInstanceName] = useState(
-    orgConfig.instanceName || DEFAULT_EVOLUTION_CONFIG.instanceName || 'IBM'
+    orgConfig.instanceName || DEFAULT_EVOLUTION_CONFIG.instanceName || 'Oiko_Gestao'
   );
+
   const [baseUrl, setBaseUrl] = useState(orgConfig.baseUrl || DEFAULT_EVOLUTION_CONFIG.baseUrl);
   const [apiKey, setApiKey] = useState(orgConfig.apiKey || DEFAULT_EVOLUTION_CONFIG.apiKey);
   const [isEnabled, setIsEnabled] = useState(orgConfig.isEnabled !== false);
@@ -157,20 +158,21 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                     <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Nome da Instância (ex: IBM)</span>
+                    <span>Nome da Instância (ex: Oiko_Gestao)</span>
                   </label>
                   <input
                     type="text"
                     value={instanceName}
                     onChange={(e) => setInstanceName(e.target.value)}
-                    placeholder="IBM"
+                    placeholder="Oiko_Gestao"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
                     required
                   />
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Nome da instância criada na sua Evolution API (padrão: <strong>IBM</strong>).
+                    Nome da instância criada na sua Evolution API (padrão: <strong>Oiko_Gestao</strong>).
                   </p>
                 </div>
+
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
