@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -31,7 +31,9 @@ import {
   Film,
   Download,
   History,
-  Clock
+  Clock,
+  Edit3,
+  AlignLeft
 } from 'lucide-react';
 
 interface TaskModalProps {
@@ -98,6 +100,31 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   // Tab State
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'history'>('details');
+
+  // Sync state whenever active task changes
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || '');
+      setStatus(task.status);
+      setPriority(task.priority);
+      setEventId(task.eventId || '');
+      setCampusId(task.campusId || '');
+      setSelectedAssigneeIds(
+        task.assigneeIds && task.assigneeIds.length > 0
+          ? task.assigneeIds
+          : task.assigneeId ? [task.assigneeId] : []
+      );
+      setStartDate(task.startDate);
+      setDeadline(task.deadline);
+      setEffortEstimate(task.effortEstimate || '');
+      setChecklist(task.checklist || []);
+      setAttachmentLinks(task.attachmentLinks || []);
+      setDependencies(task.dependencies || []);
+      setBlockReasonInput(task.blockedReason || '');
+      setActionRequiredByInput(task.blockedActionRequiredBy || '');
+    }
+  }, [task?.id, task?.updatedAt]);
 
   // Direct File Upload State
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -196,8 +223,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
     updateTask({
       ...task,
-      title,
-      description,
+      title: title.trim() || task.title,
+      description: description.trim(),
       status,
       priority,
       eventId: eventId || undefined,
@@ -412,20 +439,40 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
           )}
 
           {/* Title & Description */}
-          <div className="space-y-3">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full text-lg sm:text-xl font-black text-white bg-transparent border-b border-slate-800 focus:border-indigo-500 focus:outline-none pb-1"
-            />
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Adicione orientações detalhadas, briefing, público e referências..."
-              className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Edit3 className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Título da Demanda / Tarefa *</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-normal lowercase">
+                  (clique para renomear)
+                </span>
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Digite o título da demanda..."
+                className="w-full text-sm sm:text-base font-bold text-white bg-slate-950/70 border border-slate-750 focus:border-indigo-500 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder-slate-500 shadow-inner"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <AlignLeft className="w-3.5 h-3.5 text-slate-400" />
+                <span>Descrição & Orientações</span>
+              </label>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Adicione orientações detalhadas, briefing, público e referências..."
+                className="w-full px-4 py-3 rounded-2xl bg-slate-950/70 border border-slate-750 text-xs sm:text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all shadow-inner"
+              />
+            </div>
           </div>
 
           {/* Grid of Properties */}
