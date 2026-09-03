@@ -12,6 +12,7 @@ import { DailyDigestModal } from '../notifications/DailyDigestModal';
 import { AutomationRulesModal } from '../automations/AutomationRulesModal';
 import { QAModal } from '../testing/QAModal';
 import { TaskModal } from '../kanban/TaskModal';
+import { AdminWhatsAppSettingsModal } from '../whatsapp/AdminWhatsAppSettingsModal';
 import { Task, NavigationTab } from '../../types';
 import { 
   Bell, 
@@ -26,7 +27,8 @@ import {
   Layers,
   Sparkles,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  Smartphone
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -51,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [isDigestOpen, setIsDigestOpen] = useState(false);
   const [isAutomationOpen, setIsAutomationOpen] = useState(false);
   const [isQAOpen, setIsQAOpen] = useState(false);
+  const [isWhatsAppSettingsOpen, setIsWhatsAppSettingsOpen] = useState(false);
   const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -187,6 +190,19 @@ export const Header: React.FC<HeaderProps> = ({
                     <Settings className="w-4 h-4 text-indigo-400" />
                     <span>Configurações da Igreja & Listas</span>
                   </button>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        setIsToolsMenuOpen(false);
+                        setIsWhatsAppSettingsOpen(true);
+                      }}
+                      className="w-full px-3.5 py-2 text-left text-emerald-400 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-bold"
+                    >
+                      <Smartphone className="w-4 h-4 text-emerald-400" />
+                      <span>WhatsApp Geral da Igreja (Evolution)</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -327,6 +343,11 @@ export const Header: React.FC<HeaderProps> = ({
           setIsTaskModalOpen(false);
           setSelectedTask(null);
         }}
+      />
+
+      <AdminWhatsAppSettingsModal
+        isOpen={isWhatsAppSettingsOpen}
+        onClose={() => setIsWhatsAppSettingsOpen(false)}
       />
     </>
   );

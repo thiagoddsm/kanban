@@ -46,6 +46,18 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
 };
 
+export interface EvolutionIntegrationConfig {
+  baseUrl?: string;
+  apiKey?: string;
+  instanceName?: string;
+  isEnabled?: boolean;
+  notifyOnTaskCreated?: boolean;
+  notifyOnTaskBlocked?: boolean;
+  notifyOnTaskApproved?: boolean;
+  notifyOnMention?: boolean;
+  updatedAt?: string;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -53,6 +65,8 @@ export interface User {
   avatar?: string;
   phone?: string;
   whatsapp?: string;
+  whatsappInstanceName?: string;
+  whatsappConnected?: boolean;
   notifyWhatsApp?: boolean;
   notifyEmail?: boolean;
   createdAt?: string;
@@ -60,9 +74,6 @@ export interface User {
   activeOrganizationId?: string;
   tenantId?: string;
 }
-
-
-
 
 export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
 export type SubscriptionStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'SUSPENDED';
@@ -118,6 +129,7 @@ export interface Organization {
   branding: OrganizationBranding;
   subscription: Subscription;
   limits: PlanLimits;
+  evolutionConfig?: EvolutionIntegrationConfig;
   createdAt: string;
   updatedAt: string;
 }

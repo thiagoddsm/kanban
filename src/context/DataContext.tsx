@@ -23,6 +23,7 @@ import { NotificationService } from '../services/notificationService';
 import { ApprovalService } from '../services/approvalService';
 import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
+import { EvolutionApiService } from '../services/evolutionApiService';
 import { useAuth } from './AuthContext';
 import { useTenant } from './TenantContext';
 import { useAccess } from './AccessContext';
@@ -1230,9 +1231,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    // Trigger Notification for each mentioned user
+    // Trigger Notification for each mentioned user (In-App + WhatsApp)
     const actorName = currentUser?.name || 'Um membro';
-    targetUsersToNotify.forEach((targetUser) => {
+    const authorPersonalInstance = currentUser?.id
+      ? EvolutionApiService.sanitizeSlug(`user_${currentUser.id}_${currentOrganization.slug || 'ib'}`)
+      : null;
+    const orgInstance =
+      currentOrganization.evolutionConfig?.instanceName ||
+      EvolutionApiService.sanitizeSlug(`org_${currentOrganization.slug || 'ib'}_sistema`);
+
+    targetUsersToNotify.forEach(async (targetUser) => {
       NotificationService.createNotification({
         organizationId: currentOrganization.id,
         campusId: currentCampus?.id || null,
@@ -1243,6 +1251,29 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         entityType: 'TASK',
         entityId: taskId,
       });
+
+      // Disparo WhatsApp Duas Linhas (Instância pessoal do autor -> Fallback Org)
+      const userPhone = targetUser.whatsapp || targetUser.phone;
+      if (userPhone && targetUser.notifyWhatsApp !== false) {
+        const text = `🔔 *Notificação Kanban Oiko*\n\nOlá, *${targetUser.name.split(' ')[0]}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${taskTitle}"*\n\n💬 _"${content}"_\n\n👉 Acesse agora para responder:\nhttps://studio-5589719834-7481b.web.app/tasks`;
+
+        // Se o autor tiver WhatsApp conectado, dispara pela conta dele; senão usa a da organização
+        let instanceToUse = orgInstance;
+        if (currentUser?.whatsappConnected && authorPersonalInstance) {
+          instanceToUse = authorPersonalInstance;
+        }
+
+        try {
+          await EvolutionApiService.sendTextMessage({
+            instanceName: instanceToUse,
+            to: userPhone,
+            text,
+            configOverride: currentOrganization.evolutionConfig,
+          });
+        } catch (e) {
+          console.warn('[WhatsApp Mention Error]:', e);
+        }
+      }
     });
 
     if (targetUsersToNotify.length > 0) {
