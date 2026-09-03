@@ -89,9 +89,12 @@ export const UsersView: React.FC = () => {
   };
 
   const handleCopyInviteLink = (memId: string, userName: string) => {
-    const inviteUrl = `${window.location.origin}/?invite=${memId}&org=${currentOrganization.slug}`;
+    const mem = memberships.find((m) => m.id === memId);
+    const user = users.find((u) => u.id === mem?.userId);
+    const emailParam = user?.email ? `&email=${encodeURIComponent(user.email)}` : '';
+    const inviteUrl = `${window.location.origin}/login?tab=primeiro-acesso&org=${currentOrganization.slug}${emailParam}&invite=${memId}`;
     navigator.clipboard.writeText(inviteUrl);
-    success('Link de convite copiado!', `Envie o link para ${userName} aceitar o acesso.`);
+    success('Link de Primeiro Acesso copiado!', `Envie o link para ${userName} ativar o acesso e definir a senha.`);
   };
 
   const handleToggleSuspend = (memId: string, currentStatus: MembershipStatus) => {
