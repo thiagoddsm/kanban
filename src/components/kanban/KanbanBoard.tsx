@@ -4,7 +4,9 @@ import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { KanbanColumn } from './KanbanColumn';
+import { KanbanFilterPopover } from './KanbanFilterPopover';
 import { TaskModal } from './TaskModal';
+
 import { DependencyAlertModal } from './DependencyAlertModal';
 import { NewDemandModal } from './NewDemandModal';
 import { Task, TaskStatus } from '../../types';
@@ -194,272 +196,143 @@ export const KanbanBoard: React.FC = () => {
   };
 
   const selectedEvent = events.find((e) => e.id === filterEventId);
+  const selectedAssignee = users.find((u) => u.id === filterAssigneeId);
+  const selectedDemandType = demandTypes.find((dt) => dt.type === filterDemandType);
+
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-slate-900/60 p-4 sm:p-6 overflow-hidden">
-      {/* Board Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Quadro de Fluxo Kanban
-            </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os Campi'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            {selectedEvent
-              ? `Filtrando por projeto: ${selectedEvent.title}`
-              : 'Fluxo visual com filtros rápidos por evento, responsável, prioridade e tags.'}
-          </p>
+      {/* Board Top Header (Discreto, compacto no padrão Pipefy) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
+            Quadro de Demandas
+          </h1>
+          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os Campi'}
+          </span>
+          <span className="text-xs text-slate-500">
+            ({filteredTasks.length} {filteredTasks.length === 1 ? 'card' : 'cards'})
+          </span>
         </div>
 
-        {/* Right action button */}
-        {canCreateDemand && (
-          <button
-            onClick={() => handleQuickAdd('INBOX')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/25 active:scale-95 transition-all self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Criar Nova Demanda</span>
-          </button>
-        )}
+        {/* Right Toolbar: Search + Filter Popover + New Demand Button */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <KanbanFilterPopover
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filterOnlyMyTasks={filterOnlyMyTasks}
+            setFilterOnlyMyTasks={setFilterOnlyMyTasks}
+            filterEventId={filterEventId}
+            setFilterEventId={setFilterEventId}
+            filterAssigneeId={filterAssigneeId}
+            setFilterAssigneeId={setFilterAssigneeId}
+            filterPriority={filterPriority}
+            setFilterPriority={setFilterPriority}
+            filterDemandType={filterDemandType}
+            setFilterDemandType={setFilterDemandType}
+            filterTag={filterTag}
+            setFilterTag={setFilterTag}
+            clearFilters={clearFilters}
+            events={events}
+            users={users}
+            demandTypes={demandTypes}
+            allTags={allTags}
+            totalTasksCount={tasks.length}
+            filteredTasksCount={filteredTasks.length}
+          />
+
+          {canCreateDemand && (
+            <button
+              onClick={() => handleQuickAdd('INBOX')}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Criar Demanda</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Filter & Search Toolbar */}
-      <div className="mb-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 space-y-3 shrink-0 shadow-lg">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-1 min-w-[220px]">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-xs">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por título, tag, pessoa..."
-                className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
-            {/* My Tasks Toggle */}
-            <button
-              onClick={() => setFilterOnlyMyTasks(!filterOnlyMyTasks)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                filterOnlyMyTasks
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
-              }`}
-            >
-              <UserIcon className="w-3.5 h-3.5" />
-              <span>Minhas Tarefas</span>
-            </button>
-          </div>
-
-          {/* Active filters counter & Reset */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 hidden md:inline">
-              Exibindo <strong className="text-white">{filteredTasks.length}</strong> de <strong className="text-white">{tasks.length}</strong> demandas
-            </span>
-
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 text-xs font-bold flex items-center gap-1 transition-all"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Limpar Filtros ({activeFiltersCount})</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Filter Chips (1-Click) */}
-        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 pt-1 border-t border-slate-800/60">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
-            <Filter className="w-3 h-3 text-indigo-400" />
-            Filtros Rápidos:
+      {/* Active Filter Chips (Ultra-discreto: só aparece quando filtros são aplicados!) */}
+      {activeFiltersCount > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2.5 px-0.5 py-0.5 text-xs shrink-0 animate-fade-in">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+            Filtros ativos:
           </span>
+
+          {filterOnlyMyTasks && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-medium">
+              Atribuído a mim
+              <button onClick={() => setFilterOnlyMyTasks(false)} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {filterPriority && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+              Prioridade: {filterPriority}
+              <button onClick={() => setFilterPriority('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedDemandType && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium">
+              Tipo: {selectedDemandType.label}
+              <button onClick={() => setFilterDemandType('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedEvent && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[11px] font-medium">
+              Projeto: {selectedEvent.title}
+              <button onClick={() => setFilterEventId('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {selectedAssignee && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
+              Membro: {selectedAssignee.name}
+              <button onClick={() => setFilterAssigneeId('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {filterTag && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium">
+              #{filterTag}
+              <button onClick={() => setFilterTag('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
+          {searchQuery && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-medium">
+              &quot;{searchQuery}&quot;
+              <button onClick={() => setSearchQuery('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
 
           <button
             onClick={clearFilters}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
-              activeFiltersCount === 0
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
+            className="text-[11px] text-rose-400 hover:text-rose-300 font-bold ml-1 transition-colors"
           >
-            Todas
-          </button>
-
-          <button
-            onClick={() => setFilterOnlyMyTasks(!filterOnlyMyTasks)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
-              filterOnlyMyTasks
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:text-white'
-            }`}
-          >
-            <UserIcon className="w-3 h-3" />
-            <span>Minhas Tarefas</span>
-          </button>
-
-          <button
-            onClick={() => setFilterPriority(filterPriority === 'URGENT' ? '' : 'URGENT')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
-              filterPriority === 'URGENT'
-                ? 'bg-rose-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:text-rose-300'
-            }`}
-          >
-            <Flame className="w-3 h-3 text-rose-400" />
-            <span>Urgentes</span>
-          </button>
-
-          <button
-            onClick={() => setFilterDemandType(filterDemandType === 'ARTE' ? '' : 'ARTE')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
-              filterDemandType === 'ARTE'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:text-purple-300'
-            }`}
-          >
-            <span>Artes / Visual</span>
-          </button>
-
-          <button
-            onClick={() => setFilterDemandType(filterDemandType === 'VIDEO' ? '' : 'VIDEO')}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
-              filterDemandType === 'VIDEO'
-                ? 'bg-cyan-600 text-white shadow-sm'
-                : 'bg-slate-800 text-slate-300 hover:text-cyan-300'
-            }`}
-          >
-            <span>Vídeos / Telão</span>
+            Limpar todos
           </button>
         </div>
+      )}
 
-        {/* Filter Dropdowns Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 pt-2 border-t border-slate-800/80 text-xs">
-          {/* By Event / Project */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-purple-400" />
-              <span>Evento / Projeto</span>
-            </label>
-            <select
-              value={filterEventId}
-              onChange={(e) => setFilterEventId(e.target.value)}
-              className={`w-full px-2.5 py-1.5 rounded-xl border text-xs text-white focus:outline-none transition-all ${
-                filterEventId ? 'bg-purple-950/40 border-purple-500/50 text-purple-200 font-bold' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <option value="">Todos os eventos</option>
-              {events.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.title}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* By Assignee */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <UserIcon className="w-3 h-3 text-cyan-400" />
-              <span>Responsável</span>
-            </label>
-            <select
-              value={filterAssigneeId}
-              onChange={(e) => setFilterAssigneeId(e.target.value)}
-              className={`w-full px-2.5 py-1.5 rounded-xl border text-xs text-white focus:outline-none transition-all ${
-                filterAssigneeId ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200 font-bold' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <option value="">Todos os membros</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* By Demand Type */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Layers className="w-3 h-3 text-indigo-400" />
-              <span>Tipo de Demanda</span>
-            </label>
-            <select
-              value={filterDemandType}
-              onChange={(e) => setFilterDemandType(e.target.value)}
-              className={`w-full px-2.5 py-1.5 rounded-xl border text-xs text-white focus:outline-none transition-all ${
-                filterDemandType ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200 font-bold' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <option value="">Todos os tipos</option>
-              {demandTypes.map((dt) => (
-                <option key={dt.type} value={dt.type}>
-                  {dt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* By Priority */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Flame className="w-3 h-3 text-amber-400" />
-              <span>Prioridade</span>
-            </label>
-            <select
-              value={filterPriority}
-              onChange={(e) => setFilterPriority(e.target.value)}
-              className={`w-full px-2.5 py-1.5 rounded-xl border text-xs text-white focus:outline-none transition-all ${
-                filterPriority ? 'bg-amber-950/40 border-amber-500/50 text-amber-200 font-bold' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <option value="">Todas as prioridades</option>
-              <option value="URGENT">🔴 Urgente</option>
-              <option value="HIGH">🟠 Alta</option>
-              <option value="MEDIUM">🔵 Média</option>
-              <option value="LOW">⚪ Baixa</option>
-            </select>
-          </div>
-
-          {/* By Tag */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Tag className="w-3 h-3 text-emerald-400" />
-              <span>Tag / Marcador</span>
-            </label>
-            <select
-              value={filterTag}
-              onChange={(e) => setFilterTag(e.target.value)}
-              className={`w-full px-2.5 py-1.5 rounded-xl border text-xs text-white focus:outline-none transition-all ${
-                filterTag ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-200 font-bold' : 'bg-slate-800 border-slate-700'
-              }`}
-            >
-              <option value="">Todas as tags</option>
-              {allTags.map((tag) => (
-                <option key={tag} value={tag}>
-                  #{tag}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
       {/* 6 Kanban Columns Horizontal Scrolling Container */}
       <div className="flex-1 overflow-x-auto pb-4 flex gap-4 custom-scrollbar items-start">
