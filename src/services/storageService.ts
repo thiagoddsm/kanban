@@ -162,6 +162,12 @@ export class StorageService {
     return this.addUser(user);
   }
 
+  static deleteUser(userId: string): User[] {
+    const users = this.getUsers().filter((u) => u.id !== userId);
+    this.saveUsers(users);
+    return users;
+  }
+
   // --- MEMBERSHIPS ---
   static getMemberships(orgId?: string): Membership[] {
     const raw = localStorage.getItem(MEMBERSHIPS_KEY);

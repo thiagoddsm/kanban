@@ -408,11 +408,15 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const removeMemberFromOrg = (membershipId: string) => {
-    const mem = memberships.find((m) => m.id === membershipId);
+    const mem = memberships.find((m) => m.id === membershipId || m.userId === membershipId);
     const updated = StorageService.deleteMembership(membershipId);
     setMemberships(updated);
     if (mem) {
-      FirestoreRepository.deleteMembership(currentOrganization.id, mem.userId);
+      StorageService.deleteUser(mem.userId);
+      FirestoreRepository.deleteMembership(currentOrganization.id, mem.userId, mem.id);
+    } else {
+      StorageService.deleteUser(membershipId);
+      FirestoreRepository.deleteMembership(currentOrganization.id, membershipId, membershipId);
     }
 
     const auditLog: ActivityLog = {
@@ -428,10 +432,9 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       timestamp: new Date().toISOString(),
     };
     StorageService.addActivity(auditLog);
-
     FirestoreRepository.recordActivity(auditLog);
 
-    success('Membro removido da organização.');
+    success('Membro e usuário removidos com sucesso do Firestore.');
   };
 
   // RBAC Permission Flags backed by closed Permission matrix

@@ -297,9 +297,13 @@ export const UsersView: React.FC = () => {
                           </button>
 
                           <button
-                            onClick={() => removeMemberFromOrg(mem.id)}
+                            onClick={() => {
+                              if (window.confirm(`Tem certeza que deseja excluir ${user?.name || 'este membro'} da organização e do banco de dados?`)) {
+                                removeMemberFromOrg(mem.id);
+                              }
+                            }}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                            title="Excluir Vínculo Definitivamente"
+                            title="Excluir Vínculo e Usuário Definitivamente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

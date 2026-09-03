@@ -267,26 +267,49 @@ export class FirestoreRepository {
   }
 
   /**
-   * Delete Membership from Firestore
+   * Delete User from /users/{userId} in Firestore and local storage
    */
-  public static async deleteMembership(orgId: string, userId: string): Promise<void> {
-    const mems = StorageService.getMemberships().filter((m) => !(m.organizationId === orgId && m.userId === userId));
+  public static async deleteUser(userId: string): Promise<void> {
+    StorageService.deleteUser(userId);
+    if (!isFirebaseConfigured || !db) return;
+
+    try {
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+      console.log('✅ Usuário excluído da coleção /users do Firestore:', userId);
+    } catch (e) {
+      console.error('Erro ao excluir usuário do Firestore:', e);
+    }
+  }
+
+  /**
+   * Delete Membership from Firestore and cleanup user doc if necessary
+   */
+  public static async deleteMembership(orgId: string, userId: string, membershipId?: string): Promise<void> {
+    const mems = StorageService.getMemberships().filter(
+      (m) => !(m.organizationId === orgId && (m.userId === userId || m.id === membershipId))
+    );
     StorageService.saveMemberships(mems);
     if (!isFirebaseConfigured || !db) return;
 
     try {
+      // 1. Excluir membership do Firestore por userId
       const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
       await deleteDoc(memRef);
 
-      // Remove a organização do perfil do usuário
-      const userRef = doc(db, 'users', userId);
-      await setDoc(userRef, {
-        organizationIds: arrayRemove(orgId),
-      }, { merge: true });
+      // 2. Excluir membership do Firestore por membershipId (caso legado com ID próprio)
+      if (membershipId && membershipId !== userId) {
+        const memRefLegacy = doc(db, 'organizations', orgId, 'memberships', membershipId);
+        await deleteDoc(memRefLegacy);
+      }
 
-      console.log('✅ Membership excluído do Firestore:', userId);
+      // 3. Excluir o documento do usuário em /users/{userId}
+      const userRef = doc(db, 'users', userId);
+      await deleteDoc(userRef);
+
+      console.log('✅ Membership e Usuário excluídos com sucesso do Firestore:', userId);
     } catch (e) {
-      console.error('Erro ao excluir membership do Firestore:', e);
+      console.error('Erro ao excluir membership/usuário do Firestore:', e);
     }
   }
 
