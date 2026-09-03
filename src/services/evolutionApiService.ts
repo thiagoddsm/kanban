@@ -186,12 +186,10 @@ export class EvolutionApiService {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 401) {
-          // Se for 401 (token de instância e não master), verifica se já existe uma instância cadastrada
-          const available = await this.fetchInstances(configOverride);
-          if (available.length > 0) {
-            return { success: true };
-          }
-          return { success: false, error: 'Chave de API (apikey) não autorizada para criar novas instâncias.' };
+          return {
+            success: false,
+            error: `Chave de API não autorizada para criar a instância '${cleanName}'. A chave atual é um token de instância e não a Chave Mestra Global (Global API Key). Crie a instância no painel Evolution Manager ou informe a Chave Mestra na aba 'Servidor'.`,
+          };
         }
         if (res.status !== 403 && !data.error?.includes('already in use')) {
           return { success: false, error: data.message || `Erro HTTP ${res.status} ao criar instância.` };
@@ -209,7 +207,8 @@ export class EvolutionApiService {
    */
   public static async getQrCode(
     instanceName?: string,
-    configOverride?: EvolutionIntegrationConfig
+    configOverride?: EvolutionIntegrationConfig,
+    isRetry: boolean = false
   ): Promise<QrCodeResult> {
     const { baseUrl, apiKey, instanceName: defaultInstance } = this.resolveConfig(configOverride);
     const targetInstance = instanceName ? this.sanitizeSlug(instanceName) : defaultInstance;
@@ -227,23 +226,32 @@ export class EvolutionApiService {
 
       if (!res.ok) {
         if (res.status === 401) {
-          return { success: false, instanceName: targetInstance, error: 'Chave de API inválida ou não autorizada.' };
+          return {
+            success: false,
+            instanceName: targetInstance,
+            error: 'Chave de API inválida ou não autorizada para esta instância.',
+          };
         }
-        if (res.status === 404) {
+        if (res.status === 404 && !isRetry) {
           const createRes = await this.createInstanceIfNotExists(targetInstance, configOverride);
           if (createRes.success) {
-            return await this.getQrCode(targetInstance, configOverride);
+            return await this.getQrCode(targetInstance, configOverride, true);
           }
           return {
             success: false,
             instanceName: targetInstance,
             error:
               createRes.error ||
-              `A instância '${targetInstance}' ainda não foi criada no servidor Evolution API. Informe a Global API Key na aba 'Servidor' ou crie a instância no painel Evolution.`,
+              `A instância '${targetInstance}' ainda não foi criada no servidor Evolution API. Crie-a no painel Evolution Manager ou informe a Global API Key na aba 'Servidor'.`,
           };
         }
-        return { success: false, instanceName: targetInstance, error: data.message || `Erro HTTP ${res.status}` };
+        return {
+          success: false,
+          instanceName: targetInstance,
+          error: data.message || `Erro HTTP ${res.status} ao obter QR Code da instância '${targetInstance}'.`,
+        };
       }
+
 
 
       const base64 = data.base64 || data.qrcode?.base64;
