@@ -136,6 +136,8 @@ interface DataContextType {
   moveTask: (taskId: string, newStatus: TaskStatus, force?: boolean) => { success: boolean; blockedBy?: Task[] };
   archiveTask: (taskId: string, isArchived: boolean) => void;
   deleteTask: (taskId: string) => void;
+  restoreTask: (taskId: string) => void;
+  permanentlyDeleteTask: (taskId: string) => void;
   checkDependencies: (task: Task) => DependencyCheckResult;
   remindPredecessors: (taskId: string) => { whatsappUrl?: string; message: string };
 
@@ -370,7 +372,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const filteredTasks = useMemo(() => {
     return scopedTasks.filter((t) => {
-      if (t.isArchived) return false;
+      if (t.isArchived || t.isDeleted) return false;
       if (filterCampusId && t.campusId !== filterCampusId) return false;
       if (filterOnlyMyTasks) {
         const isMine = (t.assigneeIds && t.assigneeIds.includes(currentUser.id)) || t.assigneeId === currentUser.id || t.requesterId === currentUser.id;
@@ -825,10 +827,102 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     success(isArchived ? 'Tarefa arquivada!' : 'Tarefa restaurada!');
   };
 
+  // 1. Soft Delete: move para a Lixeira
   const deleteTask = (taskId: string) => {
+    const target = rawTasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    const softDeleted: Task = {
+      ...target,
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+      deletedBy: currentUser?.name || 'Administrador',
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = rawTasks.map((t) => (t.id === taskId ? softDeleted : t));
+    setRawTasks(updated);
+    StorageService.saveTasks(currentOrganization.id, updated);
+    FirestoreRepository.saveTask(softDeleted);
+
+    const act: ActivityLog = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: currentOrganization.id,
+      campusId: target.campusId,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
+      action: `moveu a tarefa "${target.title}" para a Lixeira`,
+      targetType: 'task',
+      targetId: target.id,
+      targetTitle: target.title,
+      timestamp: new Date().toISOString(),
+    };
+    setActivities(StorageService.addActivity(act));
+    FirestoreRepository.recordActivity(act);
+
+    info('Tarefa movida para a Lixeira (pode ser restaurada na aba Arquivados/Lixeira).');
+  };
+
+  // 2. Restaurar da Lixeira
+  const restoreTask = (taskId: string) => {
+    const target = rawTasks.find((t) => t.id === taskId);
+    if (!target) return;
+
+    const restored: Task = {
+      ...target,
+      isDeleted: false,
+      deletedAt: undefined,
+      deletedBy: undefined,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updated = rawTasks.map((t) => (t.id === taskId ? restored : t));
+    setRawTasks(updated);
+    StorageService.saveTasks(currentOrganization.id, updated);
+    FirestoreRepository.saveTask(restored);
+
+    const act: ActivityLog = {
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: currentOrganization.id,
+      campusId: target.campusId,
+      userId: currentUser?.id || 'sys',
+      userName: currentUser?.name || 'Sistema',
+      action: `restaurou a tarefa "${target.title}" da Lixeira`,
+      targetType: 'task',
+      targetId: target.id,
+      targetTitle: target.title,
+      timestamp: new Date().toISOString(),
+    };
+    setActivities(StorageService.addActivity(act));
+    FirestoreRepository.recordActivity(act);
+
+    success('Tarefa restaurada para o Kanban com sucesso!');
+  };
+
+  // 3. Excluir Definitivamente
+  const permanentlyDeleteTask = (taskId: string) => {
+    const target = rawTasks.find((t) => t.id === taskId);
     const updated = StorageService.deleteTask(currentOrganization.id, taskId);
     setRawTasks(updated);
     FirestoreRepository.deleteTask(currentOrganization.id, taskId);
+
+    if (target) {
+      const act: ActivityLog = {
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: currentOrganization.id,
+        campusId: target.campusId,
+        userId: currentUser?.id || 'sys',
+        userName: currentUser?.name || 'Sistema',
+        action: `excluiu permanentemente a tarefa "${target.title}"`,
+        targetType: 'task',
+        targetId: target.id,
+        targetTitle: target.title,
+        timestamp: new Date().toISOString(),
+      };
+      setActivities(StorageService.addActivity(act));
+      FirestoreRepository.recordActivity(act);
+    }
+
     info('Tarefa excluída permanentemente.');
   };
 
@@ -1300,6 +1394,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         moveTask,
         archiveTask,
         deleteTask,
+        restoreTask,
+        permanentlyDeleteTask,
         checkDependencies,
         remindPredecessors,
         blockTaskWithReason,

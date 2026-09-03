@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
+import { StorageUploadService } from '../../services/storageUploadService';
 import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem, User } from '../../types';
 import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
 import { 
@@ -23,7 +24,14 @@ import {
   Lock,
   RotateCcw,
   Sparkles,
-  MapPin
+  MapPin,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Download,
+  History,
+  Clock
 } from 'lucide-react';
 
 interface TaskModalProps {
@@ -87,6 +95,45 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const [isBlockPromptOpen, setIsBlockPromptOpen] = useState(false);
   const [blockReasonInput, setBlockReasonInput] = useState(task.blockedReason || '');
   const [actionRequiredByInput, setActionRequiredByInput] = useState(task.blockedActionRequiredBy || '');
+
+  // Tab State
+  const [activeModalTab, setActiveModalTab] = useState<'details' | 'history'>('details');
+
+  // Direct File Upload State
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { activities } = useData();
+  const taskActivities = useMemo(() => {
+    return (activities || []).filter((a) => a.targetId === task.id || a.targetTitle?.includes(task.title));
+  }, [activities, task.id, task.title]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+      const newAtt = await StorageUploadService.uploadTaskAttachment(
+        task.organizationId,
+        task.id,
+        file,
+        currentUser?.name || 'Membro',
+        (progress) => setUploadProgress(progress)
+      );
+      setAttachmentLinks((prev) => [...prev, newAtt]);
+      setUploadProgress(null);
+    } catch (err) {
+      console.error('Erro no upload de arquivo:', err);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   // Comments with @mentions
   const [commentText, setCommentText] = useState('');
@@ -294,7 +341,35 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
           </div>
         </div>
 
+        {/* Sub-header Tab Bar */}
+        <div className="px-5 py-2.5 border-b border-slate-800 bg-slate-950/60 flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveModalTab('details')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              activeModalTab === 'details'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Detalhes da Demanda
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveModalTab('history')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeModalTab === 'history'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Histórico & Auditoria ({taskActivities.length})</span>
+          </button>
+        </div>
+
         {/* Content Body */}
+        {activeModalTab === 'details' ? (
         <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar">
           {/* Block Alert Banner if BLOCKED */}
           {status === 'BLOCKED' && (
@@ -504,11 +579,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
               </h4>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {checklist.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-2 rounded-xl bg-slate-850 hover:bg-slate-800 text-xs transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-xs transition-colors gap-2"
                 >
                   <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
                     <input
@@ -521,13 +596,48 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                       {item.text}
                     </span>
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveCheckItem(item.id)}
-                    className="text-slate-500 hover:text-rose-400 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                    {/* Sub-assignee */}
+                    <select
+                      value={item.assigneeId || ''}
+                      onChange={(e) => {
+                        const newAssignee = e.target.value;
+                        setChecklist((prev) =>
+                          prev.map((i) => (i.id === item.id ? { ...i, assigneeId: newAssignee || undefined } : i))
+                        );
+                      }}
+                      className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] text-slate-300 focus:outline-none"
+                    >
+                      <option value="">Sem responsável</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Due date */}
+                    <input
+                      type="date"
+                      value={item.dueDate || ''}
+                      onChange={(e) => {
+                        const newDate = e.target.value;
+                        setChecklist((prev) =>
+                          prev.map((i) => (i.id === item.id ? { ...i, dueDate: newDate || undefined } : i))
+                        );
+                      }}
+                      className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] text-slate-300 focus:outline-none"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCheckItem(item.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -556,50 +666,121 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             </div>
           </div>
 
-          {/* Links & Attachments */}
+          {/* Links & Direct File Upload */}
           <div className="space-y-3 p-4 rounded-2xl bg-slate-950/40 border border-slate-800">
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Link2 className="w-4 h-4 text-indigo-400" />
-              Links & Materiais Anexados ({attachmentLinks.length})
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Link2 className="w-4 h-4 text-indigo-400" />
+                Arquivos & Materiais Anexados ({attachmentLinks.length})
+              </h4>
 
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="task-file-upload-input"
+                  disabled={isUploading}
+                />
+                <label
+                  htmlFor="task-file-upload-input"
+                  className={`px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 hover:text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                    isUploading ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{isUploading ? 'Enviando...' : 'Enviar Arquivo / Foto'}</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Upload progress bar */}
+            {uploadProgress !== null && (
+              <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-indigo-300 font-bold">
+                  <span>Enviando arquivo para o Cloud Storage...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Attachments List */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {attachmentLinks.map((att) => (
                 <div
                   key={att.id}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-850 border border-slate-750 text-xs"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-850 border border-slate-750 text-xs group hover:border-slate-600 transition-colors"
                 >
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 truncate flex-1 font-semibold"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{att.title}</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttachment(att.id)}
-                    className="text-slate-500 hover:text-rose-400 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {att.type === 'image' ? (
+                      <img
+                        src={att.url}
+                        alt={att.title}
+                        className="w-9 h-9 rounded-lg object-cover border border-slate-700 shrink-0 bg-slate-900"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                        {att.type === 'video' ? <Film className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-indigo-300 hover:text-indigo-200 font-semibold truncate block"
+                      >
+                        {att.title}
+                      </a>
+                      <span className="text-[10px] text-slate-400">
+                        {att.size ? (att.size / (1024 * 1024)).toFixed(1) + ' MB • ' : ''}
+                        {att.type.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={att.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800"
+                      title="Abrir anexo"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(att.id)}
+                      className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10"
+                      title="Remover anexo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+            {/* Add external Link inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-slate-800/80">
               <input
                 type="text"
-                placeholder="Título do link..."
+                placeholder="Título do link externo..."
                 value={attTitle}
                 onChange={(e) => setAttTitle(e.target.value)}
                 className="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
               />
               <input
                 type="url"
-                placeholder="https://..."
+                placeholder="https://canva.com/..."
                 value={attUrl}
                 onChange={(e) => setAttUrl(e.target.value)}
                 className="px-2.5 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
@@ -838,6 +1019,43 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             </div>
           </div>
         </div>
+        ) : (
+          /* Tab 2: Activity History & Audit Timeline */
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 custom-scrollbar">
+            <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 space-y-3">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <History className="w-4 h-4 text-purple-400" />
+                <span>Linha do Tempo de Atividades & Auditoria</span>
+              </h4>
+              <p className="text-xs text-slate-400">
+                Histórico cronológico de movimentações, aprovações e edições realizadas nesta demanda.
+              </p>
+
+              {taskActivities.length === 0 ? (
+                <div className="p-8 text-center rounded-xl bg-slate-900 border border-slate-800/80 text-slate-400 text-xs">
+                  Nenhum registro de atividade gravado para esta demanda ainda.
+                </div>
+              ) : (
+                <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-800 pl-7 pt-2">
+                  {taskActivities.map((act) => (
+                    <div key={act.id} className="relative text-xs space-y-1">
+                      <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-indigo-500 ring-4 ring-slate-900" />
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <strong className="text-white font-semibold">{act.userName}</strong>
+                        <span className="text-slate-300">{act.action}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(act.timestamp).toLocaleDateString('pt-BR')} às{' '}
+                        {new Date(act.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-between shrink-0">

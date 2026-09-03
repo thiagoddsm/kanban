@@ -167,13 +167,20 @@ export interface AttachmentLink {
   id: string;
   title: string;
   url: string;
-  type: 'drive' | 'canva' | 'figma' | 'document' | 'other';
+  type: 'drive' | 'canva' | 'figma' | 'document' | 'image' | 'video' | 'other';
+  size?: number;
+  mimeType?: string;
+  storagePath?: string;
+  uploadedAt?: string;
+  uploadedBy?: string;
 }
 
 export interface ChecklistItem {
   id: string;
   text: string;
   completed: boolean;
+  assigneeId?: string;
+  dueDate?: string;
 }
 
 export interface Comment {
@@ -275,6 +282,9 @@ export interface Task {
   checklist: ChecklistItem[];
   commentsCount: number;
   isArchived: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
   createdBy: string;
   createdByName: string;
   createdAt: string;

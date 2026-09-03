@@ -13,6 +13,8 @@ import { UsersView } from '../users/UsersView';
 import { SettingsView } from '../settings/SettingsView';
 import { DemandPortalModal } from '../demands/DemandPortalModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
+import { MyAccountModal } from '../auth/MyAccountModal';
+import { BottomNav } from './BottomNav';
 import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
@@ -59,6 +61,7 @@ export const Layout: React.FC = () => {
 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDemandPortalOpen, setIsDemandPortalOpen] = useState(false);
+  const [isMyAccountOpen, setIsMyAccountOpen] = useState(false);
 
   // Splash Screen de Carregamento Seguro
   if (isLoadingAuth) {
@@ -83,7 +86,7 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white pb-16 lg:pb-0">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -117,6 +120,14 @@ export const Layout: React.FC = () => {
         </main>
       </div>
 
+      {/* Bottom Navigation for Mobile Devices */}
+      <BottomNav
+        activeTab={activeTab}
+        onNavigate={navigateToTab}
+        onOpenDemandPortal={() => setIsDemandPortalOpen(true)}
+        onOpenMyAccount={() => setIsMyAccountOpen(true)}
+      />
+
       {/* Global Demand Portal Wizard (Pipefy style) */}
       <DemandPortalModal
         isOpen={isDemandPortalOpen}
@@ -125,6 +136,12 @@ export const Layout: React.FC = () => {
 
       {/* Accept Invitation Interceptor */}
       <AcceptInviteModal />
+
+      {/* My Account Modal */}
+      <MyAccountModal
+        isOpen={isMyAccountOpen}
+        onClose={() => setIsMyAccountOpen(false)}
+      />
 
       {/* Floating Notifications */}
       <ToastContainer />

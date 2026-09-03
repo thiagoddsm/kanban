@@ -61,7 +61,6 @@ export const KanbanBoard: React.FC = () => {
   const [isNewDemandModalOpen, setIsNewDemandModalOpen] = useState(false);
   const [defaultColumnForNew, setDefaultColumnForNew] = useState<TaskStatus>('INBOX');
 
-  // Dependency Alert Modal State
   const [isDepAlertOpen, setIsDepAlertOpen] = useState(false);
   const [targetBlockedTask, setTargetBlockedTask] = useState<Task | null>(null);
   const [targetStatusToForce, setTargetStatusToForce] = useState<TaskStatus | null>(null);
@@ -72,6 +71,43 @@ export const KanbanBoard: React.FC = () => {
   const [blockTargetTaskId, setBlockTargetTaskId] = useState<string | null>(null);
   const [blockReason, setBlockReason] = useState('');
   const [actionRequiredBy, setActionRequiredBy] = useState('');
+
+  // Quick review filter
+  const [filterReviewOnly, setFilterReviewOnly] = useState(false);
+
+  // Global Keyboard Shortcuts (N for new, / for search, Esc to close)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      const isInput =
+        activeElement &&
+        (activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.tagName === 'SELECT');
+
+      if (e.key === 'Escape') {
+        setIsTaskModalOpen(false);
+        setIsNewDemandModalOpen(false);
+        setIsDepAlertOpen(false);
+        setIsPromptBlockOpen(false);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setIsNewDemandModalOpen(true);
+      } else if (e.key === '/') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const activeFiltersCount = [
     filterOnlyMyTasks,
@@ -245,6 +281,71 @@ export const KanbanBoard: React.FC = () => {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Quick Filter Chips (1-Click) */}
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 pt-1 border-t border-slate-800/60">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
+            <Filter className="w-3 h-3 text-indigo-400" />
+            Filtros Rápidos:
+          </span>
+
+          <button
+            onClick={clearFilters}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+              activeFiltersCount === 0
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            Todas
+          </button>
+
+          <button
+            onClick={() => setFilterOnlyMyTasks(!filterOnlyMyTasks)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
+              filterOnlyMyTasks
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-300 hover:text-white'
+            }`}
+          >
+            <UserIcon className="w-3 h-3" />
+            <span>Minhas Tarefas</span>
+          </button>
+
+          <button
+            onClick={() => setFilterPriority(filterPriority === 'URGENT' ? '' : 'URGENT')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
+              filterPriority === 'URGENT'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-300 hover:text-rose-300'
+            }`}
+          >
+            <Flame className="w-3 h-3 text-rose-400" />
+            <span>Urgentes</span>
+          </button>
+
+          <button
+            onClick={() => setFilterDemandType(filterDemandType === 'ARTE' ? '' : 'ARTE')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
+              filterDemandType === 'ARTE'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-300 hover:text-purple-300'
+            }`}
+          >
+            <span>Artes / Visual</span>
+          </button>
+
+          <button
+            onClick={() => setFilterDemandType(filterDemandType === 'VIDEO' ? '' : 'VIDEO')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 transition-all ${
+              filterDemandType === 'VIDEO'
+                ? 'bg-cyan-600 text-white shadow-sm'
+                : 'bg-slate-800 text-slate-300 hover:text-cyan-300'
+            }`}
+          >
+            <span>Vídeos / Telão</span>
+          </button>
         </div>
 
         {/* Filter Dropdowns Row */}

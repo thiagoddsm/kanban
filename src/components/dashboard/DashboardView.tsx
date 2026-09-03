@@ -29,6 +29,8 @@ import {
   ChevronUp
 } from 'lucide-react';
 import { PriorityBadge, DemandTypeBadge, StatusBadge } from '../common/Badge';
+import { ExportReportModal } from '../reports/ExportReportModal';
+import { FileText, Printer } from 'lucide-react';
 
 interface DashboardViewProps {
   onNavigate: (tab: NavigationTab) => void;
@@ -47,6 +49,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isPilotSectionOpen, setIsPilotSectionOpen] = useState(false);
+  const [isReportOpen, setIsReportOpen] = useState(false);
 
   // Compute Metrics
   const overall = useMemo(() => AnalyticsService.getOverallMetrics(tasks, events), [tasks, events]);
@@ -82,19 +85,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* 1. Welcoming Hero & Guided Starting Actions */}
       <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800/80 p-6 sm:p-8 shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-6">
-          {/* Welcome Text */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Olá, {firstName} 👋
-              </h1>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                {currentOrganization.name}
-              </span>
+          {/* Welcome Text & Report Action */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  Olá, {firstName} 👋
+                </h1>
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  {currentOrganization.name}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
+                Bem-vindo ao centro de gestão integrada de tarefas, operações, projetos e demandas da igreja. Por onde você deseja começar hoje?
+              </p>
             </div>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-xl leading-relaxed">
-              Bem-vindo ao centro de gestão integrada de tarefas, operações, projetos e demandas da igreja. Por onde você deseja começar hoje?
-            </p>
+
+            <button
+              onClick={() => setIsReportOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold shadow-md hover:text-white transition-all active:scale-95 shrink-0"
+            >
+              <FileText className="w-4 h-4 text-indigo-400" />
+              <span>Exportar Relatório / PDF</span>
+            </button>
           </div>
 
           {/* 3 Clear Guided Action Cards ("Start Here") */}
@@ -427,6 +440,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           setIsTaskModalOpen(false);
           setSelectedTask(null);
         }}
+      />
+
+      {/* Export Executive & Pastoral Report Modal */}
+      <ExportReportModal
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
       />
     </div>
   );
