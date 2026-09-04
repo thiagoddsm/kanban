@@ -207,4 +207,45 @@ export class WhatsAppNotificationService {
       return false;
     }
   }
+
+  /**
+   * Notifica solicitante quando uma demanda pública for registrada com sucesso
+   */
+  public static async notifyPublicDemandSubmitted({
+    organization,
+    task,
+    requesterPhone,
+    requesterName,
+    protocolCode,
+  }: {
+    organization: Organization;
+    task: Task;
+    requesterPhone: string;
+    requesterName: string;
+    protocolCode: string;
+  }): Promise<boolean> {
+    const orgConfig = organization.evolutionConfig;
+    if (orgConfig?.isEnabled === false) return false;
+
+    const instanceName = this.resolveInstanceName(organization);
+    const orgSlug = organization.slug || 'ib';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://studio-5589719834-7481b.web.app';
+    const trackingUrl = `${baseUrl}/${orgSlug}/protocolo/${encodeURIComponent(protocolCode)}`;
+
+    const text = `📋 *Demanda Registrada com Sucesso! - ${organization.name}*\n\nOlá, *${requesterName.split(' ')[0]}*!\nSua solicitação foi recebida e já está na esteira de triagem inicial.\n\n📌 *Demanda:* ${task.title}\n🔢 *Protocolo:* \`${protocolCode}\`\n⏳ *SLA de Triagem:* Até 24 horas úteis\n\n👉 *Acompanhe em tempo real:* ${trackingUrl}\n\nVocê receberá avisos automáticos a cada avanço de fase!`;
+
+    try {
+      const res = await EvolutionApiService.sendTextMessage({
+        instanceName,
+        to: requesterPhone,
+        text,
+        configOverride: orgConfig,
+      });
+      return res.success;
+    } catch (err) {
+      console.warn('[WhatsAppNotify] Falha ao enviar confirmação de protocolo ao solicitante:', err);
+      return false;
+    }
+  }
 }
+

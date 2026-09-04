@@ -10,6 +10,8 @@ import { Layout } from './components/layout/Layout';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { PublicDemandPortalPage } from './pages/PublicDemandPortalPage';
+import { PublicProtocolTrackerPage } from './pages/PublicProtocolTrackerPage';
 
 export function App() {
   return (
@@ -25,6 +27,11 @@ export function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/signup" element={<RegisterPage />} />
                   <Route path="/register" element={<RegisterPage />} />
+
+                  {/* Portal Público de Demandas e Acompanhamento de Protocolo (Acesso aberto) */}
+                  <Route path="/:orgSlug/solicitar" element={<PublicDemandPortalPage />} />
+                  <Route path="/:orgSlug/protocolo" element={<PublicProtocolTrackerPage />} />
+                  <Route path="/:orgSlug/protocolo/:protocolId" element={<PublicProtocolTrackerPage />} />
 
                   {/* Painel Interno da Organização / Igreja */}
                   <Route path="/:orgSlug/:tab" element={<Layout />} />
