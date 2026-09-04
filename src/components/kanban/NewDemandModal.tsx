@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem } from '../../types';
 import { DEMAND_TYPES } from '../../services/mockData';
-import { X, Trash2, Link2, CheckSquare, ShieldAlert, Sparkles, MapPin } from 'lucide-react';
+import { X, Trash2, Link2, CheckSquare, ShieldAlert, Sparkles, MapPin, Search, Check } from 'lucide-react';
+import { StatusBadge } from '../common/Badge';
 
 interface NewDemandModalProps {
   isOpen: boolean;
@@ -140,7 +141,25 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
     onClose();
   };
 
+  const [depSearch, setDepSearch] = useState('');
   const availablePredecessors = tasks.filter((t) => !t.isArchived);
+
+  const filteredPredecessors = useMemo(() => {
+    if (!depSearch.trim()) return availablePredecessors;
+    const q = depSearch.toLowerCase();
+    return availablePredecessors.filter((t) =>
+      t.title.toLowerCase().includes(q) ||
+      (t.assigneeName && t.assigneeName.toLowerCase().includes(q)) ||
+      t.status.toLowerCase().includes(q) ||
+      (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(q)))
+    );
+  }, [availablePredecessors, depSearch]);
+
+  const handleToggleDependency = (depId: string) => {
+    setDependencies((prev) =>
+      prev.includes(depId) ? prev.filter((id) => id !== depId) : [...prev, depId]
+    );
+  };
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">
@@ -354,26 +373,90 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
           </div>
 
           {/* Predecessor Dependencies */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-              <span>Tarefas Predecessoras (Dependências para Bloqueio)</span>
-            </label>
-            <select
-              multiple
-              value={dependencies}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, (option) => option.value);
-                setDependencies(selected);
-              }}
-              className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500 h-24 custom-scrollbar"
-            >
-              {availablePredecessors.map((t) => (
-                <option key={t.id} value={t.id}>
-                  [{t.status}] {t.title} ({t.assigneeName || 'Sem responsável'})
-                </option>
-              ))}
-            </select>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                <span>Tarefas Predecessoras (Dependências para Bloqueio)</span>
+              </label>
+              {dependencies.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    {dependencies.length} selecionada{dependencies.length > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDependencies([])}
+                    className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors underline"
+                  >
+                    Desmarcar todas
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Campo de Busca */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={depSearch}
+                onChange={(e) => setDepSearch(e.target.value)}
+                placeholder="Digitar o nome da tarefa para buscar..."
+                className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              />
+              {depSearch && (
+                <button
+                  type="button"
+                  onClick={() => setDepSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1"
+                  title="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Lista Interativa com Checkboxes */}
+            <div className="max-h-48 overflow-y-auto custom-scrollbar rounded-xl border border-slate-700/80 bg-slate-950/60 divide-y divide-slate-800/80">
+              {filteredPredecessors.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500">
+                  {depSearch ? 'Nenhuma tarefa encontrada para esta busca.' : 'Nenhuma tarefa cadastrada para vincular.'}
+                </div>
+              ) : (
+                filteredPredecessors.map((t) => {
+                  const isChecked = dependencies.includes(t.id);
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => handleToggleDependency(t.id)}
+                      className={`px-3 py-2 flex items-center justify-between gap-3 cursor-pointer transition-colors select-none ${
+                        isChecked
+                          ? 'bg-indigo-600/15 hover:bg-indigo-600/25 text-white'
+                          : 'hover:bg-slate-800/60 text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all shrink-0 ${
+                          isChecked 
+                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm' 
+                            : 'border-slate-600 bg-slate-800/80 hover:border-slate-500'
+                        }`}>
+                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                        </div>
+                        <StatusBadge status={t.status} />
+                        <span className="text-xs font-medium truncate">
+                          {t.title}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 shrink-0 truncate max-w-[130px]">
+                        {t.assigneeName || 'Sem responsável'}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Attachment Links */}

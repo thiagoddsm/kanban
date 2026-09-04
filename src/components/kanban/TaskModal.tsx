@@ -33,7 +33,8 @@ import {
   History,
   Clock,
   Edit3,
-  AlignLeft
+  AlignLeft,
+  Search
 } from 'lucide-react';
 
 interface TaskModalProps {
@@ -92,6 +93,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   // Dependencies
   const [dependencies, setDependencies] = useState<string[]>(task.dependencies || []);
+  const [depSearch, setDepSearch] = useState('');
 
   // Blocking Modal State
   const [isBlockPromptOpen, setIsBlockPromptOpen] = useState(false);
@@ -304,6 +306,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
     setDependencies(updated);
     updateTask({ ...task, dependencies: updated });
   };
+
+  const candidateDependencies = useMemo(() => {
+    const list = tasks.filter((t) => !t.isArchived && t.id !== task.id && !dependencies.includes(t.id));
+    if (!depSearch.trim()) return list;
+    const q = depSearch.toLowerCase();
+    return list.filter((t) =>
+      t.title.toLowerCase().includes(q) ||
+      (t.assigneeName && t.assigneeName.toLowerCase().includes(q)) ||
+      t.status.toLowerCase().includes(q) ||
+      (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(tag)))
+    );
+  }, [tasks, task.id, dependencies, depSearch]);
 
   const handleAddCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -947,29 +961,79 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
               </div>
             )}
 
-            {/* Link New Dependency Dropdown */}
-            <div className="pt-1">
-              <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                Adicionar ou alterar dependência anterior:
+            {/* Link New Dependency Dropdown & Search */}
+            <div className="pt-2 space-y-2">
+              <label className="block text-[11px] font-semibold text-slate-400">
+                Adicionar dependência anterior:
               </label>
-              <select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddDependency(e.target.value);
-                  }
-                }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">Selecione uma demanda para vincular...</option>
-                {tasks
-                  .filter((t) => !t.isArchived && t.id !== task.id && !dependencies.includes(t.id))
-                  .map((t) => (
+
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={depSearch}
+                  onChange={(e) => setDepSearch(e.target.value)}
+                  placeholder="Buscar tarefa pelo nome para vincular..."
+                  className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                />
+                {depSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setDepSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs p-1"
+                    title="Limpar busca"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {depSearch.trim() ? (
+                <div className="max-h-36 overflow-y-auto custom-scrollbar rounded-xl border border-slate-700/80 bg-slate-900 divide-y divide-slate-800">
+                  {candidateDependencies.length === 0 ? (
+                    <div className="p-3 text-center text-xs text-slate-500">
+                      Nenhuma tarefa encontrada com este nome.
+                    </div>
+                  ) : (
+                    candidateDependencies.map((t) => (
+                      <div
+                        key={t.id}
+                        onClick={() => {
+                          handleAddDependency(t.id);
+                          setDepSearch('');
+                        }}
+                        className="px-3 py-2 flex items-center justify-between gap-2 hover:bg-slate-800/80 cursor-pointer text-xs transition-colors group"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Plus className="w-3.5 h-3.5 text-indigo-400 group-hover:scale-110 transition-transform shrink-0" />
+                          <StatusBadge status={t.status} />
+                          <span className="font-medium text-white truncate">{t.title}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {t.assigneeName || 'Sem responsável'}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <select
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleAddDependency(e.target.value);
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">Ou selecione uma demanda na lista...</option>
+                  {candidateDependencies.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.title} ({t.status === 'DONE' ? 'Concluída' : t.status})
+                      [{t.status}] {t.title} ({t.assigneeName || 'Sem responsável'})
                     </option>
                   ))}
-              </select>
+                </select>
+              )}
             </div>
           </div>
 
