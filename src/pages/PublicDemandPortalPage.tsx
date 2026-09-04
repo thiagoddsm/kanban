@@ -1170,7 +1170,7 @@ export const PublicDemandPortalPage: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => navigate(`/${currentOrganization.slug || 'ib'}/protocolo/${encodeURIComponent(protocolCode)}`)}
+                    onClick={() => navigate(`/${currentOrganization.slug || 'ib'}/protocolo/${encodeURIComponent(protocolCode.replace(/^#+/, ''))}`)}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition-all"
                   >
                     <span>Acompanhar Demanda</span>

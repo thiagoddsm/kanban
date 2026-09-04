@@ -11,14 +11,34 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Organizações e todas as suas subcoleções (memberships, tasks, campuses, events, etc.)
-    // Acesso protegido: exige 100% de autenticação no Firebase Auth
+    // Organizações: leitura pública para portais externos (nome, branding, slug); escrita restrita
     match /organizations/{orgId} {
-      allow read, write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAuthenticated();
 
+      // Tarefas: leitura pública para consulta por protocolo e criação pelo formulário externo
+      match /tasks/{taskId} {
+        allow read: if true;
+        allow create: if true;
+        allow update, delete: if isAuthenticated();
+      }
+
+      // Campi & Eventos: leitura pública para seleção no formulário de demandas
+      match /campuses/{campusId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      match /events/{eventId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // Demais subcoleções privadas (memberships, etc.): restrito a autenticados
       match /{allSubcollections=**} {
         allow read, write: if isAuthenticated();
       }
     }
   }
 }
+

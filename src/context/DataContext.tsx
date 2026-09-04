@@ -533,6 +533,12 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       eventName: event ? event.title : undefined,
       requesterId: taskData.requesterId || currentUser?.id || 'sys',
       requesterName: taskData.requesterName || currentUser?.name || 'Solicitante',
+      requesterEmail: taskData.requesterEmail,
+      requesterPhone: taskData.requesterPhone,
+      department: taskData.department,
+      targetTeam: taskData.targetTeam,
+      deliverables: taskData.deliverables,
+      protocolId: taskData.protocolId,
       // ── Campos canônicos ──────────────────────────────────────────
       assigneeIds,
       // ── Campos legados para compatibilidade de UI (não vão ao Firestore) ──

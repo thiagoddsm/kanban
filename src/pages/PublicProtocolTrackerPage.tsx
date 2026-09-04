@@ -32,6 +32,40 @@ import {
   Check
 } from 'lucide-react';
 
+// Normaliza qualquer formato de código (#OIKO-..., %23OIKO-..., OIKO-..., minúsculas e espaços)
+const normalizeProtocolCode = (str?: string): string => {
+  if (!str) return '';
+  let s = str;
+  try {
+    s = decodeURIComponent(str);
+  } catch {}
+  try {
+    s = decodeURIComponent(s);
+  } catch {}
+  return s.replace(/^[#%23\s]+|[#%23\s]+$/g, '').trim().toUpperCase();
+};
+
+const isTaskMatchingProtocol = (t: Task, cleanCode: string): boolean => {
+  if (!t || !cleanCode) return false;
+
+  const tProtocol = normalizeProtocolCode(t.protocolId);
+  const tId = normalizeProtocolCode(t.id);
+
+  if (tProtocol && (tProtocol === cleanCode || tProtocol.includes(cleanCode) || cleanCode.includes(tProtocol))) {
+    return true;
+  }
+  if (tId && (tId === cleanCode || tId.includes(cleanCode) || cleanCode.includes(tId))) {
+    return true;
+  }
+  if (t.description && normalizeProtocolCode(t.description).includes(cleanCode)) {
+    return true;
+  }
+  if (t.title && normalizeProtocolCode(t.title).includes(cleanCode)) {
+    return true;
+  }
+  return false;
+};
+
 export const PublicProtocolTrackerPage: React.FC = () => {
   const { orgSlug, protocolId: routeProtocolId } = useParams<{ orgSlug: string; protocolId?: string }>();
   const navigate = useNavigate();
@@ -54,53 +88,92 @@ export const PublicProtocolTrackerPage: React.FC = () => {
 
   // Função de busca da tarefa por protocolo ou ID
   const lookupProtocol = async (rawCode: string) => {
-    const code = rawCode.trim().toUpperCase();
-    if (!code) return;
+    const cleanCode = normalizeProtocolCode(rawCode);
+    if (!cleanCode) return;
 
     setIsLoading(true);
     setHasSearched(true);
 
     try {
       // 1. Tenta buscar nas tasks do contexto
-      let found = contextTasks.find(
-        (t) =>
-          (t.protocolId && t.protocolId.toUpperCase() === code) ||
-          t.id.toUpperCase() === code ||
-          t.id.toUpperCase().includes(code.replace('#', ''))
-      );
+      let found = contextTasks.find((t) => isTaskMatchingProtocol(t, cleanCode));
 
-      // 2. Se não encontrou no contexto em memória, busca no Storage Local
-      if (!found && currentOrganization?.id) {
-        const localTasks = StorageService.getTasks(currentOrganization.id);
-        found = localTasks.find(
-          (t) =>
-            (t.protocolId && t.protocolId.toUpperCase() === code) ||
-            t.id.toUpperCase() === code ||
-            t.id.toUpperCase().includes(code.replace('#', ''))
-        );
+      // 2. Monta lista de IDs de organizações candidatas
+      const candidateOrgIds: string[] = [];
+      if (currentOrganization?.id) {
+        candidateOrgIds.push(currentOrganization.id);
       }
 
-      // 3. Se ainda não encontrou e estiver online, busca no Firestore
-      if (!found && currentOrganization?.id) {
+      // Se há slug na rota, verifica se bate com alguma organização em cache local
+      const allLocalOrgs = StorageService.getOrganizations();
+      const slugMatchedOrg = allLocalOrgs.find(
+        (o) => o.slug?.toLowerCase() === orgSlug?.toLowerCase() || o.id.toLowerCase() === orgSlug?.toLowerCase()
+      );
+      if (slugMatchedOrg && !candidateOrgIds.includes(slugMatchedOrg.id)) {
+        candidateOrgIds.push(slugMatchedOrg.id);
+      }
+
+      // 3. Busca no Storage Local das orgs candidatas
+      if (!found) {
+        for (const orgId of candidateOrgIds) {
+          const localTasks = StorageService.getTasks(orgId);
+          found = localTasks.find((t) => isTaskMatchingProtocol(t, cleanCode));
+          if (found) break;
+        }
+      }
+
+      // 4. Busca no Firestore das orgs candidatas (acesso público via security rules)
+      if (!found) {
+        for (const orgId of candidateOrgIds) {
+          try {
+            const remoteTasks = await FirestoreRepository.fetchTasks(orgId);
+            found = remoteTasks.find((t) => isTaskMatchingProtocol(t, cleanCode));
+            if (found) break;
+          } catch {
+            // Continua busca
+          }
+        }
+      }
+
+      // 5. Se ainda não encontrou (ex: primeiro acesso anônimo/incognito onde o cache local está vazio),
+      // consulta a lista remota de organizações no Firestore e pesquisa nas tarefas
+      if (!found) {
         try {
-          const remoteTasks = await FirestoreRepository.fetchTasks(currentOrganization.id);
-          found = remoteTasks.find(
-            (t) =>
-              (t.protocolId && t.protocolId.toUpperCase() === code) ||
-              t.id.toUpperCase() === code ||
-              t.id.toUpperCase().includes(code.replace('#', ''))
-          );
-        } catch {
-          // Fallback silencioso se Firestore não estiver configurado
+          const remoteOrgs = await FirestoreRepository.fetchOrganizations();
+          if (remoteOrgs && remoteOrgs.length > 0) {
+            for (const org of remoteOrgs) {
+              if (!candidateOrgIds.includes(org.id)) {
+                try {
+                  const tasks = await FirestoreRepository.fetchTasks(org.id);
+                  found = tasks.find((t) => isTaskMatchingProtocol(t, cleanCode));
+                  if (found) {
+                    if (orgSlug && org.slug) {
+                      switchOrganizationBySlug(org.slug);
+                    }
+                    break;
+                  }
+                } catch {}
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // Se encontrou a tarefa mas o campo protocolId estava vazio (demanda legada),
+      // preenche a partir da descrição ou usa o próprio código
+      if (found) {
+        if (!found.protocolId) {
+          const match = found.description?.match(/#?OIKO-\d{4}-\d+/i);
+          found.protocolId = match ? (match[0].startsWith('#') ? match[0] : `#${match[0]}`) : `#${cleanCode}`;
         }
       }
 
       setActiveTask(found || null);
 
       if (found) {
-        // Atualiza URL sem recarregar a página
-        if (orgSlug && (!routeProtocolId || routeProtocolId.toUpperCase() !== code)) {
-          navigate(`/${orgSlug}/protocolo/${encodeURIComponent(found.protocolId || code)}`, { replace: true });
+        const canonicalCode = found.protocolId ? found.protocolId.replace(/^#+/, '') : cleanCode;
+        if (orgSlug && normalizeProtocolCode(routeProtocolId) !== cleanCode) {
+          navigate(`/${orgSlug}/protocolo/${encodeURIComponent(canonicalCode)}`, { replace: true });
         }
       }
     } catch (err: any) {
@@ -130,7 +203,8 @@ export const PublicProtocolTrackerPage: React.FC = () => {
   const handleCopyLink = () => {
     if (!activeTask) return;
     const protocolCode = activeTask.protocolId || activeTask.id;
-    const url = `${window.location.origin}/${orgSlug || 'oiko'}/protocolo/${encodeURIComponent(protocolCode)}`;
+    const cleanCode = protocolCode.replace(/^#+/, '');
+    const url = `${window.location.origin}/${orgSlug || 'oiko'}/protocolo/${encodeURIComponent(cleanCode)}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     success('Link de acompanhamento copiado!');
