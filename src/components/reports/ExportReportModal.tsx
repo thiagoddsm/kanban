@@ -252,8 +252,9 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, on
                 </h3>
               </div>
               <p className="text-xs text-slate-400 print:text-slate-600 mt-0.5">
-                {currentCampus ? `Campus: ${currentCampus.name}` : 'Todos os Campi'} • Relatório de Operações & Demandas
+                {currentCampus ? `Campus: ${currentCampus.name}` : 'Todos os campus'} • Relatório de Operações & Demandas
               </p>
+
             </div>
             <div className="text-right text-xs text-slate-400 print:text-slate-600">
               <p>Período: <strong className="text-white print:text-black uppercase">{timeframe.replace('_', ' ')}</strong></p>

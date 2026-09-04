@@ -87,21 +87,20 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-white truncate">
-                {currentOrganization?.name || 'Igreja'}
-              </span>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                {currentOrganization?.subscription?.plan || 'ENTERPRISE'}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-slate-400 truncate">
+            <span
+              className="text-xs font-black text-white truncate block leading-snug"
+              title={currentOrganization?.name}
+            >
+              {currentOrganization?.name || 'Igreja'}
+            </span>
+            <div className="flex items-center gap-1 text-[11px] text-slate-400 truncate mt-0.5">
               <MapPin className="w-3 h-3 text-rose-400 shrink-0" />
               <span className="truncate">
-                {currentCampus ? currentCampus.name : 'Todos os Campi'}
+                {currentCampus ? currentCampus.name : 'Todos os campus'}
               </span>
             </div>
           </div>
+
         </div>
 
         <ChevronDown
@@ -149,8 +148,9 @@ export const TenantSwitcher: React.FC<{ variant?: 'sidebar' | 'header' }> = ({ v
               >
                 <div className="flex items-center gap-2">
                   <Layers className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Todos os Campi (Visão Geral)</span>
+                  <span>Todos os campus (Visão Geral)</span>
                 </div>
+
                 {!currentCampus && <Check className="w-3.5 h-3.5 text-indigo-400" />}
               </button>
 

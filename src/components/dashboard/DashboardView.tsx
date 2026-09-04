@@ -83,31 +83,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 custom-scrollbar max-w-7xl mx-auto">
       {/* 1. Welcoming Hero */}
-      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800/80 p-6 sm:p-8 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                Olá, {firstName} 👋
-              </h1>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                {currentOrganization?.name || 'Igreja'}
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-              Bem-vindo ao centro de gestão integrada de tarefas, operações, projetos e demandas da igreja.
-            </p>
+      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800/80 p-6 sm:p-7 shadow-xl relative overflow-hidden">
+        <div className="relative z-10 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Olá, {firstName} 👋
+            </h1>
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              {currentOrganization?.name || 'Igreja'}
+            </span>
           </div>
-
-          <button
-            onClick={onOpenDemandPortal}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 hover:scale-[1.02] active:scale-95 transition-all shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Solicitar Demanda</span>
-          </button>
+          <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
+            Bem-vindo ao centro de gestão integrada de tarefas, operações, projetos e demandas da igreja.
+          </p>
         </div>
       </div>
+
 
 
       {/* 2. 4 Clean, Essential KPI Highlights */}

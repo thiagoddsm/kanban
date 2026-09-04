@@ -149,8 +149,9 @@ export const GanttView: React.FC = () => {
               Cronograma Visual (Gantt)
             </h1>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os Campi'}
+              {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os campus'}
             </span>
+
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
             Visão temporal hierárquica por projeto e dependências com sincronização em tempo real.

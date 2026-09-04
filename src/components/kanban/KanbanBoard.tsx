@@ -209,8 +209,9 @@ export const KanbanBoard: React.FC = () => {
             Quadro de Demandas
           </h1>
           <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os Campi'}
+            {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os campus'}
           </span>
+
           <span className="text-xs text-slate-500">
             ({filteredTasks.length} {filteredTasks.length === 1 ? 'card' : 'cards'})
           </span>

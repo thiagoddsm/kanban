@@ -222,7 +222,8 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
                 onChange={(e) => setCampusId(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
               >
-                <option value="">Geral (Todos os Campi)</option>
+                <option value="">Geral (Todos os campus)</option>
+
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

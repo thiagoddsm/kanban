@@ -69,8 +69,9 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
               Projetos & Campanhas
             </h1>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              {activeEvents.length} Projetos Ativos ({currentCampus ? currentCampus.name : 'Todos os Campi'})
+              {activeEvents.length} Projetos Ativos ({currentCampus ? currentCampus.name : 'Todos os campus'})
             </span>
+
           </div>
           <p className="text-xs text-slate-400 mt-1">
             Central operacional para projetos, eventos, reformas, compras e logística, consolidando cronogramas e entregas.

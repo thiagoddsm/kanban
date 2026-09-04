@@ -556,7 +556,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                 onChange={(e) => setCampusId(e.target.value)}
                 className="w-full px-2.5 py-1.5 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none"
               >
-                <option value="">Todos os Campi (Geral)</option>
+                <option value="">Todos os campus (Geral)</option>
+
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
