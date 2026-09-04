@@ -34,8 +34,8 @@ export const RegisterPage: React.FC = () => {
   );
 
   // Form Fields
-  const [adminName, setAdminName] = useState(currentUser.name !== 'Novo Usuário' ? currentUser.name : '');
-  const [adminEmail, setAdminEmail] = useState(currentUser.email || '');
+  const [adminName, setAdminName] = useState(currentUser?.name && currentUser.name !== 'Novo Usuário' ? currentUser.name : '');
+  const [adminEmail, setAdminEmail] = useState(currentUser?.email || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,6 +46,16 @@ export const RegisterPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [mainCampusName, setMainCampusName] = useState('Sede Principal');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-fill from currentUser if logged in
+  useEffect(() => {
+    if (currentUser?.email) {
+      if (currentUser.name && currentUser.name !== 'Novo Usuário') {
+        setAdminName(currentUser.name);
+      }
+      setAdminEmail(currentUser.email);
+    }
+  }, [currentUser]);
 
   // Auto-generate slug from church name
   useEffect(() => {
@@ -60,26 +70,73 @@ export const RegisterPage: React.FC = () => {
     }
   }, [churchName]);
 
+  const handleGoogleRegister = async () => {
+    setIsSubmitting(true);
+    setAuthError(null);
+    try {
+      const loggedUser = await loginWithGoogle();
+      if (!loggedUser) return;
+
+      setAdminName(loggedUser.name);
+      setAdminEmail(loggedUser.email);
+
+      if (churchName.trim()) {
+        const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
+        createOrganization(
+          churchName.trim(),
+          cleanSlug,
+          mainCampusName.trim() || 'Sede Principal',
+          city.trim() || 'Cidade Principal',
+          selectedPlan,
+          loggedUser
+        );
+        success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
+        navigate(`/${cleanSlug}/dashboard`);
+      } else {
+        success('Autenticado com Google!', 'Informe o nome da sua igreja abaixo para concluir a criação.');
+      }
+    } catch (err: any) {
+      console.error('Google Registration Error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!churchName.trim() || !adminName.trim() || !adminEmail.trim()) return;
-
-    if (password !== confirmPassword) {
-      setAuthError('As senhas digitadas não coincidem.');
+    if (!churchName.trim()) {
+      setAuthError('Por favor informe o nome da sua igreja.');
       return;
     }
 
-    if (password.length < 6) {
-      setAuthError('A senha deve possuir pelo menos 6 caracteres.');
-      return;
+    const isGoogleAuth = !!currentUser?.email;
+
+    if (!isGoogleAuth) {
+      if (!adminName.trim() || !adminEmail.trim()) {
+        setAuthError('Preencha os dados do administrador.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setAuthError('As senhas digitadas não coincidem.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setAuthError('A senha deve possuir pelo menos 6 caracteres.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
     setAuthError(null);
 
     try {
-      // 1. Create User in Firebase Auth
-      const newAdminUser = await signUpWithEmail(adminName.trim(), adminEmail.trim(), password);
+      // 1. Get or Create User
+      let targetUser = currentUser;
+      if (!targetUser?.email) {
+        targetUser = await signUpWithEmail(adminName.trim(), adminEmail.trim(), password);
+      }
 
       // 2. Create Organization, Campus & Admin Membership in Firestore
       const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
@@ -89,7 +146,7 @@ export const RegisterPage: React.FC = () => {
         mainCampusName.trim() || 'Sede Principal',
         city.trim() || 'Cidade Principal',
         selectedPlan,
-        newAdminUser
+        targetUser
       );
 
       success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
@@ -101,6 +158,7 @@ export const RegisterPage: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white p-4 sm:p-6 lg:p-8 font-sans flex flex-col justify-between relative overflow-hidden">
@@ -186,74 +244,133 @@ export const RegisterPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Google One-Click Register Button */}
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={handleGoogleRegister}
+              disabled={isSubmitting || isLoadingAuth}
+              className="w-full py-3 px-4 rounded-2xl bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path
+                  fill="#EA4335"
+                  d="M12 5c1.54 0 2.9.55 3.97 1.45l2.97-2.97C17.13 1.8 14.73 1 12 1 7.37 1 3.48 3.65 1.63 7.51l3.57 2.77C6.07 7.4 8.79 5 12 5z"
+                />
+                <path
+                  fill="#4285F4"
+                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58l3.69 2.87c2.16-1.99 3.73-4.94 3.73-8.69z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.2 14.72c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09L1.63 7.77C.59 9.87 0 12.22 0 14.72s.59 4.85 1.63 6.95l3.57-2.77z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23.5c3.24 0 5.95-1.08 7.93-2.91l-3.69-2.87c-1.08.72-2.45 1.16-4.24 1.16-3.21 0-5.93-2.4-6.8-5.28L1.63 16.37C3.48 20.23 7.37 23.5 12 23.5z"
+                />
+              </svg>
+              <span>{currentUser?.email ? `Continuar como ${currentUser.name || currentUser.email}` : 'Criar Conta com o Google'}</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px bg-slate-800 flex-1" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                ou preencha os dados abaixo
+              </span>
+              <div className="h-px bg-slate-800 flex-1" />
+            </div>
+          </div>
+
           {/* Registration Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Step 1: Administrator Data */}
             <div className="space-y-4 pt-4 border-t border-slate-800">
-              <h3 className="text-xs font-extrabold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
-                <User className="w-4 h-4" />
-                <span>1. Dados do Administrador Principal</span>
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  <span>1. Dados do Administrador Principal</span>
+                </h3>
+                {currentUser?.email && (
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Autenticado via Google
+                  </span>
+                )}
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Seu Nome Completo</label>
-                  <input
-                    type="text"
-                    required
-                    value={adminName}
-                    onChange={(e) => setAdminName(e.target.value)}
-                    placeholder="Ex: Pr. Thiago Moura"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
-                  />
+              {currentUser?.email ? (
+                <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                    {currentUser.name?.[0] || 'U'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{currentUser.email}</p>
+                  </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Seu Nome Completo</label>
+                    <input
+                      type="text"
+                      required
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      placeholder="Ex: Pr. Thiago Moura"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Seu E-mail Profissional</label>
-                  <input
-                    type="email"
-                    required
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="thiago@suaigreja.com"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
-                  />
-                </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Seu E-mail Profissional</label>
+                    <input
+                      type="email"
+                      required
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="thiago@suaigreja.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
+                    />
+                  </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Crie sua Senha</label>
-                  <div className="relative">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Crie sua Senha</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Mínimo 6 caracteres"
+                        className="w-full px-3.5 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300">Confirmar Senha</label>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Mínimo 6 caracteres"
-                      className="w-full px-3.5 pr-10 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita sua senha"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Confirmar Senha</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repita sua senha"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 outline-none"
-                  />
-                </div>
-              </div>
+              )}
             </div>
+
 
             {/* Step 2: Church / Organization Data */}
             <div className="space-y-4 pt-4 border-t border-slate-800">
