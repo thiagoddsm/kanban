@@ -9,9 +9,34 @@ runConfig:
   memoryMiB: 512
 
 env:
-  - variable: VITE_FIREBASE_PROJECT_ID
-    value: studio-5589719834-7481b
+  - variable: VITE_FIREBASE_API_KEY
+    value: AIzaSyADLqvQVfPzG6PS5jxiU9OKNZdzzJ3Bx3I
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: VITE_FIREBASE_AUTH_DOMAIN
     value: studio-5589719834-7481b.firebaseapp.com
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_PROJECT_ID
+    value: studio-5589719834-7481b
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: VITE_FIREBASE_STORAGE_BUCKET
     value: studio-5589719834-7481b.firebasestorage.app
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_MESSAGING_SENDER_ID
+    value: "170591764605"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: VITE_FIREBASE_APP_ID
+    value: 1:170591764605:web:02413eac486766efca3114
+    availability:
+      - BUILD
+      - RUNTIME
+

@@ -8,8 +8,7 @@
     "build": "tsc && vite build",
     "start": "node server.js",
     "preview": "vite preview",
-    "deploy": "npm run build && npx firebase deploy",
-    "deploy:hosting": "npm run build && npx firebase deploy --only hosting",
+    "deploy": "npx firebase deploy --only firestore,storage",
     "deploy:firestore": "npx firebase deploy --only firestore",
     "deploy:storage": "npx firebase deploy --only storage"
   },
