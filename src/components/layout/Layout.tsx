@@ -11,7 +11,7 @@ import { CalendarView } from '../calendar/CalendarView';
 import { ArchivedView } from '../archived/ArchivedView';
 import { UsersView } from '../users/UsersView';
 import { SettingsView } from '../settings/SettingsView';
-import { DemandPortalModal } from '../demands/DemandPortalModal';
+import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
 import { BottomNav } from './BottomNav';
@@ -128,8 +128,8 @@ export const Layout: React.FC = () => {
         onOpenMyAccount={() => setIsMyAccountOpen(true)}
       />
 
-      {/* Global Demand Portal Wizard (Pipefy style) */}
-      <DemandPortalModal
+      {/* Modal Interno Ágil de Nova Demanda */}
+      <NewDemandModal
         isOpen={isDemandPortalOpen}
         onClose={() => setIsDemandPortalOpen(false)}
       />

@@ -42,7 +42,21 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [dependencies, setDependencies] = useState<string[]>([]);
-  
+  const [depSearch, setDepSearch] = useState('');
+
+  const availablePredecessors = tasks.filter((t) => !t.isArchived);
+
+  const filteredPredecessors = useMemo(() => {
+    if (!depSearch.trim()) return availablePredecessors;
+    const q = depSearch.toLowerCase();
+    return availablePredecessors.filter((t) =>
+      t.title.toLowerCase().includes(q) ||
+      (t.assigneeName && t.assigneeName.toLowerCase().includes(q)) ||
+      t.status.toLowerCase().includes(q) ||
+      (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(q)))
+    );
+  }, [availablePredecessors, depSearch]);
+
   // Attachments
   const [attachmentLinks, setAttachmentLinks] = useState<AttachmentLink[]>([]);
   const [attTitle, setAttTitle] = useState('');
@@ -52,8 +66,6 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
   // Checklist
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checkText, setCheckText] = useState('');
-
-  if (!isOpen) return null;
 
   const toggleAssignee = (userId: string) => {
     setSelectedAssigneeIds((prev) =>
@@ -141,25 +153,13 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
     onClose();
   };
 
-  const [depSearch, setDepSearch] = useState('');
-  const availablePredecessors = tasks.filter((t) => !t.isArchived);
-
-  const filteredPredecessors = useMemo(() => {
-    if (!depSearch.trim()) return availablePredecessors;
-    const q = depSearch.toLowerCase();
-    return availablePredecessors.filter((t) =>
-      t.title.toLowerCase().includes(q) ||
-      (t.assigneeName && t.assigneeName.toLowerCase().includes(q)) ||
-      t.status.toLowerCase().includes(q) ||
-      (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(q)))
-    );
-  }, [availablePredecessors, depSearch]);
-
   const handleToggleDependency = (depId: string) => {
     setDependencies((prev) =>
       prev.includes(depId) ? prev.filter((id) => id !== depId) : [...prev, depId]
     );
   };
+
+  if (!isOpen) return null;
 
   const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in overflow-y-auto">

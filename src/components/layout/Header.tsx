@@ -13,6 +13,7 @@ import { AutomationRulesModal } from '../automations/AutomationRulesModal';
 import { QAModal } from '../testing/QAModal';
 import { TaskModal } from '../kanban/TaskModal';
 import { AdminWhatsAppSettingsModal } from '../whatsapp/AdminWhatsAppSettingsModal';
+import { useNotification } from '../../context/NotificationContext';
 import { Task, NavigationTab } from '../../types';
 import { 
   Bell, 
@@ -28,7 +29,8 @@ import {
   Sparkles,
   ChevronDown,
   RotateCcw,
-  Smartphone
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -46,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { canApproveTasks, isLeader, canCreateDemand, isAdmin } = useAccess();
   const { currentOrganization, currentCampus } = useTenant();
   const { searchQuery, setSearchQuery, tasks } = useData();
+  const { success } = useNotification();
 
   // Modals state
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -255,6 +258,19 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <ShieldCheck className="w-4 h-4 text-emerald-400" />
                     <span>Backup & Diagnóstico</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsToolsMenuOpen(false);
+                      const url = `${window.location.origin}/${currentOrganization.slug}/solicitar`;
+                      navigator.clipboard.writeText(url);
+                      success('Link Público Copiado!', 'Link do formulário externo copiado. Envie para quem não possui login no sistema.');
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-sky-400 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-semibold"
+                  >
+                    <ExternalLink className="w-4 h-4 text-sky-400" />
+                    <span>Copiar Link Externo (/solicitar)</span>
                   </button>
 
                   <div className="pt-1 mt-1 border-t border-slate-800">
