@@ -242,16 +242,6 @@ export const KanbanBoard: React.FC = () => {
             totalTasksCount={tasks.length}
             filteredTasksCount={filteredTasks.length}
           />
-
-          {canCreateDemand && (
-            <button
-              onClick={() => handleQuickAdd('INBOX')}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/25 active:scale-95 transition-all shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Criar Demanda</span>
-            </button>
-          )}
         </div>
       </div>
 

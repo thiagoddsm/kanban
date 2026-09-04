@@ -315,10 +315,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onOpenDemandPortal}
               className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all shrink-0"
+              title="Criar nova demanda (atalho: tecla N)"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Solicitar Demanda</span>
-              <span className="sm:hidden">Demanda</span>
+              <span className="hidden sm:inline">Nova Demanda</span>
+              <span className="sm:hidden">Nova</span>
             </button>
           )}
 

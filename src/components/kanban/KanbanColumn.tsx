@@ -81,10 +81,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           {canCreateDemand && (
             <button
               onClick={() => onQuickAdd(column.id)}
-              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Adicionar nesta coluna"
+              className="w-6 h-6 rounded-lg bg-slate-800/80 hover:bg-indigo-600 border border-slate-700/80 hover:border-indigo-500 text-slate-400 hover:text-white transition-all flex items-center justify-center group"
+              title={`Adicionar demanda em ${column.title}`}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
             </button>
           )}
         </div>
@@ -93,9 +93,17 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       {/* Cards List */}
       <div className="flex-1 p-3 overflow-y-auto space-y-3 min-h-[420px] max-h-[calc(100vh-230px)] custom-scrollbar">
         {tasks.length === 0 ? (
-          <div className="h-44 flex flex-col items-center justify-center text-center p-4 border border-dashed border-slate-800 rounded-2xl">
+          <div className="h-40 flex flex-col items-center justify-center text-center p-4 border border-dashed border-slate-800/80 rounded-2xl">
             <p className="text-xs font-medium text-slate-500">Nenhuma demanda nesta etapa</p>
-            <span className="text-[10px] text-slate-600 mt-1">Arraste cards aqui</span>
+            {canCreateDemand && (
+              <button
+                onClick={() => onQuickAdd(column.id)}
+                className="mt-2 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors group"
+              >
+                <Plus className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                <span>Criar card</span>
+              </button>
+            )}
           </div>
         ) : (
           tasks.map((task) => (
@@ -108,19 +116,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           ))
         )}
       </div>
-
-      {/* Quick Add Footer Button */}
-      {canCreateDemand && (
-        <div className="p-3 border-t border-slate-800/80">
-          <button
-            onClick={() => onQuickAdd(column.id)}
-            className="w-full py-2 px-3 rounded-xl border border-dashed border-slate-700/80 hover:border-indigo-500/60 hover:bg-indigo-500/10 text-slate-400 hover:text-indigo-300 text-xs font-medium flex items-center justify-center gap-1.5 transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Adicionar Demanda</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };
