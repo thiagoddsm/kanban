@@ -119,11 +119,16 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-xs font-bold text-white tracking-tight">
               {currentOrganization.name}
             </span>
-            <span className="text-slate-600">•</span>
-            <span className="text-xs text-slate-400">
-              {currentCampus ? currentCampus.name : 'Todos os Campi'}
-            </span>
+            {currentCampus && (
+              <>
+                <span className="text-slate-600">•</span>
+                <span className="text-xs text-slate-400">
+                  {currentCampus.name}
+                </span>
+              </>
+            )}
           </div>
+
         </div>
 
         {/* Center: Search Bar */}

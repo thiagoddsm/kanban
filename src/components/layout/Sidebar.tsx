@@ -76,10 +76,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-sm font-black text-white tracking-tight block leading-none">
                   Oiko Gestão
                 </span>
-                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
-                  Tarefas & Operações
-                </span>
               </div>
+
             </div>
 
             <button
