@@ -80,8 +80,10 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     if (!email.trim() || !password) return;
 
+    const qOrg = searchParams.get('org') || undefined;
+
     try {
-      const loggedUser = await loginWithEmail(email.trim(), password);
+      const loggedUser = await loginWithEmail(email.trim(), password, qOrg);
       success('Login realizado com sucesso!');
       const targetOrg = loggedUser ? await findAndSwitchUserOrg(loggedUser.id) : currentOrganization;
       navigate(`/${targetOrg?.slug || currentOrganization.slug || 'minha-igreja'}/dashboard`);
@@ -104,9 +106,11 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    const qOrg = searchParams.get('org') || undefined;
+
     try {
       const finalName = firstAccessName.trim() || firstAccessEmail.trim().split('@')[0];
-      const newUser = await signUpWithEmail(finalName, firstAccessEmail.trim(), firstAccessPassword);
+      const newUser = await signUpWithEmail(finalName, firstAccessEmail.trim(), firstAccessPassword, qOrg);
       success('Primeiro acesso concluído!', 'Sua conta foi ativada e vinculada à sua equipe.');
       const targetOrg = newUser ? await findAndSwitchUserOrg(newUser.id) : currentOrganization;
       navigate(`/${targetOrg?.slug || currentOrganization.slug || 'minha-igreja'}/dashboard`);
@@ -118,8 +122,9 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
+    const qOrg = searchParams.get('org') || undefined;
     try {
-      const loggedUser = await loginWithGoogle();
+      const loggedUser = await loginWithGoogle(qOrg);
       success('Autenticação via Google realizada!', 'Seu perfil foi vinculado com sucesso.');
       const targetOrg = loggedUser ? await findAndSwitchUserOrg(loggedUser.id) : currentOrganization;
       navigate(`/${targetOrg?.slug || currentOrganization.slug || 'minha-igreja'}/dashboard`);

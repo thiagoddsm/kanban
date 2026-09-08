@@ -359,7 +359,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Organization Users
   const orgUsers = useMemo(() => {
-    const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id && m.status === 'ACTIVE');
+    const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id);
     const userIds = orgMemberships.map((m) => m.userId);
     return allUsers.filter((u) => userIds.includes(u.id));
   }, [allUsers, memberships, currentOrganization.id]);

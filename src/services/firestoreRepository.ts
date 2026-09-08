@@ -659,20 +659,24 @@ export class FirestoreRepository {
    * Find user by email across /users
    */
   public static async getUserByEmail(email: string): Promise<User | null> {
-    if (!isFirebaseConfigured || !db || !email) {
-      return StorageService.getUsers().find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
+    if (!email) return null;
+    const cleanEmail = email.trim().toLowerCase();
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getUsers().find((u) => (u.email || '').toLowerCase() === cleanEmail) || null;
     }
     try {
       const usersCol = collection(db, 'users');
-      const q = query(usersCol, where('email', '==', email.trim().toLowerCase()), limit(1));
+      const q = query(usersCol, where('email', '==', cleanEmail), limit(1));
       const snap = await getDocs(q);
       if (!snap.empty) {
         return snap.docs[0].data() as User;
       }
-      return null;
+      // Fallback: busca na coleção caso o email estivesse com case diferente
+      const all = await this.fetchUsers();
+      return all.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail) || null;
     } catch (e) {
       console.warn('Erro ao buscar usuário por email no Firestore:', e);
-      return null;
+      return StorageService.getUsers().find((u) => (u.email || '').toLowerCase() === cleanEmail) || null;
     }
   }
 
@@ -681,34 +685,80 @@ export class FirestoreRepository {
    * Migrates temporary/invite IDs (e.g. usr_...) to real Firebase Auth UID,
    * transferring memberships and task assignments seamlessly.
    */
-  public static async reconcileUserOnLogin(fbUid: string, email: string, displayName?: string, photoURL?: string): Promise<User> {
+  public static async reconcileUserOnLogin(
+    fbUid: string, 
+    email: string, 
+    displayName?: string, 
+    photoURL?: string,
+    targetOrgSlugOrId?: string
+  ): Promise<User> {
     const cleanEmail = (email || '').trim().toLowerCase();
     let existingByUid = await this.getUser(fbUid);
 
-    // If doc already exists with this UID, update profile attributes
+    const allOrgs = await this.fetchOrganizations();
+    let targetOrg = targetOrgSlugOrId
+      ? allOrgs.find((o) => o.id === targetOrgSlugOrId || o.slug === targetOrgSlugOrId)
+      : null;
+
+    if (!targetOrg && allOrgs.length > 0) {
+      targetOrg = allOrgs[0];
+    }
+
+    // If doc already exists with this UID, update profile attributes and ensure membership in targetOrg
     if (existingByUid) {
+      let organizationIds = existingByUid.organizationIds || [];
+      let activeOrgId = existingByUid.activeOrganizationId || existingByUid.tenantId;
+
+      if (targetOrg && (!organizationIds.includes(targetOrg.id) || !activeOrgId)) {
+        organizationIds = Array.from(new Set([...organizationIds, targetOrg.id]));
+        activeOrgId = activeOrgId || targetOrg.id;
+      }
+
       const updated: User = {
         ...existingByUid,
         name: displayName || existingByUid.name,
         avatar: photoURL || existingByUid.avatar,
         email: cleanEmail || existingByUid.email,
+        tenantId: activeOrgId,
+        activeOrganizationId: activeOrgId,
+        organizationIds,
       };
       await this.syncUser(updated);
+
+      if (activeOrgId) {
+        const memRef = doc(db!, 'organizations', activeOrgId, 'memberships', fbUid);
+        const memSnap = await getDoc(memRef);
+        if (!memSnap.exists()) {
+          const newMem: Membership = {
+            id: 'mem_' + fbUid + '_' + activeOrgId,
+            userId: fbUid,
+            organizationId: activeOrgId,
+            hasOrgWideAccess: true,
+            campusIds: [],
+            role: 'TEAM',
+            department: 'Comunicação',
+            status: 'ACTIVE',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await this.saveMembership(newMem);
+        }
+      }
+
       return updated;
     }
 
     // Check if there was an invited/placeholder user with the same email
     const existingByEmail = await this.getUserByEmail(cleanEmail);
     let organizationIds: string[] = existingByEmail?.organizationIds || [];
-    let activeOrganizationId = existingByEmail?.activeOrganizationId;
+    let activeOrganizationId = existingByEmail?.activeOrganizationId || existingByEmail?.tenantId;
 
     if (existingByEmail && existingByEmail.id !== fbUid) {
       const oldId = existingByEmail.id;
       console.log(`🔄 Reconciliando usuário convidado: ${oldId} -> ${fbUid} (${cleanEmail})`);
 
       try {
-        const orgs = await this.fetchOrganizations();
-        for (const org of orgs) {
+        for (const org of allOrgs) {
           // Check membership
           const oldMemRef = doc(db!, 'organizations', org.id, 'memberships', oldId);
           const oldMemSnap = await getDoc(oldMemRef);
@@ -717,12 +767,16 @@ export class FirestoreRepository {
             const newMem: Membership = {
               ...memData,
               userId: fbUid,
+              status: 'ACTIVE',
               updatedAt: new Date().toISOString(),
             };
             await this.saveMembership(newMem);
             await deleteDoc(oldMemRef);
             if (!organizationIds.includes(org.id)) {
               organizationIds.push(org.id);
+            }
+            if (!activeOrganizationId) {
+              activeOrganizationId = org.id;
             }
           }
 
@@ -750,6 +804,12 @@ export class FirestoreRepository {
       }
     }
 
+    // Se ainda não tiver organização vinculada, vincular à targetOrg
+    if (targetOrg && (!organizationIds || organizationIds.length === 0)) {
+      organizationIds = [targetOrg.id];
+      activeOrganizationId = targetOrg.id;
+    }
+
     const consolidatedUser: User = {
       id: fbUid,
       name: displayName || existingByEmail?.name || cleanEmail.split('@')[0] || 'Novo Usuário',
@@ -757,12 +817,36 @@ export class FirestoreRepository {
       avatar: photoURL || existingByEmail?.avatar,
       phone: existingByEmail?.phone,
       whatsapp: existingByEmail?.whatsapp,
-      createdAt: existingByEmail?.createdAt || new Date().toISOString(),
-      organizationIds,
+      tenantId: activeOrganizationId,
       activeOrganizationId,
+      organizationIds,
+      createdAt: existingByEmail?.createdAt || new Date().toISOString(),
     };
 
     await this.syncUser(consolidatedUser);
+
+    // Garante que o documento de membership existe e está ATIVO no Firestore
+    if (activeOrganizationId) {
+      const memRef = doc(db!, 'organizations', activeOrganizationId, 'memberships', fbUid);
+      const memSnap = await getDoc(memRef);
+      if (!memSnap.exists()) {
+        const newMem: Membership = {
+          id: 'mem_' + fbUid + '_' + activeOrganizationId,
+          userId: fbUid,
+          organizationId: activeOrganizationId,
+          hasOrgWideAccess: true,
+          campusIds: [],
+          role: 'TEAM',
+          department: 'Comunicação',
+          status: 'ACTIVE',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        await this.saveMembership(newMem);
+        console.log('✅ Membership ativa criada e garantida para /users/' + fbUid, 'na org:', activeOrganizationId);
+      }
+    }
+
     return consolidatedUser;
   }
 

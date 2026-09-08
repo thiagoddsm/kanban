@@ -90,7 +90,7 @@ export const UsersView: React.FC = () => {
 
   const handleCopyInviteLink = (memId: string, userName: string) => {
     const mem = memberships.find((m) => m.id === memId);
-    const user = users.find((u) => u.id === mem?.userId);
+    const user = users.find((u) => u.id === mem?.userId) || StorageService.getUsers().find((u) => u.id === mem?.userId);
     const emailParam = user?.email ? `&email=${encodeURIComponent(user.email)}` : '';
     const inviteUrl = `${window.location.origin}/login?tab=primeiro-acesso&org=${currentOrganization.slug}${emailParam}&invite=${memId}`;
     navigator.clipboard.writeText(inviteUrl);
@@ -160,7 +160,7 @@ export const UsersView: React.FC = () => {
 
         <div className="divide-y divide-slate-800/80">
           {orgMemberships.map((mem) => {
-            const user = users.find((u) => u.id === mem.userId);
+            const user = users.find((u) => u.id === mem.userId) || StorageService.getUsers().find((u) => u.id === mem.userId);
             const isEditing = editingMemId === mem.id;
 
             const campusNames = mem.hasOrgWideAccess

@@ -21,9 +21,9 @@ interface AuthContextType {
   setAuthError: (err: string | null) => void;
   setCurrentUser: (user: User | null) => void;
   switchUser: (userId: string) => void;
-  loginWithGoogle: () => Promise<User | null>;
-  loginWithEmail: (email: string, pass: string) => Promise<User>;
-  signUpWithEmail: (name: string, email: string, pass: string) => Promise<User>;
+  loginWithGoogle: (targetOrgSlugOrId?: string) => Promise<User | null>;
+  loginWithEmail: (email: string, pass: string, targetOrgSlugOrId?: string) => Promise<User>;
+  signUpWithEmail: (name: string, email: string, pass: string, targetOrgSlugOrId?: string) => Promise<User>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   logout: () => Promise<void>;
@@ -106,7 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithGoogle = async (): Promise<User | null> => {
+  const loginWithGoogle = async (targetOrgSlugOrId?: string): Promise<User | null> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth && googleProvider) {
@@ -117,7 +117,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fbUser.uid,
           fbUser.email || '',
           fbUser.displayName || undefined,
-          fbUser.photoURL || undefined
+          fbUser.photoURL || undefined,
+          targetOrgSlugOrId
         );
         const updated = StorageService.updateUser(userObj);
         setUsers(updated);
@@ -137,7 +138,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const loginWithEmail = async (email: string, pass: string): Promise<User> => {
+  const loginWithEmail = async (email: string, pass: string, targetOrgSlugOrId?: string): Promise<User> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth) {
@@ -148,7 +149,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           fbUser.uid,
           fbUser.email || email.trim(),
           fbUser.displayName || undefined,
-          fbUser.photoURL || undefined
+          fbUser.photoURL || undefined,
+          targetOrgSlugOrId
         );
         const updated = StorageService.updateUser(userObj);
         setUsers(updated);
@@ -168,7 +170,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const signUpWithEmail = async (name: string, email: string, pass: string): Promise<User> => {
+  const signUpWithEmail = async (name: string, email: string, pass: string, targetOrgSlugOrId?: string): Promise<User> => {
     setIsLoadingAuth(true);
     setAuthError(null);
     if (auth) {
@@ -181,7 +183,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userObj = await FirestoreRepository.reconcileUserOnLogin(
           fbUser.uid,
           email.trim(),
-          name.trim()
+          name.trim(),
+          undefined,
+          targetOrgSlugOrId
         );
         const updated = StorageService.updateUser(userObj);
         setUsers(updated);
