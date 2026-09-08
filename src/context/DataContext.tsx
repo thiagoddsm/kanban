@@ -134,7 +134,10 @@ interface DataContextType {
   filteredTasks: Task[];
 
   // Actions
-  createTask: (taskData: Partial<Task> & { title: string; demandType: DemandType }) => Task;
+  createTask: (
+    taskData: Partial<Task> & { title: string; demandType: DemandType },
+    options?: { skipNotification?: boolean }
+  ) => Task;
   updateTask: (task: Task) => void;
   moveTask: (taskId: string, newStatus: TaskStatus, force?: boolean) => { success: boolean; blockedBy?: Task[] };
   archiveTask: (taskId: string, isArchived: boolean) => void;
@@ -495,7 +498,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Task Actions
-  const createTask = (taskData: Partial<Task> & { title: string; demandType: DemandType }): Task => {
+  const createTask = (
+    taskData: Partial<Task> & { title: string; demandType: DemandType },
+    options?: { skipNotification?: boolean }
+  ): Task => {
     const event = taskData.eventId ? rawEvents.find((e) => e.id === taskData.eventId) : undefined;
     const campus = taskData.campusId 
       ? campuses.find((c) => c.id === taskData.campusId) 
@@ -570,7 +576,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.saveTask(newTask);
 
     // Automation Trigger: TASK_ASSIGNED (In-App + WhatsApp)
-    if (newTask.assigneeId) {
+    if (newTask.assigneeId && !options?.skipNotification) {
       AutomationEngine.handleTrigger(currentOrganization.id, 'TASK_ASSIGNED', {
         task: newTask,
         actorName: currentUser?.name || 'Sistema',

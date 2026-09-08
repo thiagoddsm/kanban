@@ -5,7 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { JsonTaskParser, ParsedTaskResult } from '../../services/jsonTaskParser';
+import { WhatsAppNotificationService } from '../../services/whatsappNotificationService';
 import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
+import { Task } from '../../types';
 import { 
   X, 
   Code2, 
@@ -103,41 +105,60 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
     setJsonInput(SAMPLE_JSON);
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!parseResult || !parseResult.success || !parseResult.tasks || parseResult.tasks.length === 0) {
       notifyError('JSON Inválido', parseResult?.error || 'Corrija os erros de formatação do JSON.');
       return;
     }
 
     setIsSubmitting(true);
-    let createdCount = 0;
+    const createdTasksList: Task[] = [];
 
     try {
       parseResult.tasks.forEach((parsed) => {
-        createTask({
-          title: parsed.title,
-          description: parsed.description,
-          status: parsed.status,
-          priority: parsed.priority,
-          demandType: parsed.demandType,
-          startDate: parsed.startDate,
-          deadline: parsed.deadline,
-          effortEstimate: parsed.effortEstimate,
-          campusId: parsed.campusId,
-          eventId: parsed.eventId,
-          assigneeIds: parsed.assigneeIds,
-          checklist: parsed.checklist,
-          tags: parsed.tags,
-          requesterId: currentUser?.id || 'sys',
-          requesterName: currentUser?.name || 'Sistema',
-          attachmentLinks: [],
-        });
-        createdCount++;
+        const created = createTask(
+          {
+            title: parsed.title,
+            description: parsed.description,
+            status: parsed.status,
+            priority: parsed.priority,
+            demandType: parsed.demandType,
+            startDate: parsed.startDate,
+            deadline: parsed.deadline,
+            effortEstimate: parsed.effortEstimate,
+            campusId: parsed.campusId,
+            eventId: parsed.eventId,
+            assigneeIds: parsed.assigneeIds,
+            checklist: parsed.checklist,
+            tags: parsed.tags,
+            requesterId: currentUser?.id || 'sys',
+            requesterName: currentUser?.name || 'Sistema',
+            attachmentLinks: [],
+          },
+          { skipNotification: true } // Não envia individualmente para não inundar o WhatsApp
+        );
+        createdTasksList.push(created);
       });
+
+      // Dispara resumo consolidado do WhatsApp (Apenas 1 mensagem por responsável com todas as suas tarefas)
+      let wppSentCount = 0;
+      try {
+        const batchRes = await WhatsAppNotificationService.notifyBatchTasksAssigned({
+          organization: currentOrganization,
+          tasks: createdTasksList,
+          allUsers: users,
+          actorUser: currentUser,
+        });
+        wppSentCount = batchRes.sentCount;
+      } catch (wppErr) {
+        console.warn('[WhatsApp Batch Error]:', wppErr);
+      }
 
       success(
         'Importação Concluída!',
-        `${createdCount} tarefa(s) adicionada(s) com sucesso ao quadro Kanban.`
+        `${createdTasksList.length} tarefa(s) adicionada(s) ao quadro.${
+          wppSentCount > 0 ? ` Resumo enviado no WhatsApp para ${wppSentCount} membro(s).` : ''
+        }`
       );
       onClose();
     } catch (err: any) {

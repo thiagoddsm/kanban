@@ -248,5 +248,99 @@ export class WhatsAppNotificationService {
       return false;
     }
   }
+
+  /**
+   * Notifica responsáveis com um resumo consolidado de múltiplas demandas criadas (ex: via JSON / Importação em lote)
+   * Garante o envio de APENAS UMA mensagem por responsável com a lista e prazos de todas as suas tarefas.
+   */
+  public static async notifyBatchTasksAssigned({
+    organization,
+    tasks,
+    allUsers,
+    actorUser,
+  }: {
+    organization: Organization;
+    tasks: Task[];
+    allUsers: User[];
+    actorUser?: User | null;
+  }): Promise<{ sentCount: number }> {
+    const orgConfig = organization.evolutionConfig;
+    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnTaskCreated === false) {
+      return { sentCount: 0 };
+    }
+
+    // Agrupa tarefas por responsável
+    const userTasksMap = new Map<string, Task[]>();
+
+    tasks.forEach((task) => {
+      const targetUserIds: string[] =
+        task.assigneeIds && task.assigneeIds.length > 0
+          ? task.assigneeIds
+          : task.assigneeId
+          ? [task.assigneeId]
+          : [];
+
+      targetUserIds.forEach((uid) => {
+        const currentList = userTasksMap.get(uid) || [];
+        if (!currentList.some((t) => t.id === task.id)) {
+          currentList.push(task);
+        }
+        userTasksMap.set(uid, currentList);
+      });
+    });
+
+    let sentCount = 0;
+    const actorName = actorUser?.name || 'Liderança';
+    const instanceName = this.resolveInstanceName(organization, actorUser);
+
+    for (const [userId, userTasks] of userTasksMap.entries()) {
+      const targetUser = allUsers.find((u) => u.id === userId);
+      if (!targetUser || targetUser.notifyWhatsApp === false) continue;
+
+      const phone = targetUser.whatsapp || targetUser.phone;
+      if (!phone) continue;
+
+      let text = '';
+      const firstName = targetUser.name.split(' ')[0];
+
+      if (userTasks.length === 1) {
+        // Mensagem unitária
+        const singleTask = userTasks[0];
+        const deadlineFormatted = singleTask.deadline
+          ? new Date(singleTask.deadline + 'T00:00:00').toLocaleDateString('pt-BR')
+          : 'Sem prazo definido';
+
+        text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${singleTask.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${singleTask.priority || 'Média'}\n\n👉 *Acesse a demanda:* https://studio-5589719834-7481b.web.app/tasks`;
+      } else {
+        // Mensagem consolidada (Resumo de Múltiplas Tarefas)
+        const taskItemsText = userTasks
+          .map((t, idx) => {
+            const deadlineFormatted = t.deadline
+              ? new Date(t.deadline + 'T00:00:00').toLocaleDateString('pt-BR')
+              : 'Sem prazo';
+            const subCount = t.checklist?.length || 0;
+            const subInfo = subCount > 0 ? `\n   ☑️ _${subCount} subtarefa(s)_` : '';
+            return `${idx + 1}️⃣ *${t.title}*\n   📅 Prazo: ${deadlineFormatted} • Prioridade: ${t.priority || 'Média'}${subInfo}`;
+          })
+          .join('\n\n');
+
+        text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* https://studio-5589719834-7481b.web.app/tasks`;
+      }
+
+      try {
+        const res = await EvolutionApiService.sendTextMessage({
+          instanceName,
+          to: phone,
+          text,
+          configOverride: orgConfig,
+        });
+        if (res.success) sentCount++;
+      } catch (err) {
+        console.warn(`[WhatsAppNotify] Erro ao enviar resumo em lote para ${targetUser.name}:`, err);
+      }
+    }
+
+    return { sentCount };
+  }
 }
 
