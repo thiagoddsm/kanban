@@ -701,7 +701,7 @@ export class FirestoreRepository {
       : null;
 
     if (!targetOrg && allOrgs.length > 0) {
-      targetOrg = allOrgs[0];
+      targetOrg = allOrgs.find((o) => o.id === 'org_igreja_batista_da_manha_izw' || o.slug === 'igreja-batista-da-manha') || allOrgs[0];
     }
 
     // If doc already exists with this UID, update profile attributes and ensure membership in targetOrg

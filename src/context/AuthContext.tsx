@@ -68,11 +68,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setIsLoadingAuth(true);
         if (fbUser) {
           try {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            const urlOrg = new URLSearchParams(window.location.search).get('org') || 
+              (pathParts[0] && !['login', 'signup', 'portal'].includes(pathParts[0]) ? pathParts[0] : 'igreja-batista-da-manha');
+
             const userObj = await FirestoreRepository.reconcileUserOnLogin(
               fbUser.uid,
               fbUser.email || '',
               fbUser.displayName || undefined,
-              fbUser.photoURL || undefined
+              fbUser.photoURL || undefined,
+              urlOrg
             );
             const updated = StorageService.updateUser(userObj);
             setUsers(updated);
