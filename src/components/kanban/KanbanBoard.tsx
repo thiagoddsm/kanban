@@ -9,6 +9,7 @@ import { TaskModal } from './TaskModal';
 
 import { DependencyAlertModal } from './DependencyAlertModal';
 import { NewDemandModal } from './NewDemandModal';
+import { ImportJsonModal } from './ImportJsonModal';
 import { Task, TaskStatus } from '../../types';
 import { 
   Plus, 
@@ -23,7 +24,8 @@ import {
   Layers,
   Flame,
   X,
-  RotateCcw
+  RotateCcw,
+  Code2
 } from 'lucide-react';
 
 export const KanbanBoard: React.FC = () => {
@@ -61,6 +63,7 @@ export const KanbanBoard: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isNewDemandModalOpen, setIsNewDemandModalOpen] = useState(false);
+  const [isImportJsonOpen, setIsImportJsonOpen] = useState(false);
   const [defaultColumnForNew, setDefaultColumnForNew] = useState<TaskStatus>('INBOX');
 
   const [isDepAlertOpen, setIsDepAlertOpen] = useState(false);
@@ -77,7 +80,7 @@ export const KanbanBoard: React.FC = () => {
   // Quick review filter
   const [filterReviewOnly, setFilterReviewOnly] = useState(false);
 
-  // Global Keyboard Shortcuts (N for new, / for search, Esc to close)
+  // Global Keyboard Shortcuts (N for new, J for JSON import, / for search, Esc to close)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
@@ -90,6 +93,7 @@ export const KanbanBoard: React.FC = () => {
       if (e.key === 'Escape') {
         setIsTaskModalOpen(false);
         setIsNewDemandModalOpen(false);
+        setIsImportJsonOpen(false);
         setIsDepAlertOpen(false);
         setIsPromptBlockOpen(false);
         return;
@@ -100,6 +104,9 @@ export const KanbanBoard: React.FC = () => {
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
         setIsNewDemandModalOpen(true);
+      } else if (e.key === 'j' || e.key === 'J') {
+        e.preventDefault();
+        setIsImportJsonOpen(true);
       } else if (e.key === '/') {
         e.preventDefault();
         const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
@@ -242,6 +249,17 @@ export const KanbanBoard: React.FC = () => {
             totalTasksCount={tasks.length}
             filteredTasksCount={filteredTasks.length}
           />
+
+          {canCreateDemand && (
+            <button
+              onClick={() => setIsImportJsonOpen(true)}
+              title="Importar ou criar tarefas via JSON (Atalho: J)"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 active:scale-95 transition-all shrink-0"
+            >
+              <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">Importar JSON</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -443,6 +461,11 @@ export const KanbanBoard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Import JSON Modal */}
+      <ImportJsonModal
+        isOpen={isImportJsonOpen}
+        onClose={() => setIsImportJsonOpen(false)}
+      />
     </div>
   );
 };
