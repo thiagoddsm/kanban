@@ -134,19 +134,31 @@ export class StorageService {
       return INITIAL_USERS;
     }
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((u) => !!u && !!u.id);
+      }
+      return INITIAL_USERS;
     } catch {
       return INITIAL_USERS;
     }
   }
 
   static saveUsers(users: User[]): void {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    const valid = (users || []).filter((u) => !!u && !!u.id);
+    localStorage.setItem(USERS_KEY, JSON.stringify(valid));
   }
 
   static addUser(user: User): User[] {
-    const users = this.getUsers();
-    const existingIndex = users.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    if (!user || !user.id) return this.getUsers();
+    const users = this.getUsers().filter((u) => !!u && !!u.id);
+    const userEmail = (user.email || '').trim().toLowerCase();
+    const existingIndex = users.findIndex((u) => {
+      if (!u) return false;
+      if (u.id === user.id) return true;
+      const uEmail = (u.email || '').trim().toLowerCase();
+      return !!(userEmail && uEmail && userEmail === uEmail);
+    });
     let updated: User[];
     if (existingIndex >= 0) {
       updated = [...users];
@@ -178,6 +190,7 @@ export class StorageService {
     } else {
       try {
         all = JSON.parse(raw);
+        if (!Array.isArray(all)) all = INITIAL_MEMBERSHIPS;
       } catch {
         all = INITIAL_MEMBERSHIPS;
       }
@@ -187,6 +200,7 @@ export class StorageService {
     const seen = new Set<string>();
     const deduped: Membership[] = [];
     for (const m of all) {
+      if (!m || !m.userId || !m.organizationId) continue;
       const key = `${m.userId}_${m.organizationId}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -205,6 +219,7 @@ export class StorageService {
     const seen = new Set<string>();
     const deduped: Membership[] = [];
     for (const m of memberships) {
+      if (!m || !m.userId || !m.organizationId) continue;
       const key = `${m.userId}_${m.organizationId}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -215,7 +230,8 @@ export class StorageService {
   }
 
   static addMembership(membership: Membership): Membership[] {
-    const all = this.getMemberships();
+    if (!membership || !membership.userId || !membership.organizationId) return this.getMemberships();
+    const all = this.getMemberships().filter((m) => !!m && !!m.userId && !!m.organizationId);
     const existingIndex = all.findIndex(
       (m) => m.id === membership.id || (m.userId === membership.userId && m.organizationId === membership.organizationId)
     );

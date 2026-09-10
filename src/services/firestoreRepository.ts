@@ -200,6 +200,10 @@ export class FirestoreRepository {
    * Save / Update Membership in Firestore
    */
   public static async saveMembership(membership: Membership): Promise<void> {
+    if (!membership || !membership.organizationId || !membership.userId) {
+      console.warn('saveMembership ignorado: organizationId ou userId indefinido', membership);
+      return;
+    }
     StorageService.addMembership(membership);
     if (!isFirebaseConfigured || !db) return;
 
@@ -230,6 +234,7 @@ export class FirestoreRepository {
    * Fetch all memberships for an organization from Firestore
    */
   public static async fetchMemberships(orgId: string): Promise<Membership[]> {
+    if (!orgId) return [];
     if (!isFirebaseConfigured || !db) {
       return StorageService.getMemberships().filter((m) => m.organizationId === orgId);
     }
@@ -239,7 +244,17 @@ export class FirestoreRepository {
       if (snap.empty) {
         return [];
       }
-      return snap.docs.map((d) => d.data() as Membership);
+      return snap.docs
+        .map((d) => {
+          const data = d.data() as Membership;
+          return {
+            id: d.id,
+            userId: data.userId || d.id,
+            organizationId: data.organizationId || orgId,
+            ...data,
+          } as Membership;
+        })
+        .filter((m) => !!m && !!m.userId && !!m.organizationId);
     } catch (e) {
       console.warn('Aviso: lendo memberships do cache local:', e);
       return StorageService.getMemberships().filter((m) => m.organizationId === orgId);
@@ -250,12 +265,22 @@ export class FirestoreRepository {
    * Realtime subscription for memberships
    */
   public static subscribeMemberships(orgId: string, callback: (memberships: Membership[]) => void): () => void {
-    if (!isFirebaseConfigured || !db) return () => {};
+    if (!orgId || !isFirebaseConfigured || !db) return () => {};
 
     try {
       const memCol = collection(db, 'organizations', orgId, 'memberships');
       return onSnapshot(memCol, (snap) => {
-        const memberships = snap.docs.map((d) => d.data() as Membership);
+        const memberships = snap.docs
+          .map((d) => {
+            const data = d.data() as Membership;
+            return {
+              id: d.id,
+              userId: data.userId || d.id,
+              organizationId: data.organizationId || orgId,
+              ...data,
+            } as Membership;
+          })
+          .filter((m) => !!m && !!m.userId && !!m.organizationId);
         callback(memberships);
       }, (err) => {
         console.warn('Subscription error for memberships:', err);
@@ -326,7 +351,9 @@ export class FirestoreRepository {
       if (snap.empty) {
         return [];
       }
-      return snap.docs.map((d) => d.data() as User);
+      return snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as User) }))
+        .filter((u) => !!u && !!u.id);
     } catch (e) {
       console.warn('Aviso: lendo usuários do cache local:', e);
       return StorageService.getUsers();
@@ -342,7 +369,9 @@ export class FirestoreRepository {
     try {
       const usersCol = collection(db, 'users');
       return onSnapshot(usersCol, (snap) => {
-        const users = snap.docs.map((d) => d.data() as User);
+        const users = snap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as User) }))
+          .filter((u) => !!u && !!u.id);
         callback(users);
       }, (err) => {
         console.warn('Subscription error for users:', err);

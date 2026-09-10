@@ -84,6 +84,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // Auto-reconciliação: recupera qualquer usuário criado que esteja sem documento de membership
         const remoteUsers = await FirestoreRepository.fetchUsers();
         for (const u of remoteUsers) {
+          if (!u || !u.id || !currentOrganization?.id) continue;
+          const uEmail = (u.email || '').toLowerCase();
           const belongsToThisOrg = 
             u.tenantId === currentOrganization.id || 
             u.activeOrganizationId === currentOrganization.id || 
@@ -91,9 +93,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             !u.tenantId ||
             u.tenantId === 'org_thiago__t3f' ||
             (!u.organizationIds || u.organizationIds.length === 0) ||
-            (u.email && u.email.toLowerCase().includes('hugo')) ||
-            (u.email && u.email.toLowerCase().includes('campanario')) ||
-            (u.email && u.email.toLowerCase().includes('marcello'));
+            (uEmail && (uEmail.includes('hugo') || uEmail.includes('campanario') || uEmail.includes('marcello')));
 
           if (belongsToThisOrg && !remoteMems.some((m) => m.userId === u.id)) {
             const recoveredMem: Membership = {
@@ -102,7 +102,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
               organizationId: currentOrganization.id,
               hasOrgWideAccess: true,
               campusIds: [],
-              role: (u.email && (u.email.includes('thiagoddsm') || u.email.includes('admin'))) ? 'ADMIN' : 'TEAM',
+              role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
               department: 'Comunicação',
               status: 'ACTIVE',
               createdAt: u.createdAt || new Date().toISOString(),
@@ -122,7 +122,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
               await FirestoreRepository.syncUser(updatedUser);
             }
 
-            console.log('✅ Membro recuperado e gravado no Firestore:', u.name, u.email);
+            console.log('✅ Membro recuperado e gravado no Firestore:', u.name || 'Sem nome', u.email || 'Sem email');
           }
         }
       } catch (err) {
