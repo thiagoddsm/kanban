@@ -1,0 +1,7 @@
+feat(saas): implementar Fase 3 - Self-Service, Trial de 14 dias e Onboarding Guiado
+
+- Adiciona suporte a periodo de testes (TRIALING, isTrial, trialEndsAt) no modelo de assinatura
+- Cria TrialBanner discreto e elegante com contagem regressiva e atalho para ativacao
+- Implementa FirstAccessOnboarding com 3 passos didaticos para novos lideres no Dashboard
+- Configura geracao automatica de 3 tarefas semente realistas no Kanban ao criar nova igreja
+- Adiciona resolveUniqueSlug para evitar colisoes de URLs entre organizacoes no cadastro publico

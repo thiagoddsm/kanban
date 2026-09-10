@@ -15,6 +15,7 @@ import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
 import { BottomNav } from './BottomNav';
+import { TrialBanner } from './TrialBanner';
 import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
@@ -97,6 +98,7 @@ export const Layout: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64 overflow-hidden">
+        <TrialBanner />
         <Header
           onOpenSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenDemandPortal={() => setIsDemandPortalOpen(true)}

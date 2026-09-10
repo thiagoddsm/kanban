@@ -7,6 +7,7 @@ import { AnalyticsService } from '../../services/analyticsService';
 import { NavigationTab, Task } from '../../types';
 import { TaskModal } from '../kanban/TaskModal';
 import { PilotHealthWidget } from './PilotHealthWidget';
+import { FirstAccessOnboarding } from './FirstAccessOnboarding';
 import { 
   Plus, 
   Kanban, 
@@ -99,7 +100,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-
+      {/* 1.1 Guia Prático de Primeiro Acesso */}
+      <FirstAccessOnboarding />
 
       {/* 2. 4 Clean, Essential KPI Highlights */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

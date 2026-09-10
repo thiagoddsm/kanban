@@ -173,6 +173,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const adminUser = creatorUser || currentUser;
     const orgId = 'org_' + slug.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36).substring(2, 5);
+    const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
     const newOrg: Organization = {
       id: orgId,
@@ -185,9 +186,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       subscription: {
         organizationId: orgId,
         plan,
-        status: 'ACTIVE',
+        status: 'TRIALING',
+        isTrial: true,
+        trialEndsAt: trialEndDate,
         currentPeriodStart: new Date().toISOString(),
-        currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        currentPeriodEnd: trialEndDate,
       },
       limits: {
         maxMembers: plan === 'PRO' ? 50 : 15,
@@ -238,7 +241,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       organizationId: orgId,
       userId: adminUser.id,
       userName: adminUser.name,
-      action: `criou a organização ${name} (Plano ${plan})`,
+      action: `iniciou teste de 14 dias em ${name} (Plano ${plan})`,
       securityEvent: 'MEMBERSHIP_CREATED',
       targetType: 'organization',
       targetId: orgId,
@@ -251,9 +254,9 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const initialEvent: ChurchEvent = {
       id: 'evt_' + orgId + '_inaugural',
       organizationId: orgId,
-      title: 'Planejamento Estratégico & Implantação',
-      description: `Projeto inicial para a implantação e operação integrada de ${name}.`,
-      category: 'OUTRO',
+      title: 'Cultos & Programação Semanal',
+      description: `Operação contínua de cultos, eventos e comunicação de ${name}.`,
+      category: 'CULTO',
       status: 'PLANNING',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
@@ -270,55 +273,133 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
     StorageService.addEvent(initialEvent);
 
-    // Initial Task / Demand
-    const initialTask: Task = {
-      id: 'tsk_' + orgId + '_welcome',
-      organizationId: orgId,
-      campusId: mainCampus.id,
-      campusName: mainCampus.name,
-      title: 'Configurar equipe, congregações e primeiras demandas da igreja',
-      description: 'Seja bem-vindo ao Oiko Gestão! Convide seus líderes no menu Usuários & Convites e comece a registrar suas demandas operacionais.',
-      status: 'INBOX',
-      priority: 'HIGH',
-      demandType: 'EVENTO',
-      eventId: initialEvent.id,
-      eventName: initialEvent.title,
-      requesterId: adminUser.id,
-      requesterName: adminUser.name,
-      assigneeIds: [adminUser.id],
-      assigneeId: adminUser.id,
-      assigneeName: adminUser.name,
-      requestedAt: new Date().toISOString(),
-      startDate: new Date().toISOString().split('T')[0],
-      deadline: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0],
-      effortEstimate: 'Médio',
-      tags: ['Implantação', 'Configuração'],
-      attachmentLinks: [],
-      dependencies: [],
-      checklist: [
-        { id: 'chk_1', text: 'Convidar pastores e líderes de ministérios', completed: false },
-        { id: 'chk_2', text: 'Cadastrar outras congregações / campi se houver', completed: false },
-        { id: 'chk_3', text: 'Abrir a primeira solicitação no botão Solicitar Demanda', completed: false }
-      ],
-      commentsCount: 1,
-      isArchived: false,
-      createdBy: adminUser.id,
-      createdByName: adminUser.name,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    StorageService.addTask(initialTask);
+    // 3 tarefas didáticas distribuídas no quadro Kanban
+    const todayStr = new Date().toISOString().split('T')[0];
+    const in5DaysStr = new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString().split('T')[0];
+    const in7DaysStr = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().split('T')[0];
 
-    // Initial Comment
+    const initialTasks: Task[] = [
+      // 1. INBOX: Nova solicitação didática
+      {
+        id: 'tsk_' + orgId + '_1',
+        organizationId: orgId,
+        campusId: mainCampus.id,
+        campusName: mainCampus.name,
+        title: 'Planejar escala e equipe de transmissão do culto de domingo',
+        description: 'Organizar voluntários de corte de câmera, som e iluminação para a transmissão ao vivo.',
+        status: 'INBOX',
+        priority: 'HIGH',
+        demandType: 'EVENTO',
+        eventId: initialEvent.id,
+        eventName: initialEvent.title,
+        requesterId: adminUser.id,
+        requesterName: adminUser.name,
+        assigneeIds: [adminUser.id],
+        assigneeId: adminUser.id,
+        assigneeName: adminUser.name,
+        requestedAt: new Date().toISOString(),
+        startDate: todayStr,
+        deadline: in7DaysStr,
+        effortEstimate: 'Médio',
+        tags: ['Transmissão', 'Voluntários'],
+        attachmentLinks: [],
+        dependencies: [],
+        checklist: [
+          { id: 'chk_1', text: 'Confirmar operador de áudio principal', completed: true },
+          { id: 'chk_2', text: 'Alinhar câmeras e iluminação do altar', completed: false },
+          { id: 'chk_3', text: 'Testar link no YouTube 30min antes', completed: false }
+        ],
+        commentsCount: 1,
+        isArchived: false,
+        createdBy: adminUser.id,
+        createdByName: adminUser.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      // 2. IN_PROGRESS: Demanda em produção
+      {
+        id: 'tsk_' + orgId + '_2',
+        organizationId: orgId,
+        campusId: mainCampus.id,
+        campusName: mainCampus.name,
+        title: 'Produzir artes e criativos para os avisos no telão',
+        description: 'Criar no Canva/Photoshop os slides de avisos da semana (conferência, células e discipulado).',
+        status: 'IN_PROGRESS',
+        priority: 'MEDIUM',
+        demandType: 'ARTE',
+        eventId: initialEvent.id,
+        eventName: initialEvent.title,
+        requesterId: adminUser.id,
+        requesterName: adminUser.name,
+        assigneeIds: [adminUser.id],
+        assigneeId: adminUser.id,
+        assigneeName: adminUser.name,
+        requestedAt: new Date().toISOString(),
+        startDate: todayStr,
+        deadline: in5DaysStr,
+        effortEstimate: 'Rápido',
+        tags: ['Comunicação', 'Telão'],
+        attachmentLinks: [],
+        dependencies: [],
+        checklist: [
+          { id: 'chk_a', text: 'Exportar imagens em proporção 16:9 (Full HD)', completed: false }
+        ],
+        commentsCount: 0,
+        isArchived: false,
+        createdBy: adminUser.id,
+        createdByName: adminUser.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      // 3. DONE: Demanda já concluída (mostra fluxo completo de entrega)
+      {
+        id: 'tsk_' + orgId + '_3',
+        organizationId: orgId,
+        campusId: mainCampus.id,
+        campusName: mainCampus.name,
+        title: 'Criar conta e sede principal no Oiko Gestão',
+        description: 'Conta criada com sucesso! Oiko Gestão pronto para integrar sua equipe ministerial.',
+        status: 'DONE',
+        priority: 'HIGH',
+        demandType: 'OUTRO',
+        requesterId: adminUser.id,
+        requesterName: adminUser.name,
+        assigneeIds: [adminUser.id],
+        assigneeId: adminUser.id,
+        assigneeName: adminUser.name,
+        requestedAt: new Date().toISOString(),
+        startDate: todayStr,
+        deadline: todayStr,
+        completedAt: new Date().toISOString(),
+        effortEstimate: 'Rápido',
+        tags: ['Implantação'],
+        attachmentLinks: [],
+        dependencies: [],
+        checklist: [
+          { id: 'chk_done1', text: 'Configurar dados da sede', completed: true },
+          { id: 'chk_done2', text: 'Ativar período de testes de 14 dias', completed: true }
+        ],
+        commentsCount: 0,
+        isArchived: false,
+        createdBy: adminUser.id,
+        createdByName: adminUser.name,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    ];
+
+    initialTasks.forEach((t) => StorageService.addTask(t));
+
+    // Initial Comment na primeira tarefa
     const initialComment: Comment = {
       id: 'cmt_' + orgId + '_welcome',
       organizationId: orgId,
-      taskId: initialTask.id,
+      taskId: initialTasks[0].id,
       userId: adminUser.id,
       userName: adminUser.name,
       userAvatar: adminUser.avatar,
       userRole: 'ADMIN',
-      content: 'Bem-vindo ao Oiko Gestão Integrada! Use este espaço para alinhar detalhes, briefing e anexos com sua equipe.',
+      content: 'Bem-vindo ao Oiko Gestão! Arraste os cards pelas colunas do Kanban conforme o fluxo de trabalho avança.',
       createdAt: new Date().toISOString(),
     };
     StorageService.addComment(initialComment);
@@ -334,7 +415,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     FirestoreRepository.saveMembership(membership);
     FirestoreRepository.recordActivity(auditLog);
     FirestoreRepository.saveEvent(initialEvent);
-    FirestoreRepository.saveTask(initialTask);
+    initialTasks.forEach((t) => FirestoreRepository.saveTask(t));
     FirestoreRepository.saveComment(initialComment);
     FirestoreRepository.saveOrgConfig(orgId, {
       demandTypes: DEMAND_TYPES,

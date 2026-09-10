@@ -96,6 +96,8 @@ export interface Subscription {
   status: SubscriptionStatus;
   currentPeriodStart: string;
   currentPeriodEnd: string;
+  isTrial?: boolean;
+  trialEndsAt?: string;
   provider?: 'ASAAS' | 'STRIPE';
   externalCustomerId?: string;
   externalSubscriptionId?: string;

@@ -24,7 +24,7 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUpWithEmail, loginWithGoogle, currentUser, isLoadingAuth, authError, setAuthError } = useAuth();
-  const { createOrganization } = useTenant();
+  const { createOrganization, organizations } = useTenant();
   const { success } = useNotification();
 
   // Selected Plan from query or default
@@ -46,6 +46,17 @@ export const RegisterPage: React.FC = () => {
   const [city, setCity] = useState('');
   const [mainCampusName, setMainCampusName] = useState('Sede Principal');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Previne colisão de slugs entre organizações
+  const resolveUniqueSlug = (rawSlug: string): string => {
+    let candidate = rawSlug;
+    let counter = 2;
+    while (organizations.some((o) => o.slug === candidate)) {
+      candidate = `${rawSlug}-${counter}`;
+      counter++;
+    }
+    return candidate;
+  };
 
   // Auto-fill from currentUser if logged in
   useEffect(() => {
@@ -82,16 +93,17 @@ export const RegisterPage: React.FC = () => {
 
       if (churchName.trim()) {
         const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
+        const finalSlug = resolveUniqueSlug(cleanSlug);
         createOrganization(
           churchName.trim(),
-          cleanSlug,
+          finalSlug,
           mainCampusName.trim() || 'Sede Principal',
           city.trim() || 'Cidade Principal',
           selectedPlan,
           loggedUser
         );
         success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
-        navigate(`/${cleanSlug}/dashboard`);
+        navigate(`/${finalSlug}/dashboard`);
       } else {
         success('Autenticado com Google!', 'Informe o nome da sua igreja abaixo para concluir a criação.');
       }
@@ -140,9 +152,10 @@ export const RegisterPage: React.FC = () => {
 
       // 2. Create Organization, Campus & Admin Membership in Firestore
       const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
+      const finalSlug = resolveUniqueSlug(cleanSlug);
       createOrganization(
         churchName.trim(),
-        cleanSlug,
+        finalSlug,
         mainCampusName.trim() || 'Sede Principal',
         city.trim() || 'Cidade Principal',
         selectedPlan,
@@ -150,7 +163,7 @@ export const RegisterPage: React.FC = () => {
       );
 
       success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
-      navigate(`/${cleanSlug}/dashboard`);
+      navigate(`/${finalSlug}/dashboard`);
 
     } catch (err: any) {
       console.error('Registration Error:', err);
