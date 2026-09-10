@@ -51,7 +51,8 @@ export const LandingPage: React.FC = () => {
         'Notificações em tempo real e menções',
         'Suporte por e-mail'
       ],
-      cta: 'Começar com Starter',
+      cta: 'Testar Starter Grátis por 14 Dias',
+      ctaSubtext: '14 dias sem compromisso • Sem cartão',
       ctaColor: 'bg-slate-800 hover:bg-slate-700 text-white'
     },
     {
@@ -73,7 +74,8 @@ export const LandingPage: React.FC = () => {
         'Identidade visual e logo customizados',
         'Suporte prioritário via WhatsApp'
       ],
-      cta: 'Assinar Plano Pro',
+      cta: 'Começar Teste Grátis de 14 Dias',
+      ctaSubtext: 'Acesso completo liberado imediatamente',
       ctaColor: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30'
     },
     {
@@ -93,7 +95,8 @@ export const LandingPage: React.FC = () => {
         'SLA de atendimento garantido',
         'Gerente de conta e treinamento dedicado'
       ],
-      cta: 'Falar com Consultor',
+      cta: 'Falar com Especialista / Testar',
+      ctaSubtext: 'Treinamento e implantação assistida',
       ctaColor: 'bg-slate-800 hover:bg-slate-700 text-white'
     }
   ];
@@ -164,7 +167,8 @@ export const LandingPage: React.FC = () => {
               to="/signup"
               className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/25 active:scale-95 transition-all flex items-center gap-1.5"
             >
-              <span>Criar Minha Igreja</span>
+              <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
+              <span>Testar 14 Dias Grátis</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -207,6 +211,21 @@ export const LandingPage: React.FC = () => {
           >
             <span>Ver Tabela de Planos</span>
           </a>
+        </div>
+
+        {/* Trust Badges */}
+        <div className="flex items-center justify-center gap-3 text-xs text-slate-400 pt-1 flex-wrap">
+          <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            14 dias de teste grátis
+          </span>
+          <span className="text-slate-700">•</span>
+          <span className="flex items-center gap-1.5 text-slate-300">
+            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+            Sem necessidade de cartão
+          </span>
+          <span className="text-slate-700">•</span>
+          <span className="text-slate-400">Cancele a qualquer momento</span>
         </div>
 
         {/* Social Proof Stats */}
@@ -399,9 +418,10 @@ export const LandingPage: React.FC = () => {
           <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
             Escolha o pacote ideal para a sua igreja
           </h3>
-          <p className="text-sm sm:text-base text-slate-400">
-            Todos os planos incluem 14 dias de teste grátis. Cancele a qualquer momento sem taxas extras.
-          </p>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold shadow-inner mx-auto mt-1">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Todos os planos incluem 14 dias de teste grátis • Sem compromisso</span>
+          </div>
 
           {/* Toggle Mensal / Anual */}
           <div className="flex items-center justify-center gap-3 pt-4">
@@ -479,7 +499,7 @@ export const LandingPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-8">
+                <div className="pt-8 space-y-2.5">
                   <Link
                     to={`/signup?plan=${plan.id}`}
                     className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 transition-all active:scale-95 ${plan.ctaColor}`}
@@ -487,6 +507,12 @@ export const LandingPage: React.FC = () => {
                     <span>{plan.cta}</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
+                  {plan.ctaSubtext && (
+                    <p className="text-[11px] text-center text-slate-400 flex items-center justify-center gap-1.5 font-medium">
+                      <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
+                      <span>{plan.ctaSubtext}</span>
+                    </p>
+                  )}
                 </div>
               </div>
             );
