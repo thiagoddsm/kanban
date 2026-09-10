@@ -352,7 +352,16 @@ export class FirestoreRepository {
         return [];
       }
       return snap.docs
-        .map((d) => ({ id: d.id, ...(d.data() as User) }))
+        .map((d) => {
+          const raw = d.data() as any;
+          const email = (raw.email || '').trim();
+          const fallbackName = email ? email.split('@')[0] : 'Membro';
+          return {
+            id: d.id,
+            ...raw,
+            name: (raw.name || raw.displayName || fallbackName).trim(),
+          } as User;
+        })
         .filter((u) => !!u && !!u.id);
     } catch (e) {
       console.warn('Aviso: lendo usuários do cache local:', e);
@@ -370,7 +379,16 @@ export class FirestoreRepository {
       const usersCol = collection(db, 'users');
       return onSnapshot(usersCol, (snap) => {
         const users = snap.docs
-          .map((d) => ({ id: d.id, ...(d.data() as User) }))
+          .map((d) => {
+            const raw = d.data() as any;
+            const email = (raw.email || '').trim();
+            const fallbackName = email ? email.split('@')[0] : 'Membro';
+            return {
+              id: d.id,
+              ...raw,
+              name: (raw.name || raw.displayName || fallbackName).trim(),
+            } as User;
+          })
           .filter((u) => !!u && !!u.id);
         callback(users);
       }, (err) => {

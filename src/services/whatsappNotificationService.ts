@@ -54,7 +54,8 @@ export class WhatsAppNotificationService {
       ? new Date(task.deadline + 'T00:00:00').toLocaleDateString('pt-BR')
       : 'Sem prazo definido';
 
-    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${assigneeUser.name.split(' ')[0]}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}\n\n👉 *Acesse a demanda:* https://studio-5589719834-7481b.web.app/tasks`;
+    const firstName = (assigneeUser.name || (assigneeUser.email ? assigneeUser.email.split('@')[0] : 'Membro')).split(' ')[0];
+    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}\n\n👉 *Acesse a demanda:* https://studio-5589719834-7481b.web.app/tasks`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -102,7 +103,8 @@ export class WhatsAppNotificationService {
     }
 
     const actorName = actorUser?.name || 'Um membro';
-    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${mentionedUser.name.split(' ')[0]}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_\n\n👉 *Responder agora:* https://studio-5589719834-7481b.web.app/tasks`;
+    const firstName = (mentionedUser.name || (mentionedUser.email ? mentionedUser.email.split('@')[0] : 'Membro')).split(' ')[0];
+    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_\n\n👉 *Responder agora:* https://studio-5589719834-7481b.web.app/tasks`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -190,7 +192,8 @@ export class WhatsAppNotificationService {
     if (!phone) return false;
 
     const actorName = actorUser?.name || 'Líder';
-    const text = `🎉 *Demanda Aprovada e Concluída! - Kanban Oiko*\n\nOlá, *${targetUser.name.split(' ')[0]}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\n👉 *Acessar:* https://studio-5589719834-7481b.web.app/tasks`;
+    const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
+    const text = `🎉 *Demanda Aprovada e Concluída! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\n👉 *Acessar:* https://studio-5589719834-7481b.web.app/tasks`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -301,7 +304,7 @@ export class WhatsAppNotificationService {
       if (!phone) continue;
 
       let text = '';
-      const firstName = targetUser.name.split(' ')[0];
+      const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
 
       if (userTasks.length === 1) {
         // Mensagem unitária

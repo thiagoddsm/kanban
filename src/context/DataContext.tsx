@@ -329,7 +329,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const u = allUsers.find((user) => user.id === id);
             return {
               id,
-              name: u?.name ?? 'Responsável',
+              name: u?.name || (u?.email ? u.email.split('@')[0] : 'Responsável'),
               avatar: u?.avatar,
             };
           });
@@ -524,7 +524,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Lookup de display data (nome, avatar) — derivado dos orgUsers em memória
     const assigneesList = assigneeIds.map((id) => {
       const u = orgUsers.find((user) => user.id === id);
-      return { id, name: u?.name ?? 'Responsável', avatar: u?.avatar };
+      return { id, name: u?.name || (u?.email ? u.email.split('@')[0] : 'Responsável'), avatar: u?.avatar };
     });
     const primaryAssignee = assigneesList[0];
 
@@ -634,7 +634,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Lookup de display data — derivado dos orgUsers em memória (não persistido no Firestore)
     const assigneesList = assigneeIds.map((id) => {
       const u = orgUsers.find((user) => user.id === id);
-      return { id, name: u?.name ?? 'Responsável', avatar: u?.avatar };
+      return { id, name: u?.name || (u?.email ? u.email.split('@')[0] : 'Responsável'), avatar: u?.avatar };
     });
     const primaryAssignee = assigneesList[0];
 

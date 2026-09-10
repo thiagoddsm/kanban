@@ -536,8 +536,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                 Responsáveis ({selectedAssigneeIds.length})
               </label>
               <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-slate-800/90 border border-slate-700 min-h-[38px]">
-                {users.map((u) => {
+                {users.filter((u) => !!u && !!u.id).map((u) => {
                   const isSelected = selectedAssigneeIds.includes(u.id);
+                  const displayName = u.name || (u.email ? u.email.split('@')[0] : 'Membro');
+                  const firstName = displayName.split(' ')[0] || displayName;
                   return (
                     <button
                       key={u.id}
@@ -551,10 +553,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                     >
                       <img
                         src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={u.name}
+                        alt={displayName}
                         className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
                       />
-                      <span>{u.name.split(' ')[0]}</span>
+                      <span>{firstName}</span>
                       {isSelected && <span className="text-[10px] ml-0.5">✓</span>}
                     </button>
                   );

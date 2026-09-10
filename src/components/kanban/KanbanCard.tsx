@@ -144,7 +144,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
               )}
               {cardAssignees.length === 1 && (
                 <span className="pl-3 text-[11px] text-slate-300 truncate font-medium max-w-[85px]">
-                  {cardAssignees[0].name.split(' ')[0]}
+                  {(cardAssignees[0].name || 'Membro').split(' ')[0]}
                 </span>
               )}
             </div>
@@ -152,12 +152,12 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             <div className="flex items-center gap-1 min-w-0">
               <img
                 src={task.assigneeAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={task.assigneeName}
+                alt={task.assigneeName || 'Responsável'}
                 title={task.assigneeName}
                 className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-700 shrink-0"
               />
               <span className="text-[11px] text-slate-300 truncate font-medium max-w-[85px]">
-                {task.assigneeName.split(' ')[0]}
+                {(task.assigneeName || 'Membro').split(' ')[0]}
               </span>
             </div>
           ) : (

@@ -86,27 +86,31 @@ export const TeamMemberSelector: React.FC<TeamMemberSelectorProps> = ({
       {/* Selected Members Chips */}
       {selectedUsers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl bg-slate-950/60 border border-slate-800">
-          {selectedUsers.map((u) => (
-            <span
-              key={u.id}
-              className="inline-flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-medium animate-fade-in"
-            >
-              <img
-                src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={u.name}
-                className="w-4 h-4 rounded-full object-cover"
-              />
-              <span className="truncate max-w-[110px]">{u.name.split(' ')[0]}</span>
-              <button
-                type="button"
-                onClick={() => handleToggle(u.id)}
-                className="hover:text-white transition-colors"
-                title="Remover"
+          {selectedUsers.filter((u) => !!u && !!u.id).map((u) => {
+            const displayName = u.name || (u.email ? u.email.split('@')[0] : 'Membro');
+            const firstName = displayName.split(' ')[0] || displayName;
+            return (
+              <span
+                key={u.id}
+                className="inline-flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-full bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-medium animate-fade-in"
               >
-                <X className="w-3 h-3 text-indigo-400 hover:text-white" />
-              </button>
-            </span>
-          ))}
+                <img
+                  src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                  alt={displayName}
+                  className="w-4 h-4 rounded-full object-cover"
+                />
+                <span className="truncate max-w-[110px]">{firstName}</span>
+                <button
+                  type="button"
+                  onClick={() => handleToggle(u.id)}
+                  className="hover:text-white transition-colors"
+                  title="Remover"
+                >
+                  <X className="w-3 h-3 text-indigo-400 hover:text-white" />
+                </button>
+              </span>
+            );
+          })}
         </div>
       )}
 
