@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -66,6 +66,40 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
   // Checklist
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [checkText, setCheckText] = useState('');
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setDescription('');
+    setDemandType(demandTypes[0]?.type || 'ARTE');
+    setStatus(defaultStatus);
+    setPriority('MEDIUM');
+    setEventId('');
+    setCampusId(currentCampus?.id || '');
+    setAssigneeId('');
+    setSelectedAssigneeIds([]);
+    setEffortEstimate('Médio');
+    setStartDate(new Date().toISOString().split('T')[0]);
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    setDeadline(d.toISOString().split('T')[0]);
+    setTags([]);
+    setTagInput('');
+    setDependencies([]);
+    setDepSearch('');
+    setAttachmentLinks([]);
+    setAttTitle('');
+    setAttUrl('');
+    setAttType('canva');
+    setChecklist([]);
+    setCheckText('');
+  }, [demandTypes, defaultStatus, currentCampus?.id]);
+
+  // Reseta o formulário sempre que o modal é aberto
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
 
   const toggleAssignee = (userId: string) => {
     setSelectedAssigneeIds((prev) =>
@@ -150,6 +184,7 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
       checklist,
     });
 
+    resetForm();
     onClose();
   };
 

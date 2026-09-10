@@ -82,7 +82,13 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const [effortEstimate, setEffortEstimate] = useState(task.effortEstimate || '');
   
   // Checklist
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(task.checklist || []);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(() => {
+    return (task.checklist || []).map((item) =>
+      typeof item === 'string'
+        ? { id: 'chk_' + Math.random().toString(36).substring(2, 8), text: item, completed: false }
+        : item
+    );
+  });
   const [newCheckText, setNewCheckText] = useState('');
 
   // Attachments
@@ -120,13 +126,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
       setStartDate(task.startDate);
       setDeadline(task.deadline);
       setEffortEstimate(task.effortEstimate || '');
-      setChecklist(task.checklist || []);
+      setChecklist(
+        (task.checklist || []).map((item) =>
+          typeof item === 'string'
+            ? { id: 'chk_' + Math.random().toString(36).substring(2, 8), text: item, completed: false }
+            : item
+        )
+      );
       setAttachmentLinks(task.attachmentLinks || []);
       setDependencies(task.dependencies || []);
       setBlockReasonInput(task.blockedReason || '');
       setActionRequiredByInput(task.blockedActionRequiredBy || '');
     }
-  }, [task?.id, task?.updatedAt]);
+  }, [task?.id, task?.updatedAt, task?.version]);
 
   // Direct File Upload State
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -247,11 +259,15 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   };
 
   const handleToggleCheck = (itemId: string) => {
-    const updated = checklist.map((item) =>
-      item.id === itemId ? { ...item, completed: !item.completed } : item
-    );
-    setChecklist(updated);
-    updateTask({ ...task, checklist: updated });
+    setChecklist((prev) => {
+      const updated = prev.map((item) =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      );
+      // Persiste usando a tarefa mais atualizada em tasks para evitar perda de dados
+      const latestTask = tasks.find((t) => t.id === task.id) || task;
+      updateTask({ ...latestTask, checklist: updated });
+      return updated;
+    });
   };
 
   const handleAddCheckItem = () => {
@@ -261,16 +277,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
       text: newCheckText.trim(),
       completed: false,
     };
-    const updated = [...checklist, newItem];
-    setChecklist(updated);
+    setChecklist((prev) => [...prev, newItem]);
     setNewCheckText('');
-    updateTask({ ...task, checklist: updated });
+    // Não chama updateTask: o salvamento ocorre ao clicar em "Salvar Alterações"
   };
 
   const handleRemoveCheckItem = (itemId: string) => {
-    const updated = checklist.filter((i) => i.id !== itemId);
-    setChecklist(updated);
-    updateTask({ ...task, checklist: updated });
+    setChecklist((prev) => prev.filter((i) => i.id !== itemId));
+    // Não chama updateTask: salva junto com o restante ao clicar em "Salvar Alterações"
   };
 
   const handleAddAttachment = () => {
@@ -1065,7 +1079,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                       </span>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed">
-                      {c.content.split(/(@[a-zA-Z0-9_À-ÿ\s]+?)(?=[.,!?]?(\s|$))/g).map((part, pIdx) => {
+                      {(c.content || '').split(/(@[a-zA-Z0-9_À-ÿ\s]+?)(?=[.,!?]?(\s|$))/g).map((part, pIdx) => {
                         if (part && part.startsWith('@')) {
                           return (
                             <span

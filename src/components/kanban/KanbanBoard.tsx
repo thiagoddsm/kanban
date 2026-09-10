@@ -60,8 +60,9 @@ export const KanbanBoard: React.FC = () => {
   const { currentOrganization, currentCampus } = useTenant();
   const { warning, info } = useNotification();
 
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const selectedTask = selectedTaskId ? tasks.find((t) => t.id === selectedTaskId) ?? null : null;
+  const isTaskModalOpen = selectedTaskId !== null;
   const [isNewDemandModalOpen, setIsNewDemandModalOpen] = useState(false);
   const [isImportJsonOpen, setIsImportJsonOpen] = useState(false);
   const [defaultColumnForNew, setDefaultColumnForNew] = useState<TaskStatus>('INBOX');
@@ -91,7 +92,7 @@ export const KanbanBoard: React.FC = () => {
           activeElement.tagName === 'SELECT');
 
       if (e.key === 'Escape') {
-        setIsTaskModalOpen(false);
+        setSelectedTaskId(null);
         setIsNewDemandModalOpen(false);
         setIsImportJsonOpen(false);
         setIsDepAlertOpen(false);
@@ -129,8 +130,7 @@ export const KanbanBoard: React.FC = () => {
   ].filter(Boolean).length;
 
   const handleSelectTask = (task: Task) => {
-    setSelectedTask(task);
-    setIsTaskModalOpen(true);
+    setSelectedTaskId(task.id);
   };
 
   const handleQuickAdd = (status: TaskStatus) => {
@@ -362,21 +362,23 @@ export const KanbanBoard: React.FC = () => {
       </div>
 
       {/* Task Details Modal */}
-      <TaskModal
-        task={selectedTask}
-        isOpen={isTaskModalOpen}
-        onClose={() => {
-          setIsTaskModalOpen(false);
-          setSelectedTask(null);
-        }}
-      />
+      {isTaskModalOpen && selectedTask && (
+        <TaskModal
+          key={selectedTask.id}
+          task={selectedTask}
+          isOpen={true}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
 
       {/* New Demand Form Modal */}
-      <NewDemandModal
-        isOpen={isNewDemandModalOpen}
-        defaultStatus={defaultColumnForNew}
-        onClose={() => setIsNewDemandModalOpen(false)}
-      />
+      {isNewDemandModalOpen && (
+        <NewDemandModal
+          isOpen={isNewDemandModalOpen}
+          defaultStatus={defaultColumnForNew}
+          onClose={() => setIsNewDemandModalOpen(false)}
+        />
+      )}
 
       {/* Dependency Alert Modal */}
       <DependencyAlertModal

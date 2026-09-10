@@ -290,18 +290,23 @@ export const UsersView: React.FC = () => {
                       .join(', ')
                   : 'Nenhum campus fixo';
 
+            const displayName = 
+              (user?.name && user.name.trim() !== '' && user.name !== 'Membro' && user.name !== 'Usuário')
+                ? user.name
+                : user?.email ? user.email.split('@')[0] : 'Membro';
+
             return (
               <div key={mem.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-850/40 transition-colors">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <img
                     src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                    alt={user?.name || 'Membro'}
+                    alt={displayName}
                     className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-800 shrink-0"
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-xs sm:text-sm font-bold text-white truncate">
-                        {user?.name || 'Usuário'}
+                        {displayName}
                       </h4>
                       <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
                         {mem.department || 'Geral'}
@@ -387,7 +392,7 @@ export const UsersView: React.FC = () => {
                       {/* Copy Invitation Link button */}
                       {isAdmin && (
                         <button
-                          onClick={() => handleCopyInviteLink(mem.id, user?.name || 'Membro')}
+                          onClick={() => handleCopyInviteLink(mem.id, displayName)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
                           title="Copiar Link de Convite"
                         >
@@ -420,7 +425,7 @@ export const UsersView: React.FC = () => {
 
                           <button
                             onClick={() => {
-                              if (window.confirm(`Tem certeza que deseja excluir ${user?.name || 'este membro'} da organização e do banco de dados?`)) {
+                              if (window.confirm(`Tem certeza que deseja excluir ${displayName} da organização e do banco de dados?`)) {
                                 removeMemberFromOrg(mem.id);
                               }
                             }}

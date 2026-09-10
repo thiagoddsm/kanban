@@ -657,13 +657,21 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawTasks(updated);
     
     // Gravação assíncrona com controle de concorrência otimista
-    FirestoreRepository.saveTask(updatedTask, task.version).then((res) => {
+    // Usa a versão mais atualizada possível (entre rawTasks e a task passada no argumento)
+    const latestInStore = rawTasks.find((t) => t.id === task.id);
+    const latestVersion = Math.max(latestInStore?.version || 0, task.version || 0);
+    FirestoreRepository.saveTask(updatedTask, latestVersion).then((res) => {
       if (res.conflict && res.remoteTask) {
         warning(
           'Conflito de edição simultânea!',
           `A tarefa "${res.remoteTask.title}" foi alterada recentemente por outro membro da equipe. A versão mais recente foi carregada.`
         );
         setRawTasks((prev) => prev.map((t) => (t.id === res.remoteTask!.id ? res.remoteTask! : t)));
+      } else if (res.success && res.newVersion) {
+        // Atualiza versão em rawTasks para evitar conflito falso na próxima gravação
+        setRawTasks((prev) =>
+          prev.map((t) => (t.id === updatedTask.id ? { ...t, version: res.newVersion! } : t))
+        );
       }
     });
 

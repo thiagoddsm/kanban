@@ -191,15 +191,22 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return granted;
   };
 
-  // Orgs acessíveis: apenas onde o usuário tem membership ACTIVE
+  // Orgs acessíveis: memberships ativas + organizations associadas ao perfil do usuário
   const accessibleOrganizations = useMemo(() => {
     if (!currentUser) return [];
-    const userOrgIds = memberships
+    const membershipOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
 
-    return organizations.filter((o) => userOrgIds.includes(o.id));
-  }, [organizations, memberships, currentUser?.id]);
+    const allowedOrgIds = new Set<string>([
+      ...membershipOrgIds,
+      ...(currentUser.organizationIds || []),
+      ...(currentUser.tenantId ? [currentUser.tenantId] : []),
+      ...(currentUser.activeOrganizationId ? [currentUser.activeOrganizationId] : []),
+    ]);
+
+    return organizations.filter((o) => allowedOrgIds.has(o.id));
+  }, [organizations, memberships, currentUser]);
 
   // Campi acessíveis: depende da membership e do hasOrgWideAccess
   const accessibleCampuses = useMemo(() => {
@@ -284,12 +291,15 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return false;
     }
 
-    let user = StorageService.getUsers().find((u) => u.email.toLowerCase() === userEmail.toLowerCase());
+    const cleanEmail = userEmail.trim().toLowerCase();
+    const cleanName = userName.trim();
+
+    let user = StorageService.getUsers().find((u) => u.email.toLowerCase() === cleanEmail);
     if (!user) {
       user = {
         id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
-        name: userName,
-        email: userEmail,
+        name: cleanName,
+        email: cleanEmail,
         tenantId: currentOrganization.id,
         activeOrganizationId: currentOrganization.id,
         organizationIds: [currentOrganization.id],
@@ -299,13 +309,15 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } else {
       user = {
         ...user,
+        name: cleanName || user.name,
+        email: cleanEmail || user.email,
         tenantId: user.tenantId || currentOrganization.id,
         activeOrganizationId: user.activeOrganizationId || currentOrganization.id,
         organizationIds: Array.from(new Set([...(user.organizationIds || []), currentOrganization.id])),
       };
       StorageService.updateUser(user);
     }
-    // Sync user with Firestore (with tenantId)
+    // Sync user with Firestore
     FirestoreRepository.syncUser(user);
 
 

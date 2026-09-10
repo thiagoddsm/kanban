@@ -217,11 +217,19 @@ export class FirestoreRepository {
 
       // Vínculo bidirecional: registra o tenantId e a organização no perfil do usuário
       const userRef = doc(db, 'users', membership.userId);
-      await setDoc(userRef, {
+      const localUser = StorageService.getUsers().find((u) => u.id === membership.userId);
+      const userFieldsToMerge: any = {
         tenantId: membership.organizationId,
         activeOrganizationId: membership.organizationId,
         organizationIds: arrayUnion(membership.organizationId),
-      }, { merge: true });
+      };
+      if (localUser?.name && localUser.name !== 'Membro') {
+        userFieldsToMerge.name = localUser.name;
+      }
+      if (localUser?.email) {
+        userFieldsToMerge.email = localUser.email;
+      }
+      await setDoc(userRef, userFieldsToMerge, { merge: true });
 
       console.log('✅ Membership e tenantId gravados no Firestore para /users/' + membership.userId, '-> org:', membership.organizationId);
 
@@ -543,7 +551,7 @@ export class FirestoreRepository {
   public static async saveTask(
     task: Task, 
     expectedVersion?: number
-  ): Promise<{ success: boolean; conflict?: boolean; remoteTask?: Task }> {
+  ): Promise<{ success: boolean; conflict?: boolean; remoteTask?: Task; newVersion?: number }> {
     if (!isFirebaseConfigured || !db) {
       StorageService.updateTask(task);
       return { success: true };
@@ -578,7 +586,7 @@ export class FirestoreRepository {
       
       StorageService.updateTask({ ...task, version: nextVersion, updatedAt: taskToSave.updatedAt });
       console.log(`✅ Tarefa gravada no Firestore (v${nextVersion}):`, task.id);
-      return { success: true };
+      return { success: true, newVersion: nextVersion };
     } catch (e) {
       console.error('Erro ao sincronizar tarefa com Firestore:', e);
       StorageService.updateTask(task);
