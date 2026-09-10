@@ -433,15 +433,33 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const removeMemberFromOrg = (membershipId: string) => {
     const mem = memberships.find((m) => m.id === membershipId || m.userId === membershipId);
-    const updated = StorageService.deleteMembership(membershipId);
-    setMemberships(updated);
-    if (mem) {
-      StorageService.deleteUser(mem.userId);
-      FirestoreRepository.deleteMembership(currentOrganization.id, mem.userId, mem.id);
-    } else {
-      StorageService.deleteUser(membershipId);
-      FirestoreRepository.deleteMembership(currentOrganization.id, membershipId, membershipId);
+    let targetUserId = mem?.userId;
+    if (!targetUserId && membershipId.startsWith('mem_')) {
+      const parts = membershipId.split('_');
+      // formato mem_{userId}_{orgId}
+      targetUserId = parts.slice(1, -1).join('_') || membershipId;
     }
+    if (!targetUserId) targetUserId = membershipId;
+
+    // Remove do StorageService e estado local
+    const updated = StorageService.deleteMembership(membershipId);
+    if (targetUserId !== membershipId) {
+      StorageService.deleteMembership(targetUserId);
+    }
+    const filteredMems = updated.filter(
+      (m) => m.id !== membershipId && m.userId !== targetUserId && m.id !== `mem_${targetUserId}_${currentOrganization.id}`
+    );
+    setMemberships(filteredMems);
+    StorageService.saveMemberships(filteredMems);
+
+    // Remove usuário do StorageService
+    StorageService.deleteUser(targetUserId);
+    if (membershipId !== targetUserId) {
+      StorageService.deleteUser(membershipId);
+    }
+
+    // Remove do Firestore
+    FirestoreRepository.deleteMembership(currentOrganization.id, targetUserId, membershipId);
 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),

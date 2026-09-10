@@ -61,7 +61,7 @@ export const UsersView: React.FC = () => {
     const seen = new Set<string>();
     const list: Membership[] = [];
     
-    // 1. Membros com membership existente na organização
+    // Apenas membros que possuem membership ativa na organização
     for (const m of memberships) {
       if (m.organizationId === currentOrganization.id && !seen.has(m.userId)) {
         seen.add(m.userId);
@@ -69,44 +69,8 @@ export const UsersView: React.FC = () => {
       }
     }
 
-    // 2. Auto-recuperação SEGURA: só usuários que explicitamente pertencem à org
-    // Pula ghost users (sem nome E sem email) para não criar memberships inválidas
-    const allKnownUsers = [...users, ...StorageService.getUsers()];
-    for (const u of allKnownUsers) {
-      if (!u || !u.id || !currentOrganization?.id) continue;
-      if (seen.has(u.id)) continue;
-
-      // Ghost user: sem nome E sem email — documentos inválidos do Firestore
-      const hasName = u.name && u.name.trim() !== '' && u.name !== 'Membro';
-      const hasEmail = u.email && u.email.trim() !== '';
-      if (!hasName && !hasEmail) continue;
-
-      const uEmail = (u.email || '').toLowerCase();
-      const belongs = 
-        u.tenantId === currentOrganization.id || 
-        u.activeOrganizationId === currentOrganization.id || 
-        u.organizationIds?.includes(currentOrganization.id);
-
-      if (belongs) {
-        seen.add(u.id);
-        const syntheticMem: Membership = {
-          id: 'mem_' + u.id + '_' + currentOrganization.id,
-          userId: u.id,
-          organizationId: currentOrganization.id,
-          hasOrgWideAccess: true,
-          campusIds: [],
-          role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
-          department: 'Comunicação',
-          status: 'ACTIVE',
-          createdAt: u.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        list.push(syntheticMem);
-      }
-    }
-
     return list;
-  }, [memberships, users, currentOrganization.id]);
+  }, [memberships, currentOrganization.id]);
 
   const handleSyncMembers = async () => {
     setIsSyncing(true);
