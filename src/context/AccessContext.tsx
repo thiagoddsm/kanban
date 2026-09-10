@@ -81,19 +81,26 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     FirestoreRepository.fetchMemberships(currentOrganization.id).then(async (remoteMems) => {
       try {
-        // Auto-reconciliação: recupera qualquer usuário criado que esteja sem documento de membership
+        // Auto-reconciliação SEGURA: apenas usuários que explicitamente declararam esta org
+        // NÃO usa !u.tenantId ou organizationIds vazio — isso pegava ghost docs sem nome/email
         const remoteUsers = await FirestoreRepository.fetchUsers();
         for (const u of remoteUsers) {
           if (!u || !u.id || !currentOrganization?.id) continue;
+          
+          // Pula ghost users: sem nome E sem email são documentos inválidos
+          const hasName = u.name && u.name.trim() !== '' && u.name !== 'Membro';
+          const hasEmail = u.email && u.email.trim() !== '';
+          if (!hasName && !hasEmail) {
+            console.log('⚠️ Pulando ghost user sem nome/email:', u.id);
+            continue;
+          }
+
           const uEmail = (u.email || '').toLowerCase();
+          // Condição restritiva: só considera usuários que explicitamente pertencem à org
           const belongsToThisOrg = 
             u.tenantId === currentOrganization.id || 
             u.activeOrganizationId === currentOrganization.id || 
-            u.organizationIds?.includes(currentOrganization.id) ||
-            !u.tenantId ||
-            u.tenantId === 'org_thiago__t3f' ||
-            (!u.organizationIds || u.organizationIds.length === 0) ||
-            (uEmail && (uEmail.includes('hugo') || uEmail.includes('campanario') || uEmail.includes('marcello')));
+            u.organizationIds?.includes(currentOrganization.id);
 
           if (belongsToThisOrg && !remoteMems.some((m) => m.userId === u.id)) {
             const recoveredMem: Membership = {
@@ -110,19 +117,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             };
             remoteMems.push(recoveredMem);
             await FirestoreRepository.saveMembership(recoveredMem);
-
-            // Garante que o documento do usuário em /users/{u.id} também aponta para a organização
-            if (u.tenantId !== currentOrganization.id || !u.organizationIds?.includes(currentOrganization.id)) {
-              const updatedUser = {
-                ...u,
-                tenantId: currentOrganization.id,
-                activeOrganizationId: currentOrganization.id,
-                organizationIds: Array.from(new Set([...(u.organizationIds || []), currentOrganization.id])),
-              };
-              await FirestoreRepository.syncUser(updatedUser);
-            }
-
-            console.log('✅ Membro recuperado e gravado no Firestore:', u.name || 'Sem nome', u.email || 'Sem email');
+            console.log('✅ Membro recuperado:', u.name, u.email);
           }
         }
       } catch (err) {

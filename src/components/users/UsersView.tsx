@@ -69,39 +69,39 @@ export const UsersView: React.FC = () => {
       }
     }
 
-    // 2. Auto-recuperação: Usuários em memória / storage sem membership explícita
+    // 2. Auto-recuperação SEGURA: só usuários que explicitamente pertencem à org
+    // Pula ghost users (sem nome E sem email) para não criar memberships inválidas
     const allKnownUsers = [...users, ...StorageService.getUsers()];
     for (const u of allKnownUsers) {
       if (!u || !u.id || !currentOrganization?.id) continue;
-      if (!seen.has(u.id)) {
-        const uEmail = (u.email || '').toLowerCase();
-        const belongs = 
-          u.tenantId === currentOrganization.id || 
-          u.activeOrganizationId === currentOrganization.id || 
-          u.organizationIds?.includes(currentOrganization.id) ||
-          !u.tenantId ||
-          u.tenantId === 'org_thiago__t3f' ||
-          (!u.organizationIds || u.organizationIds.length === 0) ||
-          (uEmail && (uEmail.includes('hugo') || uEmail.includes('campanario') || uEmail.includes('marcello')));
+      if (seen.has(u.id)) continue;
 
-        if (belongs) {
-          seen.add(u.id);
-          const syntheticMem: Membership = {
-            id: 'mem_' + u.id + '_' + currentOrganization.id,
-            userId: u.id,
-            organizationId: currentOrganization.id,
-            hasOrgWideAccess: true,
-            campusIds: [],
-            role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
-            department: 'Comunicação',
-            status: 'ACTIVE',
-            createdAt: u.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          list.push(syntheticMem);
-          // Auto-heal no Firestore em background
-          FirestoreRepository.saveMembership(syntheticMem);
-        }
+      // Ghost user: sem nome E sem email — documentos inválidos do Firestore
+      const hasName = u.name && u.name.trim() !== '' && u.name !== 'Membro';
+      const hasEmail = u.email && u.email.trim() !== '';
+      if (!hasName && !hasEmail) continue;
+
+      const uEmail = (u.email || '').toLowerCase();
+      const belongs = 
+        u.tenantId === currentOrganization.id || 
+        u.activeOrganizationId === currentOrganization.id || 
+        u.organizationIds?.includes(currentOrganization.id);
+
+      if (belongs) {
+        seen.add(u.id);
+        const syntheticMem: Membership = {
+          id: 'mem_' + u.id + '_' + currentOrganization.id,
+          userId: u.id,
+          organizationId: currentOrganization.id,
+          hasOrgWideAccess: true,
+          campusIds: [],
+          role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
+          department: 'Comunicação',
+          status: 'ACTIVE',
+          createdAt: u.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        list.push(syntheticMem);
       }
     }
 
@@ -117,15 +117,18 @@ export const UsersView: React.FC = () => {
 
       for (const u of remoteUsers) {
         if (!u || !u.id || !currentOrganization?.id) continue;
+
+        // Pula ghost users (sem nome E sem email)
+        const hasName = u.name && u.name.trim() !== '' && u.name !== 'Membro';
+        const hasEmail = u.email && u.email.trim() !== '';
+        if (!hasName && !hasEmail) continue;
+
         const uEmail = (u.email || '').toLowerCase();
+        // Condição restritiva: só usuários que explicitamente pertencem à org
         const belongs = 
           u.tenantId === currentOrganization.id || 
           u.activeOrganizationId === currentOrganization.id || 
-          u.organizationIds?.includes(currentOrganization.id) ||
-          !u.tenantId ||
-          u.tenantId === 'org_thiago__t3f' ||
-          (!u.organizationIds || u.organizationIds.length === 0) ||
-          (uEmail && (uEmail.includes('hugo') || uEmail.includes('campanario') || uEmail.includes('marcello')));
+          u.organizationIds?.includes(currentOrganization.id);
 
         if (belongs) {
           const hasMem = remoteMems.some((m) => m.userId === u.id);
