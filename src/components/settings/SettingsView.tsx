@@ -21,13 +21,15 @@ import {
   HelpCircle,
   MapPin,
   ArrowRight,
-  Edit3
+  Edit3,
+  Crown
 } from 'lucide-react';
 import { Campus, Organization, DemandTypeDefinition, EventCategoryDefinition, DepartmentDefinition } from '../../types';
 import { EditCampusModal } from '../tenants/EditCampusModal';
 import { EditOrganizationModal } from '../tenants/EditOrganizationModal';
 import { NewCampusModal } from '../tenants/NewCampusModal';
 import { OnboardingModal } from '../tenants/OnboardingModal';
+import { BillingPlanTab } from './BillingPlanTab';
 
 const COLOR_PRESETS = [
   { label: 'Índigo', color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10', bgLight: 'hover:bg-indigo-950/40 hover:border-indigo-500/60' },
@@ -83,7 +85,7 @@ export const SettingsView: React.FC = () => {
   const { isAdmin } = useAccess();
   const { success, warning, error: notifyError } = useNotification();
 
-  const [activeSubTab, setActiveSubTab] = useState<'campuses' | 'organizations' | 'demands' | 'events' | 'departments' | 'branding'>('campuses');
+  const [activeSubTab, setActiveSubTab] = useState<'billing' | 'campuses' | 'organizations' | 'demands' | 'events' | 'departments' | 'branding'>('billing');
 
   // Sub-modal states for Tenants
   const [selectedCampusForEdit, setSelectedCampusForEdit] = useState<Campus | null>(null);
@@ -253,6 +255,18 @@ export const SettingsView: React.FC = () => {
       {/* Subtabs Navigation */}
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
         <button
+          onClick={() => setActiveSubTab('billing')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeSubTab === 'billing'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Crown className="w-3.5 h-3.5 text-amber-400" />
+          <span>Meu Plano & Limites</span>
+        </button>
+
+        <button
           onClick={() => setActiveSubTab('campuses')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'campuses'
@@ -324,6 +338,9 @@ export const SettingsView: React.FC = () => {
           <span>Identidade Visual da Igreja</span>
         </button>
       </div>
+
+      {/* TAB: MEU PLANO & LIMITES */}
+      {activeSubTab === 'billing' && <BillingPlanTab />}
 
       {/* TAB: SEDES & CAMPI */}
       {activeSubTab === 'campuses' && (
