@@ -57,7 +57,7 @@ export const KanbanBoard: React.FC = () => {
     allTags
   } = useData();
   const { canCreateDemand, canMoveTasks, isLeader, isAdmin } = useAccess();
-  const { currentOrganization, currentCampus } = useTenant();
+  const { currentOrganization, currentCampus, isTrialExpired, openTrialExpiredModal } = useTenant();
   const { warning, info } = useNotification();
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -104,10 +104,18 @@ export const KanbanBoard: React.FC = () => {
 
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault();
-        setIsNewDemandModalOpen(true);
+        if (isTrialExpired) {
+          openTrialExpiredModal();
+        } else {
+          setIsNewDemandModalOpen(true);
+        }
       } else if (e.key === 'j' || e.key === 'J') {
         e.preventDefault();
-        setIsImportJsonOpen(true);
+        if (isTrialExpired) {
+          openTrialExpiredModal();
+        } else {
+          setIsImportJsonOpen(true);
+        }
       } else if (e.key === '/') {
         e.preventDefault();
         const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement;
@@ -117,7 +125,7 @@ export const KanbanBoard: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isTrialExpired, openTrialExpiredModal]);
 
   const activeFiltersCount = [
     filterOnlyMyTasks,
@@ -134,6 +142,10 @@ export const KanbanBoard: React.FC = () => {
   };
 
   const handleQuickAdd = (status: TaskStatus) => {
+    if (isTrialExpired) {
+      openTrialExpiredModal();
+      return;
+    }
     setDefaultColumnForNew(status);
     setIsNewDemandModalOpen(true);
   };
@@ -252,7 +264,13 @@ export const KanbanBoard: React.FC = () => {
 
           {canCreateDemand && (
             <button
-              onClick={() => setIsImportJsonOpen(true)}
+              onClick={() => {
+                if (isTrialExpired) {
+                  openTrialExpiredModal();
+                } else {
+                  setIsImportJsonOpen(true);
+                }
+              }}
               title="Importar ou criar tarefas via JSON (Atalho: J)"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700 active:scale-95 transition-all shrink-0"
             >

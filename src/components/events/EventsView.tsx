@@ -33,7 +33,7 @@ interface EventsViewProps {
 export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
   const { events, users, getEventStats, setFilterEventId, archiveEvent } = useData();
   const { canManageEvents } = useAccess();
-  const { currentOrganization, currentCampus } = useTenant();
+  const { currentOrganization, currentCampus, isTrialExpired, openTrialExpiredModal } = useTenant();
 
   const [selectedEventForModal, setSelectedEventForModal] = useState<ChurchEvent | null>(null);
   const [selectedEventForDetails, setSelectedEventForDetails] = useState<ChurchEvent | null>(null);
@@ -81,7 +81,13 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
         {canManageEvents && (
           <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
             <button
-              onClick={() => setIsTemplateModalOpen(true)}
+              onClick={() => {
+                if (isTrialExpired) {
+                  openTrialExpiredModal();
+                } else {
+                  setIsTemplateModalOpen(true);
+                }
+              }}
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-purple-600/20 active:scale-95 transition-all"
             >
               <Wand2 className="w-4 h-4" />
@@ -90,8 +96,12 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
 
             <button
               onClick={() => {
-                setSelectedEventForModal(null);
-                setIsModalOpen(true);
+                if (isTrialExpired) {
+                  openTrialExpiredModal();
+                } else {
+                  setSelectedEventForModal(null);
+                  setIsModalOpen(true);
+                }
               }}
               className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-bold border border-slate-700 active:scale-95 transition-all"
             >

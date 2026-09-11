@@ -70,9 +70,45 @@ export class EntitlementsService {
   }
 
   /**
+   * Verifica se a organização está em período de testes e se ele já expirou
+   */
+  public static isTrialExpired(org?: Organization | null): boolean {
+    if (!org?.subscription) return false;
+    const isTrial = org.subscription.isTrial || org.subscription.status === 'TRIALING';
+    if (!isTrial) return false;
+    const trialEndsAt = org.subscription.trialEndsAt || org.subscription.currentPeriodEnd;
+    if (!trialEndsAt) return false;
+    return new Date(trialEndsAt).getTime() < Date.now();
+  }
+
+  /**
+   * Retorna os dias restantes de teste da organização
+   */
+  public static getTrialDaysLeft(org?: Organization | null): number {
+    if (!org?.subscription) return 0;
+    const isTrial = org.subscription.isTrial || org.subscription.status === 'TRIALING';
+    if (!isTrial) return 0;
+    const trialEndsAt = org.subscription.trialEndsAt || org.subscription.currentPeriodEnd;
+    if (!trialEndsAt) return 0;
+    const diffMs = new Date(trialEndsAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  /**
    * Valida se a organização pode cadastrar um novo campus
    */
   public static checkCampusLimit(org: Organization, currentCampusesCount: number): EntitlementCheckResult {
+    if (this.isTrialExpired(org)) {
+      return {
+        allowed: false,
+        current: currentCampusesCount,
+        max: 0,
+        remaining: 0,
+        message: 'Seu período de teste de 14 dias expirou. Ative sua assinatura para cadastrar novos campi.',
+        upgradeRequired: true,
+      };
+    }
+
     const limits = this.getEffectiveLimits(org);
     const max = limits.maxCampuses;
     const allowed = currentCampusesCount < max;
@@ -94,6 +130,17 @@ export class EntitlementsService {
    * Valida se a organização pode adicionar um novo membro / usuário
    */
   public static checkMemberLimit(org: Organization, currentMembersCount: number): EntitlementCheckResult {
+    if (this.isTrialExpired(org)) {
+      return {
+        allowed: false,
+        current: currentMembersCount,
+        max: 0,
+        remaining: 0,
+        message: 'Seu período de teste de 14 dias expirou. Ative sua assinatura para adicionar novos membros.',
+        upgradeRequired: true,
+      };
+    }
+
     const limits = this.getEffectiveLimits(org);
     const max = limits.maxMembers;
     const allowed = currentMembersCount < max;
@@ -115,6 +162,17 @@ export class EntitlementsService {
    * Valida se a organização pode criar um novo evento / projeto
    */
   public static checkEventLimit(org: Organization, currentEventsCount: number): EntitlementCheckResult {
+    if (this.isTrialExpired(org)) {
+      return {
+        allowed: false,
+        current: currentEventsCount,
+        max: 0,
+        remaining: 0,
+        message: 'Seu período de teste de 14 dias expirou. Ative sua assinatura para criar novos eventos.',
+        upgradeRequired: true,
+      };
+    }
+
     const limits = this.getEffectiveLimits(org);
     const max = limits.maxEvents;
     const allowed = currentEventsCount < max;
@@ -136,6 +194,17 @@ export class EntitlementsService {
    * Valida se a organização pode criar uma nova tarefa
    */
   public static checkTaskLimit(org: Organization, currentTasksCount: number): EntitlementCheckResult {
+    if (this.isTrialExpired(org)) {
+      return {
+        allowed: false,
+        current: currentTasksCount,
+        max: 0,
+        remaining: 0,
+        message: 'Seu período de teste de 14 dias expirou. Ative sua assinatura para criar novas tarefas.',
+        upgradeRequired: true,
+      };
+    }
+
     const limits = this.getEffectiveLimits(org);
     const max = limits.maxTasks;
     const allowed = currentTasksCount < max;

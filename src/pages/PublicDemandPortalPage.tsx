@@ -293,6 +293,11 @@ export const PublicDemandPortalPage: React.FC = () => {
       effortEstimate: 'Em triagem',
     });
 
+    if (!newTask) {
+      setIsSubmitting(false);
+      return;
+    }
+
     // Disparo automático via WhatsApp (Evolution API)
     if (requesterPhone.trim() && agreeNotifications) {
       WhatsAppNotificationService.notifyPublicDemandSubmitted({

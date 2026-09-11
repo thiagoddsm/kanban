@@ -302,6 +302,7 @@ export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, on
     });
 
     setIsSubmitting(false);
+    if (!created) return;
     setCreatedTaskId(created.id);
     setSubmittedProtocol(protocolCode);
     success('Solicitação enviada com sucesso!', `Protocolo: ${protocolCode}`);

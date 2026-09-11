@@ -38,7 +38,7 @@ export const UsersView: React.FC = () => {
     removeMemberFromOrg, 
     isAdmin 
   } = useAccess();
-  const { currentOrganization, campuses } = useTenant();
+  const { currentOrganization, campuses, isTrialExpired, openTrialExpiredModal } = useTenant();
   const { users } = useData();
   const { success, info } = useNotification();
 
@@ -217,7 +217,13 @@ export const UsersView: React.FC = () => {
 
           {isAdmin && (
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => {
+                if (isTrialExpired) {
+                  openTrialExpiredModal();
+                } else {
+                  setIsAddModalOpen(true);
+                }
+              }}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/25 active:scale-95 transition-all"
             >
               <UserPlus className="w-4 h-4" />

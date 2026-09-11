@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { User, Organization, Campus, TenantPlan, OrganizationBranding, ActivityLog, Membership, Task, ChurchEvent, Comment } from '../types';
 
 
@@ -35,6 +35,13 @@ interface TenantContextType {
   updateCampus: (campusId: string, data: Partial<Campus>) => void;
   deleteCampus: (campusId: string) => boolean;
   updateOrganizationBranding: (branding: Partial<OrganizationBranding>) => void;
+
+  // Gestão de Período de Testes (14 Dias)
+  isTrialExpired: boolean;
+  trialDaysLeft: number;
+  isTrialModalOpen: boolean;
+  openTrialExpiredModal: () => void;
+  closeTrialExpiredModal: () => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
@@ -67,6 +74,20 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const orgCampuses = StorageService.getCampuses(currentOrganization?.id || INITIAL_ORGANIZATIONS[0].id);
     return orgCampuses.find((c) => c.id === savedCampId) || null;
   });
+
+  // Estado do Período de Testes e Modal de Expiração (14 dias)
+  const [isTrialModalOpen, setIsTrialModalOpen] = useState(false);
+
+  const isTrialExpired = useMemo(() => {
+    return EntitlementsService.isTrialExpired(currentOrganization);
+  }, [currentOrganization]);
+
+  const trialDaysLeft = useMemo(() => {
+    return EntitlementsService.getTrialDaysLeft(currentOrganization);
+  }, [currentOrganization]);
+
+  const openTrialExpiredModal = () => setIsTrialModalOpen(true);
+  const closeTrialExpiredModal = () => setIsTrialModalOpen(false);
 
   // Initial sync & Realtime listener for Organizations
   useEffect(() => {
@@ -643,6 +664,11 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         updateCampus,
         deleteCampus,
         updateOrganizationBranding,
+        isTrialExpired,
+        trialDaysLeft,
+        isTrialModalOpen,
+        openTrialExpiredModal,
+        closeTrialExpiredModal,
       }}
     >
       {children}

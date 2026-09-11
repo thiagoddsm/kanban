@@ -137,7 +137,7 @@ interface DataContextType {
   createTask: (
     taskData: Partial<Task> & { title: string; demandType: DemandType },
     options?: { skipNotification?: boolean }
-  ) => Task;
+  ) => Task | null;
   updateTask: (task: Task) => void;
   moveTask: (taskId: string, newStatus: TaskStatus, force?: boolean) => { success: boolean; blockedBy?: Task[] };
   archiveTask: (taskId: string, isArchived: boolean) => void;
@@ -508,7 +508,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const createTask = (
     taskData: Partial<Task> & { title: string; demandType: DemandType },
     options?: { skipNotification?: boolean }
-  ): Task => {
+  ): Task | null => {
+    const activeTasksCount = rawTasks.filter((t) => !t.isArchived).length;
+    const check = EntitlementsService.checkTaskLimit(currentOrganization, activeTasksCount);
+    if (!check.allowed) {
+      notifyError('Ação Não Permitida!', check.message || 'Limite de tarefas ou período de testes expirado.');
+      return null;
+    }
+
     const event = taskData.eventId ? rawEvents.find((e) => e.id === taskData.eventId) : undefined;
     const campus = taskData.campusId 
       ? campuses.find((c) => c.id === taskData.campusId) 
@@ -1128,7 +1135,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         effortEstimate: `${tmplTask.durationDays} dias`,
       });
 
-      createdTaskIds.push(task.id);
+      if (task) {
+        createdTaskIds.push(task.id);
+      }
     });
 
     success(

@@ -14,6 +14,7 @@ import { SettingsView } from '../settings/SettingsView';
 import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
+import { TrialExpiredModal } from '../subscription/TrialExpiredModal';
 import { BottomNav } from './BottomNav';
 import { TrialBanner } from './TrialBanner';
 import { ToastContainer } from '../common/Toast';
@@ -28,7 +29,14 @@ export const Layout: React.FC = () => {
   const { orgSlug, tab } = useParams<{ orgSlug: string; tab: string }>();
   const navigate = useNavigate();
   const { currentUser, isLoadingAuth } = useAuth();
-  const { currentOrganization, switchOrganizationBySlug } = useTenant();
+  const { 
+    currentOrganization, 
+    switchOrganizationBySlug,
+    isTrialExpired,
+    isTrialModalOpen,
+    openTrialExpiredModal,
+    closeTrialExpiredModal
+  } = useTenant();
 
   // Guard de Autenticação: redireciona para /login se a sessão não existir
   React.useEffect(() => {
@@ -63,6 +71,25 @@ export const Layout: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDemandPortalOpen, setIsDemandPortalOpen] = useState(false);
   const [isMyAccountOpen, setIsMyAccountOpen] = useState(false);
+
+  // Avisa suavemente sobre expiração do trial uma vez por sessão ao acessar o painel
+  React.useEffect(() => {
+    if (isTrialExpired && currentOrganization?.id) {
+      const sessionKey = `trial_expired_prompt_${currentOrganization.id}`;
+      if (!sessionStorage.getItem(sessionKey)) {
+        openTrialExpiredModal();
+        sessionStorage.setItem(sessionKey, 'true');
+      }
+    }
+  }, [isTrialExpired, currentOrganization?.id]);
+
+  const handleOpenDemandPortal = () => {
+    if (isTrialExpired) {
+      openTrialExpiredModal();
+    } else {
+      setIsDemandPortalOpen(true);
+    }
+  };
 
   // Splash Screen de Carregamento Seguro
   if (isLoadingAuth) {
@@ -101,7 +128,7 @@ export const Layout: React.FC = () => {
         <TrialBanner />
         <Header
           onOpenSidebar={() => setIsMobileSidebarOpen(true)}
-          onOpenDemandPortal={() => setIsDemandPortalOpen(true)}
+          onOpenDemandPortal={handleOpenDemandPortal}
           onNavigate={navigateToTab}
         />
 
@@ -109,7 +136,7 @@ export const Layout: React.FC = () => {
           {activeTab === 'dashboard' && (
             <DashboardView
               onNavigate={navigateToTab}
-              onOpenDemandPortal={() => setIsDemandPortalOpen(true)}
+              onOpenDemandPortal={handleOpenDemandPortal}
             />
           )}
           {activeTab === 'tasks' && <KanbanBoard />}
@@ -126,7 +153,7 @@ export const Layout: React.FC = () => {
       <BottomNav
         activeTab={activeTab}
         onNavigate={navigateToTab}
-        onOpenDemandPortal={() => setIsDemandPortalOpen(true)}
+        onOpenDemandPortal={handleOpenDemandPortal}
         onOpenMyAccount={() => setIsMyAccountOpen(true)}
       />
 
@@ -134,6 +161,12 @@ export const Layout: React.FC = () => {
       <NewDemandModal
         isOpen={isDemandPortalOpen}
         onClose={() => setIsDemandPortalOpen(false)}
+      />
+
+      {/* Modal de Período de Teste Expirado (Paywall Amigável) */}
+      <TrialExpiredModal
+        isOpen={isTrialModalOpen}
+        onClose={closeTrialExpiredModal}
       />
 
       {/* Accept Invitation Interceptor */}
