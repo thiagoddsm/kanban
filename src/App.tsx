@@ -12,6 +12,8 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { PublicDemandPortalPage } from './pages/PublicDemandPortalPage';
 import { PublicProtocolTrackerPage } from './pages/PublicProtocolTrackerPage';
+import { TermsPage } from './pages/TermsPage';
+import { PrivacyPage } from './pages/PrivacyPage';
 
 export function App() {
   return (
@@ -27,6 +29,10 @@ export function App() {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/signup" element={<RegisterPage />} />
                   <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/termos" element={<TermsPage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacidade" element={<PrivacyPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
 
                   {/* Portal Público de Demandas e Acompanhamento de Protocolo (Acesso aberto) */}
                   <Route path="/:orgSlug/solicitar" element={<PublicDemandPortalPage />} />

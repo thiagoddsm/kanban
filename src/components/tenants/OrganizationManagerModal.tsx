@@ -16,8 +16,10 @@ import {
   ShieldCheck, 
   Sparkles,
   ArrowRight,
-  Sliders
+  Sliders,
+  Zap
 } from 'lucide-react';
+import { EntitlementsService } from '../../services/entitlementsService';
 import { EditCampusModal } from './EditCampusModal';
 import { EditOrganizationModal } from './EditOrganizationModal';
 import { NewCampusModal } from './NewCampusModal';
@@ -37,10 +39,23 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
     switchOrganization, 
     switchCampus,
     deleteCampus,
-    deleteOrganization 
+    deleteOrganization,
+    updateOrganization
   } = useTenant();
   const { isAdmin } = useAccess();
   const { success, error: notifyError } = useNotification();
+
+  const handleQuickActivateSubscription = (org: Organization) => {
+    updateOrganization(org.id, {
+      subscription: {
+        ...org.subscription,
+        status: 'ACTIVE',
+        isTrial: false,
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    });
+    success('Assinatura Oficial Ativada!', `A organização "${org.name}" agora está com o plano ${org.subscription.plan} ativo e sem restrições.`);
+  };
 
   const [activeTab, setActiveTab] = useState<'campuses' | 'organizations'>('campuses');
 
@@ -211,10 +226,15 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
             <div className="space-y-2">
               {organizations.map((org) => {
                 const isActive = org.id === currentOrganization.id;
+                const isTrial = org.subscription?.isTrial || org.subscription?.status === 'TRIALING';
+                const isExpired = EntitlementsService.isTrialExpired(org);
+                const isActivePlan = org.subscription?.status === 'ACTIVE' && !isTrial;
+                const daysLeft = EntitlementsService.getTrialDaysLeft(org);
+
                 return (
                   <div
                     key={org.id}
-                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                       isActive
                         ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm'
                         : 'bg-slate-800/60 border-slate-700/80 hover:border-slate-600'
@@ -228,13 +248,26 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
                         {org.name.substring(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-xs font-bold text-white truncate">{org.name}</h4>
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase">
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 uppercase">
                             {org.subscription.plan}
                           </span>
+                          {isActivePlan ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                              Assinatura Ativa
+                            </span>
+                          ) : isExpired ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                              Trial Expirado
+                            </span>
+                          ) : isTrial ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              Em Teste ({daysLeft}d)
+                            </span>
+                          ) : null}
                           {isActive && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-200 border border-indigo-500/30">
                               Ativa Agora
                             </span>
                           )}
@@ -246,7 +279,17 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                      {!isActivePlan && (
+                        <button
+                          onClick={() => handleQuickActivateSubscription(org)}
+                          className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                          title="Ativar plano oficial desta organização imediatamente"
+                        >
+                          <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                          <span>Ativar</span>
+                        </button>
+                      )}
                       {!isActive && (
                         <button
                           onClick={() => switchOrganization(org.id)}

@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
-import { Organization, TenantPlan } from '../../types';
+import { Organization, TenantPlan, SubscriptionStatus } from '../../types';
 import { 
   Building2, 
   Trash2, 
   X, 
   Check, 
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  Zap
 } from 'lucide-react';
 
 interface EditOrganizationModalProps {
@@ -20,11 +21,13 @@ interface EditOrganizationModalProps {
 
 export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ organization, isOpen, onClose }) => {
   const { updateOrganization, deleteOrganization, organizations } = useTenant();
-  const { error: notifyError } = useNotification();
+  const { success, error: notifyError } = useNotification();
 
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [plan, setPlan] = useState<TenantPlan>('STARTER');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>('ACTIVE');
+  const [isTrial, setIsTrial] = useState(false);
   const [primaryColor, setPrimaryColor] = useState('#4f46e5');
   const [secondaryColor, setSecondaryColor] = useState('#7c3aed');
   const [logoUrl, setLogoUrl] = useState('');
@@ -35,6 +38,8 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
       setName(organization.name || '');
       setSlug(organization.slug || '');
       setPlan(organization.subscription?.plan || 'STARTER');
+      setSubscriptionStatus(organization.subscription?.status || 'ACTIVE');
+      setIsTrial(Boolean(organization.subscription?.isTrial || organization.subscription?.status === 'TRIALING'));
       setPrimaryColor(organization.branding?.primaryColor || '#4f46e5');
       setSecondaryColor(organization.branding?.secondaryColor || '#7c3aed');
       setLogoUrl(organization.branding?.logoUrl || '');
@@ -43,6 +48,23 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
   }, [organization, isOpen]);
 
   if (!isOpen || !organization) return null;
+
+  const handleInstantActivate = () => {
+    if (!organization) return;
+    setSubscriptionStatus('ACTIVE');
+    setIsTrial(false);
+    updateOrganization(organization.id, {
+      subscription: {
+        ...organization.subscription,
+        plan,
+        status: 'ACTIVE',
+        isTrial: false,
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    });
+    success('Assinatura Oficial Ativada!', `A organização "${organization.name}" agora está com o plano ${plan} ativo e sem restrições de trial.`);
+    onClose();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +79,8 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
       subscription: {
         ...organization.subscription,
         plan,
+        status: subscriptionStatus,
+        isTrial: subscriptionStatus === 'TRIALING' ? true : false,
       },
       branding: {
         ...organization.branding,
@@ -65,6 +89,7 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
         logoUrl: logoUrl.trim() || undefined,
       },
     });
+    success('Organização atualizada com sucesso!');
     onClose();
   };
 
@@ -156,35 +181,91 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Identificador URL (Slug) *
-                </label>
-                <input
-                  type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                  placeholder="ex: ibm, minha-igreja"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs lowercase placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  required
-                />
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Identificador URL (Slug) *
+              </label>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                placeholder="ex: ibm, minha-igreja"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs lowercase placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
+
+            {/* Seção de Plano e Assinatura */}
+            <div className="p-3.5 rounded-2xl bg-slate-800/40 border border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Plano & Assinatura</span>
+                </span>
+                {subscriptionStatus === 'ACTIVE' && !isTrial ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    Assinatura Ativa
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    Em Período de Testes
+                  </span>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Plano de Assinatura
-                </label>
-                <select
-                  value={plan}
-                  onChange={(e) => setPlan(e.target.value as TenantPlan)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
-                >
-                  <option value="STARTER">Starter</option>
-                  <option value="PRO">Pro</option>
-                  <option value="ENTERPRISE">Enterprise</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Pacote / Plano
+                  </label>
+                  <select
+                    value={plan}
+                    onChange={(e) => setPlan(e.target.value as TenantPlan)}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="STARTER">Starter</option>
+                    <option value="PRO">Pro</option>
+                    <option value="ENTERPRISE">Enterprise</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Status da Assinatura
+                  </label>
+                  <select
+                    value={subscriptionStatus}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as SubscriptionStatus;
+                      setSubscriptionStatus(newStatus);
+                      if (newStatus === 'ACTIVE') setIsTrial(false);
+                      if (newStatus === 'TRIALING') setIsTrial(true);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="ACTIVE">ACTIVE (Assinante Ativo)</option>
+                    <option value="TRIALING">TRIALING (Em Testes)</option>
+                    <option value="PAST_DUE">PAST_DUE (Pagamento Pendente)</option>
+                    <option value="SUSPENDED">SUSPENDED (Suspenso)</option>
+                  </select>
+                </div>
               </div>
+
+              {(isTrial || subscriptionStatus !== 'ACTIVE') && (
+                <div className="pt-2 border-t border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                  <span className="text-[11px] text-slate-400">
+                    Cliente fechou o plano? Remova as travas de teste:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleInstantActivate}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shrink-0 active:scale-95"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-yellow-300" />
+                    <span>Ativar Plano Oficial</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>

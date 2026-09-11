@@ -574,10 +574,12 @@ export const LandingPage: React.FC = () => {
             <span>• © {new Date().getFullYear()} Todos os direitos reservados.</span>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center sm:justify-end">
             <Link to="/login" className="hover:text-slate-300 transition-colors">Acessar Conta</Link>
             <Link to="/signup" className="hover:text-slate-300 transition-colors">Cadastrar Igreja</Link>
             <a href="#planos" className="hover:text-slate-300 transition-colors">Preços</a>
+            <Link to="/termos" className="hover:text-indigo-400 transition-colors">Termos de Uso</Link>
+            <Link to="/privacidade" className="hover:text-emerald-400 transition-colors">Privacidade (LGPD)</Link>
           </div>
         </div>
       </footer>

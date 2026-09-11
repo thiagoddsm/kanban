@@ -469,7 +469,14 @@ export const RegisterPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="text-center text-[11px] text-slate-500 py-2">
-        Oiko Gestão Integrada • Ao criar a conta você concorda com nossos Termos de Uso e Política de Privacidade.
+        Oiko Gestão Integrada • Ao criar a conta você concorda com nossos{' '}
+        <Link to="/termos" target="_blank" className="text-indigo-400 hover:underline">
+          Termos de Uso
+        </Link>{' '}
+        e{' '}
+        <Link to="/privacidade" target="_blank" className="text-emerald-400 hover:underline">
+          Política de Privacidade
+        </Link>.
       </footer>
     </div>
   );
