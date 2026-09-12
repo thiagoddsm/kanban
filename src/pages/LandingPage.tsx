@@ -35,11 +35,11 @@ export const LandingPage: React.FC = () => {
   const PLANS = [
     {
       id: 'STARTER',
-      name: 'Starter',
-      description: 'Ideal para congregações locais e equipes enxutas estruturarem demandas e acolhimento.',
-      monthlyPrice: 97,
-      yearlyPrice: 77,
-      badge: null,
+      name: 'Starter (Pastor)',
+      description: 'Ideal para pastores, congregações locais e secretarias estruturarem demandas e acolhimento.',
+      monthlyPrice: 29.90,
+      yearlyPrice: 23.90,
+      badge: 'Plano Pastor',
       highlight: false,
       features: [
         'Até 15 usuários/voluntários',
@@ -48,7 +48,7 @@ export const LandingPage: React.FC = () => {
         'Jornada de Membros (até 50 contatos/mês)',
         'Portal Público de Solicitações com Protocolo',
         'Até 20 Eventos Ativos',
-        'Suporte por E-mail (48h)'
+        'Suporte por E-mail e WhatsApp'
       ],
       cta: 'Começar 14 Dias Grátis',
       ctaSubtext: '14 dias sem compromisso • Sem cartão',
@@ -65,7 +65,7 @@ export const LandingPage: React.FC = () => {
       features: [
         'Até 50 usuários/voluntários',
         'Até 10 Congregações / Sedes',
-        'Tudo do plano Starter',
+        'Tudo do plano Starter (Pastor)',
         'Integração de Membros Ilimitada (Células & Batismo)',
         'Cuidado & Agenda Pastoral com Sigilo Ministerial',
         'Cronograma Gantt + Centro de Aprovações',
@@ -546,12 +546,16 @@ export const LandingPage: React.FC = () => {
                     <p className="text-xs text-slate-500 mb-6 h-10 leading-relaxed">{plan.description}</p>
                     
                     <div className="mb-6 border-b border-slate-100 pb-6">
-                      <span className="text-4xl font-extrabold text-slate-900">R$ {price}</span>
+                      <span className="text-4xl font-extrabold text-slate-900">
+                        R$ {Number.isInteger(price) ? price : price.toFixed(2).replace('.', ',')}
+                      </span>
                       <span className="text-slate-500 font-medium text-sm">
                         {billingPeriod === 'yearly' ? '/mês no anual' : '/mês'}
                       </span>
                       {billingPeriod === 'yearly' && (
-                        <div className="text-xs text-slate-400 mt-1">ou R$ {plan.monthlyPrice}/mês no plano mensal</div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          ou R$ {Number.isInteger(plan.monthlyPrice) ? plan.monthlyPrice : plan.monthlyPrice.toFixed(2).replace('.', ',')}/mês no plano mensal
+                        </div>
                       )}
                     </div>
 

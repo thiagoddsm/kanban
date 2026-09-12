@@ -229,7 +229,7 @@ export const RegisterPage: React.FC = () => {
             </label>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { id: 'STARTER', label: 'Starter', price: 'R$ 97/mês', desc: 'Até 15 membros • 2 campi' },
+                { id: 'STARTER', label: 'Starter (Pastor)', price: 'R$ 29,90/mês', desc: 'Até 15 membros • 2 campi' },
                 { id: 'PRO', label: 'Pro (Recomendado)', price: 'R$ 197/mês', desc: 'Até 50 membros • 10 campi' },
                 { id: 'ENTERPRISE', label: 'Enterprise', price: 'R$ 397/mês', desc: 'Membros e campi ilimitados' }
               ].map((p) => {

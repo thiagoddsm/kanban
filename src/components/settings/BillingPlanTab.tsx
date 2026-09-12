@@ -229,8 +229,8 @@ export const BillingPlanTab: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-base font-bold text-white">Starter</h4>
-                  <p className="text-xs text-slate-400 mt-0.5">Igrejas e congregações locais estruturando operações</p>
+                  <h4 className="text-base font-bold text-white">Starter (Pastor)</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Pastores e congregações locais estruturando operações</p>
                 </div>
                 {plan === 'STARTER' && (
                   <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -241,7 +241,7 @@ export const BillingPlanTab: React.FC = () => {
 
               <div className="flex items-baseline gap-1 pt-1 border-t border-slate-800">
                 <span className="text-xs font-semibold text-slate-400">R$</span>
-                <span className="text-3xl font-black text-white">97</span>
+                <span className="text-3xl font-black text-white">29,90</span>
                 <span className="text-xs text-slate-400">/ mês</span>
               </div>
 
@@ -270,10 +270,10 @@ export const BillingPlanTab: React.FC = () => {
             </div>
 
             <button
-              onClick={() => handleContactWhatsApp('Starter (R$ 97/mês)')}
+              onClick={() => handleContactWhatsApp('Starter Pastor (R$ 29,90/mês)')}
               className="mt-6 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
-              <span>{plan === 'STARTER' ? 'Contatar sobre Starter' : 'Migrar para Starter'}</span>
+              <span>{plan === 'STARTER' ? 'Contatar sobre Starter (Pastor)' : 'Migrar para Starter (Pastor)'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

@@ -86,12 +86,12 @@ export const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, on
           }`}>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-indigo-400">Plano Starter</span>
-                <span className="text-xs text-slate-400">Congregações locais</span>
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-400">Starter (Pastor)</span>
+                <span className="text-xs text-slate-400">Pastores e congregações</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-xs font-semibold text-slate-400">R$</span>
-                <span className="text-3xl font-black text-white">97</span>
+                <span className="text-3xl font-black text-white">29,90</span>
                 <span className="text-xs text-slate-400">/ mês</span>
               </div>
               <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-700/50">
@@ -110,10 +110,10 @@ export const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, on
               </ul>
             </div>
             <button
-              onClick={() => handleActivatePlan('Starter (R$ 97/mês)')}
+              onClick={() => handleActivatePlan('Starter Pastor (R$ 29,90/mês)')}
               className="mt-5 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600/80 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all"
             >
-              <span>Escolher Starter</span>
+              <span>Escolher Starter (Pastor)</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

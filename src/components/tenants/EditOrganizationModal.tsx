@@ -223,7 +223,7 @@ export const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({ or
                     onChange={(e) => setPlan(e.target.value as TenantPlan)}
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-white text-xs focus:outline-none focus:border-indigo-500"
                   >
-                    <option value="STARTER">Starter</option>
+                    <option value="STARTER">Starter (Pastor)</option>
                     <option value="PRO">Pro</option>
                     <option value="ENTERPRISE">Enterprise</option>
                   </select>

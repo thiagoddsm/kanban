@@ -131,7 +131,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onClos
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {[
-                { plan: 'STARTER' as const, label: 'Starter', desc: 'Até 2 campi, 15 membros' },
+                { plan: 'STARTER' as const, label: 'Starter (Pastor)', desc: 'Até 2 campi, 15 membros' },
                 { plan: 'PRO' as const, label: 'Pro (Recomendado)', desc: 'Até 10 campi, 50 membros' },
                 { plan: 'ENTERPRISE' as const, label: 'Enterprise', desc: 'Campi e membros ilimitados' },
               ].map((p) => (
