@@ -21,7 +21,9 @@ import {
   Star,
   Flame,
   LayoutDashboard,
-  Kanban
+  Kanban,
+  UserCheck,
+  HeartHandshake
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -37,7 +39,7 @@ export const LandingPage: React.FC = () => {
     {
       id: 'STARTER',
       name: 'Starter',
-      description: 'Ideal para igrejas e congregações locais estruturarem suas demandas e operações.',
+      description: 'Ideal para igrejas e congregações locais estruturarem suas demandas e acolhimento.',
       monthlyPrice: 97,
       yearlyPrice: 77,
       badge: null,
@@ -45,8 +47,9 @@ export const LandingPage: React.FC = () => {
       features: [
         'Até 15 líderes e voluntários',
         'Até 2 sedes / campi',
-        'Fluxo Kanban completo de tarefas',
-        'Portal guiado de solicitações',
+        'Kanban de Tarefas & Demandas Gerais',
+        'Jornada & Acolhimento de Visitantes (até 50/mês)',
+        'Portal guiado de solicitações com protocolo',
         'Gestão de até 20 eventos e cultos',
         'Notificações em tempo real e menções',
         'Suporte por e-mail'
@@ -58,7 +61,7 @@ export const LandingPage: React.FC = () => {
     {
       id: 'PRO',
       name: 'Pro Multi-Campi',
-      description: 'Perfeito para ministérios em expansão que precisam de controle total entre departamentos e sedes.',
+      description: 'Perfeito para igrejas que querem os 3 serviços completos: Operações, Novos Membros e Agenda Pastoral.',
       monthlyPrice: 197,
       yearlyPrice: 157,
       badge: 'Mais Popular ⭐',
@@ -67,15 +70,16 @@ export const LandingPage: React.FC = () => {
         'Até 50 líderes e voluntários',
         'Até 10 sedes / congregações',
         'Tudo do plano Starter',
+        'Integração de Membros Ilimitada (Células & Batismo)',
+        'Cuidado & Agenda Pastoral com Sigilo Ministerial',
         'Cronograma Gantt & Linha do Tempo',
         'Regras de Automação de Tarefas',
         'Centro de Aprovação de Orçamentos e Peças',
-        'Relatórios avançados e métricas de entrega',
         'Identidade visual e logo customizados',
         'Suporte prioritário via WhatsApp'
       ],
       cta: 'Começar Teste Grátis de 14 Dias',
-      ctaSubtext: 'Acesso completo liberado imediatamente',
+      ctaSubtext: 'Acesso completo aos 3 serviços imediatamente',
       ctaColor: 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30'
     },
     {
@@ -89,8 +93,8 @@ export const LandingPage: React.FC = () => {
       features: [
         'Líderes e membros ilimitados',
         'Sedes e congregações ilimitadas',
-        'Tudo do plano Pro',
-        'Controle granular de permissões (RBAC avançado)',
+        'Os 3 Serviços com volume 100% ilimitado',
+        'Controle granular de permissões (RBAC pastoral)',
         'Integrações personalizadas e API',
         'SLA de atendimento garantido',
         'Gerente de conta e treinamento dedicado'
@@ -180,20 +184,20 @@ export const LandingPage: React.FC = () => {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold animate-fade-in shadow-inner">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Gestão Operacional de Alto Desempenho para Igrejas</span>
+          <span>Os 3 Pilares da Gestão da Igreja • Operações, Membros e Cuidado Pastoral</span>
         </div>
 
         {/* Headline */}
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15] max-w-4xl mx-auto">
-          Chega de demandas perdidas no WhatsApp.{' '}
+          Chega de demandas perdidas e visitantes esquecidos.{' '}
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
-            Centralize toda a operação da sua igreja.
+            A tríade completa de gestão da sua igreja.
           </span>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
-          Do planejamento de <strong>obras e compras</strong> aos <strong>cultos, eventos, conferências e mídias</strong>. Um sistema completo com fluxo Kanban, cronogramas e controle multi-campi.
+        <p className="text-base sm:text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
+          Centralize em um só lugar: <strong>Tarefas e Operações da Igreja</strong> (obras, compras, eventos, cultos), <strong>Jornada de Novos Membros</strong> (do visitante ao batismo e células), e <strong>Gabinete & Agenda Pastoral</strong> (com sigilo ministerial e visão de calendário).
         </p>
 
         {/* CTA Buttons */}
@@ -320,6 +324,65 @@ export const LandingPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 3 PILARES INTEGRADOS ────────────────────────────── */}
+      <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <h2 className="text-xs font-extrabold uppercase tracking-widest text-indigo-400">
+            A Tríade de Gestão da Igreja
+          </h2>
+          <h3 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+            3 Grandes Serviços Integrados no Oiko
+          </h3>
+          <p className="text-sm sm:text-base text-slate-400">
+            Ao invés de contratar ferramentas separadas que não conversam entre si, tenha tudo conectado.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Pilar 1 */}
+          <div className="p-8 rounded-3xl bg-gradient-to-b from-indigo-950/40 to-slate-900 border border-indigo-500/30 hover:border-indigo-500/60 transition-all space-y-4 shadow-xl group">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+              <Kanban className="w-7 h-7" />
+            </div>
+            <div className="inline-block px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 text-[10px] font-extrabold uppercase tracking-wider border border-indigo-500/20">
+              Serviço 1 • Operações
+            </div>
+            <h4 className="text-xl font-bold text-white">Tarefas & Operações da Igreja</h4>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Obras, reformas, compras, eventos, cultos e mídias. Quadro Kanban ágil com controle de concorrência, checklists, prazos e anexos do Canva/Drive.
+            </p>
+          </div>
+
+          {/* Pilar 2 */}
+          <div className="p-8 rounded-3xl bg-gradient-to-b from-emerald-950/40 to-slate-900 border border-emerald-500/30 hover:border-emerald-500/60 transition-all space-y-4 shadow-xl group">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+              <UserCheck className="w-7 h-7" />
+            </div>
+            <div className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-extrabold uppercase tracking-wider border border-emerald-500/20">
+              Serviço 2 • Membresia
+            </div>
+            <h4 className="text-xl font-bold text-white">Jornada & Integração de Membros</h4>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Feche a porta dos fundos da igreja. Funil visual para acolher cada novo visitante, fazer o 1º contato via WhatsApp, conectar em células e preparar para o batismo.
+            </p>
+          </div>
+
+          {/* Pilar 3 */}
+          <div className="p-8 rounded-3xl bg-gradient-to-b from-amber-950/40 to-slate-900 border border-amber-500/30 hover:border-amber-500/60 transition-all space-y-4 shadow-xl group">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+              <HeartHandshake className="w-7 h-7" />
+            </div>
+            <div className="inline-block px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 text-[10px] font-extrabold uppercase tracking-wider border border-amber-500/20">
+              Serviço 3 • Sigilo Ministerial
+            </div>
+            <h4 className="text-xl font-bold text-white">Cuidado & Agenda Pastoral</h4>
+            <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+              Atendimentos em gabinete, aconselhamentos e visitas com privacidade absoluta restrita aos pastores. Visão de quadro e calendário de horários para a agenda pastoral.
+            </p>
           </div>
         </div>
       </section>

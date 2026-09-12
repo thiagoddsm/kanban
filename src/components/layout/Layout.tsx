@@ -11,6 +11,8 @@ import { CalendarView } from '../calendar/CalendarView';
 import { ArchivedView } from '../archived/ArchivedView';
 import { UsersView } from '../users/UsersView';
 import { SettingsView } from '../settings/SettingsView';
+import { MemberJourneyBoard } from '../members/MemberJourneyBoard';
+import { PastoralCareView } from '../pastoral/PastoralCareView';
 import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
@@ -22,7 +24,7 @@ import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
 
 const VALID_TABS: NavigationTab[] = [
-  'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'users', 'settings',
+  'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'members-journey', 'pastoral-care', 'users', 'settings',
 ];
 
 export const Layout: React.FC = () => {
@@ -144,6 +146,8 @@ export const Layout: React.FC = () => {
           {activeTab === 'gantt' && <GanttView />}
           {activeTab === 'calendar' && <CalendarView />}
           {activeTab === 'archived' && <ArchivedView />}
+          {activeTab === 'members-journey' && <MemberJourneyBoard />}
+          {activeTab === 'pastoral-care' && <PastoralCareView />}
           {activeTab === 'users' && <UsersView />}
           {activeTab === 'settings' && <SettingsView />}
         </main>

@@ -9,7 +9,9 @@ import {
   ActivityLog,
   DemandTypeDefinition,
   EventCategoryDefinition,
-  DepartmentDefinition
+  DepartmentDefinition,
+  MemberJourneyCard,
+  PastoralCareAppointment
 } from '../types';
 import { 
   INITIAL_ORGANIZATIONS, 
@@ -20,6 +22,8 @@ import {
   INITIAL_TASKS, 
   INITIAL_COMMENTS, 
   INITIAL_ACTIVITIES,
+  INITIAL_MEMBER_JOURNEYS,
+  INITIAL_PASTORAL_APPOINTMENTS,
   DEMAND_TYPES,
   DEFAULT_EVENT_CATEGORIES,
   DEFAULT_DEPARTMENTS
@@ -479,6 +483,86 @@ export class StorageService {
 
   static saveDepartments(orgId: string, departments: DepartmentDefinition[]): void {
     localStorage.setItem(getOrgKey(orgId, 'departments'), JSON.stringify(departments));
+  }
+
+  // --- MEMBER JOURNEY (INTEGRAÇÃO DE MEMBROS) ---
+  static getMemberJourneys(orgId: string): MemberJourneyCard[] {
+    const key = getOrgKey(orgId, 'member_journeys');
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(INITIAL_MEMBER_JOURNEYS));
+      return INITIAL_MEMBER_JOURNEYS;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return INITIAL_MEMBER_JOURNEYS;
+    }
+  }
+
+  static saveMemberJourneys(orgId: string, members: MemberJourneyCard[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'member_journeys'), JSON.stringify(members));
+  }
+
+  static addMemberJourney(orgId: string, member: MemberJourneyCard): MemberJourneyCard[] {
+    const list = this.getMemberJourneys(orgId);
+    const updated = [member, ...list];
+    this.saveMemberJourneys(orgId, updated);
+    return updated;
+  }
+
+  static updateMemberJourney(orgId: string, member: MemberJourneyCard): MemberJourneyCard[] {
+    const list = this.getMemberJourneys(orgId);
+    const updated = list.map((m) => (m.id === member.id ? member : m));
+    this.saveMemberJourneys(orgId, updated);
+    return updated;
+  }
+
+  static deleteMemberJourney(orgId: string, memberId: string): MemberJourneyCard[] {
+    const list = this.getMemberJourneys(orgId);
+    const updated = list.filter((m) => m.id !== memberId);
+    this.saveMemberJourneys(orgId, updated);
+    return updated;
+  }
+
+  // --- PASTORAL CARE & APPOINTMENTS (CUIDADO PASTORAL) ---
+  static getPastoralAppointments(orgId: string): PastoralCareAppointment[] {
+    const key = getOrgKey(orgId, 'pastoral_appointments');
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      localStorage.setItem(key, JSON.stringify(INITIAL_PASTORAL_APPOINTMENTS));
+      return INITIAL_PASTORAL_APPOINTMENTS;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return INITIAL_PASTORAL_APPOINTMENTS;
+    }
+  }
+
+  static savePastoralAppointments(orgId: string, items: PastoralCareAppointment[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'pastoral_appointments'), JSON.stringify(items));
+  }
+
+  static addPastoralAppointment(orgId: string, item: PastoralCareAppointment): PastoralCareAppointment[] {
+    const list = this.getPastoralAppointments(orgId);
+    const updated = [item, ...list];
+    this.savePastoralAppointments(orgId, updated);
+    return updated;
+  }
+
+  static updatePastoralAppointment(orgId: string, item: PastoralCareAppointment): PastoralCareAppointment[] {
+    const list = this.getPastoralAppointments(orgId);
+    const updated = list.map((a) => (a.id === item.id ? item : a));
+    this.savePastoralAppointments(orgId, updated);
+    return updated;
+  }
+
+  static deletePastoralAppointment(orgId: string, id: string): PastoralCareAppointment[] {
+    const list = this.getPastoralAppointments(orgId);
+    const updated = list.filter((a) => a.id !== id);
+    this.savePastoralAppointments(orgId, updated);
+    return updated;
   }
 
   // --- RESET ALL TENANTS ---

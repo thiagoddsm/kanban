@@ -9,8 +9,9 @@ import {
   Archive, 
   Users2, 
   X,
-  Sparkles,
-  Settings
+  Settings,
+  UserCheck,
+  HeartHandshake
 } from 'lucide-react';
 import { NavigationTab } from '../../types';
 import { useAccess } from '../../context/AccessContext';
@@ -26,26 +27,71 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
+interface MenuSection {
+  title: string;
+  items: {
+    id: NavigationTab;
+    label: string;
+    icon: any;
+    visible?: boolean;
+    badge?: string;
+  }[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onNavigate,
   isOpenMobile,
   onCloseMobile,
 }) => {
-  const { currentRole, isAdmin } = useAccess();
+  const { currentRole, isAdmin, canManageMembers, canViewPastoral, isTeam } = useAccess();
   const { currentUser } = useAuth();
   const { currentOrganization } = useTenant();
   const [isMyAccountOpen, setIsMyAccountOpen] = useState(false);
 
-  const menuItems: { id: NavigationTab; label: string; icon: any; adminOnly?: boolean }[] = [
-    { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
-    { id: 'tasks', label: 'Tarefas (Kanban)', icon: Kanban },
-    { id: 'events', label: 'Eventos & Projetos', icon: CalendarDays },
-    { id: 'gantt', label: 'Cronograma (Gantt)', icon: GanttChartSquare },
-    { id: 'calendar', label: 'Calendário', icon: Calendar },
-    { id: 'archived', label: 'Arquivados', icon: Archive },
-    { id: 'users', label: 'Usuários & Convites', icon: Users2, adminOnly: true },
-    { id: 'settings', label: 'Configurações & Listas', icon: Settings, adminOnly: true },
+  const sections: MenuSection[] = [
+    {
+      title: 'Operações & Tarefas',
+      items: [
+        { id: 'dashboard', label: 'Painel Geral', icon: LayoutDashboard },
+        { id: 'tasks', label: 'Tarefas (Kanban)', icon: Kanban },
+        { id: 'events', label: 'Eventos & Projetos', icon: CalendarDays },
+        { id: 'gantt', label: 'Cronograma (Gantt)', icon: GanttChartSquare },
+        { id: 'calendar', label: 'Calendário de Atividades', icon: Calendar },
+        { id: 'archived', label: 'Arquivados', icon: Archive },
+      ],
+    },
+    {
+      title: 'Integração de Membros',
+      items: [
+        { 
+          id: 'members-journey', 
+          label: 'Jornada & Acolhimento', 
+          icon: UserCheck,
+          visible: canManageMembers || isTeam,
+          badge: 'Novo'
+        },
+      ],
+    },
+    {
+      title: 'Cuidado Pastoral',
+      items: [
+        { 
+          id: 'pastoral-care', 
+          label: 'Atendimento & Agenda', 
+          icon: HeartHandshake,
+          visible: canViewPastoral,
+          badge: 'Sigilo'
+        },
+      ],
+    },
+    {
+      title: 'Administração',
+      items: [
+        { id: 'users', label: 'Usuários & Convites', icon: Users2, visible: isAdmin },
+        { id: 'settings', label: 'Configurações & Plano', icon: Settings, visible: isAdmin },
+      ],
+    },
   ];
 
   const slug = currentOrganization?.slug || 'minha-igreja';
@@ -77,7 +123,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Oiko Gestão
                 </span>
               </div>
-
             </div>
 
             <button
@@ -92,35 +137,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <TenantSwitcher variant="sidebar" />
         </div>
 
-        {/* Navigation List */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-1 block">
-            Módulos Principais
-          </span>
-
-          {menuItems.map((item) => {
-            if (item.adminOnly && !isAdmin) return null;
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
+        {/* Navigation List Organized by Services */}
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto custom-scrollbar">
+          {sections.map((sec, secIdx) => {
+            const visibleItems = sec.items.filter((it) => it.visible !== false);
+            if (visibleItems.length === 0) return null;
 
             return (
-              <NavLink
-                key={item.id}
-                to={`/${slug}/${item.id}`}
-                onClick={onCloseMobile}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 transition-transform group-hover:scale-105 ${
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'
-                  }`}
-                />
-                <span className="truncate">{item.label}</span>
-              </NavLink>
+              <div key={secIdx} className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-1.5 block">
+                  {sec.title}
+                </span>
+
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+
+                  return (
+                    <NavLink
+                      key={item.id}
+                      to={`/${slug}/${item.id}`}
+                      onClick={onCloseMobile}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                        isActive
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon
+                          className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-105 ${
+                            isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'
+                          }`}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+
+                      {item.badge && !isActive && (
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
+                          item.badge === 'Sigilo'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>

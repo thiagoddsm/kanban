@@ -29,7 +29,9 @@ import {
   TaskQueryFilter,
   PagedResponse,
   Notification,
-  AutomationRule
+  AutomationRule,
+  MemberJourneyCard,
+  PastoralCareAppointment
 } from '../types';
 
 function sanitizeForFirestore<T>(data: T): any {
@@ -1213,6 +1215,146 @@ export class FirestoreRepository {
     } catch (e) {
       console.warn('Failed to subscribe to automations:', e);
       return () => {};
+    }
+  }
+
+  // =========================================================================
+  // 2. INTEGRAÇÃO & JORNADA DE MEMBROS (MEMBER JOURNEYS)
+  // =========================================================================
+
+  public static async fetchMemberJourneys(orgId: string): Promise<MemberJourneyCard[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getMemberJourneys(orgId);
+    }
+    try {
+      const col = collection(db, 'organizations', orgId, 'member_journeys');
+      const snap = await getDocs(col);
+      if (snap.empty) {
+        return StorageService.getMemberJourneys(orgId);
+      }
+      return snap.docs.map((d) => d.data() as MemberJourneyCard);
+    } catch (e) {
+      console.warn('Aviso: lendo membros do cache local:', e);
+      return StorageService.getMemberJourneys(orgId);
+    }
+  }
+
+  public static subscribeMemberJourneys(
+    orgId: string, 
+    callback: (members: MemberJourneyCard[]) => void
+  ): () => void {
+    if (!isFirebaseConfigured || !db) {
+      callback(StorageService.getMemberJourneys(orgId));
+      return () => {};
+    }
+    try {
+      const col = collection(db, 'organizations', orgId, 'member_journeys');
+      return onSnapshot(col, (snap) => {
+        const members = snap.docs.map((d) => d.data() as MemberJourneyCard);
+        StorageService.saveMemberJourneys(orgId, members);
+        callback(members);
+      }, (err) => {
+        console.warn('Subscription error for member_journeys:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to member_journeys:', e);
+      return () => {};
+    }
+  }
+
+  public static async saveMemberJourney(orgId: string, member: MemberJourneyCard): Promise<void> {
+    StorageService.updateMemberJourney(orgId, member);
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const docRef = doc(db, 'organizations', orgId, 'member_journeys', member.id);
+      const sanitized = sanitizeForFirestore({
+        ...member,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(docRef, sanitized, { merge: true });
+    } catch (e) {
+      console.error('Erro ao sincronizar membro com Firestore:', e);
+    }
+  }
+
+  public static async deleteMemberJourney(orgId: string, memberId: string): Promise<void> {
+    StorageService.deleteMemberJourney(orgId, memberId);
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const docRef = doc(db, 'organizations', orgId, 'member_journeys', memberId);
+      await deleteDoc(docRef);
+    } catch (e) {
+      console.error('Erro ao deletar membro do Firestore:', e);
+    }
+  }
+
+  // =========================================================================
+  // 3. CUIDADO & AGENDA PASTORAL (PASTORAL APPOINTMENTS)
+  // =========================================================================
+
+  public static async fetchPastoralAppointments(orgId: string): Promise<PastoralCareAppointment[]> {
+    if (!isFirebaseConfigured || !db) {
+      return StorageService.getPastoralAppointments(orgId);
+    }
+    try {
+      const col = collection(db, 'organizations', orgId, 'pastoral_appointments');
+      const snap = await getDocs(col);
+      if (snap.empty) {
+        return StorageService.getPastoralAppointments(orgId);
+      }
+      return snap.docs.map((d) => d.data() as PastoralCareAppointment);
+    } catch (e) {
+      console.warn('Aviso: lendo atendimentos do cache local:', e);
+      return StorageService.getPastoralAppointments(orgId);
+    }
+  }
+
+  public static subscribePastoralAppointments(
+    orgId: string, 
+    callback: (appointments: PastoralCareAppointment[]) => void
+  ): () => void {
+    if (!isFirebaseConfigured || !db) {
+      callback(StorageService.getPastoralAppointments(orgId));
+      return () => {};
+    }
+    try {
+      const col = collection(db, 'organizations', orgId, 'pastoral_appointments');
+      return onSnapshot(col, (snap) => {
+        const list = snap.docs.map((d) => d.data() as PastoralCareAppointment);
+        StorageService.savePastoralAppointments(orgId, list);
+        callback(list);
+      }, (err) => {
+        console.warn('Subscription error for pastoral_appointments:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to pastoral_appointments:', e);
+      return () => {};
+    }
+  }
+
+  public static async savePastoralAppointment(orgId: string, item: PastoralCareAppointment): Promise<void> {
+    StorageService.updatePastoralAppointment(orgId, item);
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const docRef = doc(db, 'organizations', orgId, 'pastoral_appointments', item.id);
+      const sanitized = sanitizeForFirestore({
+        ...item,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(docRef, sanitized, { merge: true });
+    } catch (e) {
+      console.error('Erro ao sincronizar atendimento pastoral com Firestore:', e);
+    }
+  }
+
+  public static async deletePastoralAppointment(orgId: string, id: string): Promise<void> {
+    StorageService.deletePastoralAppointment(orgId, id);
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const docRef = doc(db, 'organizations', orgId, 'pastoral_appointments', id);
+      await deleteDoc(docRef);
+    } catch (e) {
+      console.error('Erro ao deletar atendimento pastoral do Firestore:', e);
     }
   }
 }

@@ -14,7 +14,9 @@ import {
   EventTemplate,
   DemandTypeDefinition,
   EventCategoryDefinition,
-  DepartmentDefinition
+  DepartmentDefinition,
+  MemberJourneyCard,
+  PastoralCareAppointment
 } from '../types';
 import { StorageService } from '../services/storageService';
 import { EVENT_TEMPLATES, DEMAND_TYPES, DEFAULT_EVENT_CATEGORIES, DEFAULT_DEPARTMENTS } from '../services/mockData';
@@ -167,6 +169,18 @@ interface DataContextType {
   // Reset & Archive Loader
   fetchArchivedData: () => Promise<void>;
   resetAllData: () => void;
+
+  // 2. Integração de Membros
+  memberJourneys: MemberJourneyCard[];
+  addMemberJourney: (data: Omit<MemberJourneyCard, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>) => Promise<MemberJourneyCard>;
+  updateMemberJourney: (member: MemberJourneyCard) => Promise<void>;
+  deleteMemberJourney: (id: string) => Promise<void>;
+
+  // 3. Cuidado Pastoral
+  pastoralAppointments: PastoralCareAppointment[];
+  addPastoralAppointment: (data: Omit<PastoralCareAppointment, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>) => Promise<PastoralCareAppointment>;
+  updatePastoralAppointment: (item: PastoralCareAppointment) => Promise<void>;
+  deletePastoralAppointment: (id: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -185,6 +199,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [eventCategories, setEventCategories] = useState<EventCategoryDefinition[]>(() => StorageService.getEventCategories(currentOrganization.id));
   const [departments, setDepartments] = useState<DepartmentDefinition[]>(() => StorageService.getDepartments(currentOrganization.id));
   const [allUsers, setAllUsers] = useState<User[]>(() => StorageService.getUsers());
+  const [rawMemberJourneys, setRawMemberJourneys] = useState<MemberJourneyCard[]>(() => StorageService.getMemberJourneys(currentOrganization.id));
+  const [rawPastoralAppointments, setRawPastoralAppointments] = useState<PastoralCareAppointment[]>(() => StorageService.getPastoralAppointments(currentOrganization.id));
 
   // Reload data whenever current organization changes + Firestore Realtime Sync
   useEffect(() => {
@@ -198,6 +214,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setEventCategories(StorageService.getEventCategories(currentOrganization.id));
     setDepartments(StorageService.getDepartments(currentOrganization.id));
     setAllUsers(StorageService.getUsers());
+    setRawMemberJourneys(StorageService.getMemberJourneys(currentOrganization.id));
+    setRawPastoralAppointments(StorageService.getPastoralAppointments(currentOrganization.id));
+
+    FirestoreRepository.fetchMemberJourneys(currentOrganization.id).then((remotes) => {
+      if (remotes && remotes.length > 0) {
+        setRawMemberJourneys(remotes);
+        StorageService.saveMemberJourneys(currentOrganization.id, remotes);
+      }
+    });
+
+    FirestoreRepository.fetchPastoralAppointments(currentOrganization.id).then((remotes) => {
+      if (remotes && remotes.length > 0) {
+        setRawPastoralAppointments(remotes);
+        StorageService.savePastoralAppointments(currentOrganization.id, remotes);
+      }
+    });
 
     // Async Fetch from Firestore usando queries filtradas (isArchived: false)
     FirestoreRepository.fetchTasks(currentOrganization.id, { isArchived: false }).then((remoteTasks) => {
@@ -299,12 +331,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+    const unsubMembers = FirestoreRepository.subscribeMemberJourneys(currentOrganization.id, (members) => {
+      if (members) {
+        setRawMemberJourneys(members);
+        StorageService.saveMemberJourneys(currentOrganization.id, members);
+      }
+    });
+
+    const unsubPastoral = FirestoreRepository.subscribePastoralAppointments(currentOrganization.id, (appointments) => {
+      if (appointments) {
+        setRawPastoralAppointments(appointments);
+        StorageService.savePastoralAppointments(currentOrganization.id, appointments);
+      }
+    });
+
     return () => {
       unsubTasks();
       unsubEvents();
       unsubUsers();
       unsubComments();
       unsubConfig();
+      unsubMembers();
+      unsubPastoral();
     };
   }, [currentOrganization.id]);
 
@@ -1460,8 +1508,74 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setDemandTypes(StorageService.getDemandTypes(currentOrganization.id));
     setEventCategories(StorageService.getEventCategories(currentOrganization.id));
     setDepartments(StorageService.getDepartments(currentOrganization.id));
+    setRawMemberJourneys(StorageService.getMemberJourneys(currentOrganization.id));
+    setRawPastoralAppointments(StorageService.getPastoralAppointments(currentOrganization.id));
     clearFilters();
     success('Dados restaurados para o padrão de demonstração multi-tenant!');
+  };
+
+  // --- Member Journey Actions ---
+  const addMemberJourney = async (
+    data: Omit<MemberJourneyCard, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>
+  ): Promise<MemberJourneyCard> => {
+    const newCard: MemberJourneyCard = {
+      ...data,
+      id: 'mj_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      organizationId: currentOrganization.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setRawMemberJourneys((prev) => [newCard, ...prev]);
+    await FirestoreRepository.saveMemberJourney(currentOrganization.id, newCard);
+    success('Novo contato registrado na jornada de acolhimento!');
+    return newCard;
+  };
+
+  const updateMemberJourney = async (member: MemberJourneyCard): Promise<void> => {
+    const updated = {
+      ...member,
+      updatedAt: new Date().toISOString(),
+    };
+    setRawMemberJourneys((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
+    await FirestoreRepository.saveMemberJourney(currentOrganization.id, updated);
+  };
+
+  const deleteMemberJourney = async (id: string): Promise<void> => {
+    setRawMemberJourneys((prev) => prev.filter((m) => m.id !== id));
+    await FirestoreRepository.deleteMemberJourney(currentOrganization.id, id);
+    info('Contato removido da jornada.');
+  };
+
+  // --- Pastoral Care Actions ---
+  const addPastoralAppointment = async (
+    data: Omit<PastoralCareAppointment, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>
+  ): Promise<PastoralCareAppointment> => {
+    const newAppt: PastoralCareAppointment = {
+      ...data,
+      id: 'pastoral_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+      organizationId: currentOrganization.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setRawPastoralAppointments((prev) => [newAppt, ...prev]);
+    await FirestoreRepository.savePastoralAppointment(currentOrganization.id, newAppt);
+    success('Atendimento pastoral registrado com sucesso!');
+    return newAppt;
+  };
+
+  const updatePastoralAppointment = async (item: PastoralCareAppointment): Promise<void> => {
+    const updated = {
+      ...item,
+      updatedAt: new Date().toISOString(),
+    };
+    setRawPastoralAppointments((prev) => prev.map((a) => (a.id === item.id ? updated : a)));
+    await FirestoreRepository.savePastoralAppointment(currentOrganization.id, updated);
+  };
+
+  const deletePastoralAppointment = async (id: string): Promise<void> => {
+    setRawPastoralAppointments((prev) => prev.filter((a) => a.id !== id));
+    await FirestoreRepository.deletePastoralAppointment(currentOrganization.id, id);
+    info('Atendimento pastoral removido.');
   };
 
   return (
@@ -1528,10 +1642,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getCommentsForTask,
         fetchArchivedData,
         resetAllData,
+        memberJourneys: rawMemberJourneys,
+        addMemberJourney,
+        updateMemberJourney,
+        deleteMemberJourney,
+        pastoralAppointments: rawPastoralAppointments,
+        addPastoralAppointment,
+        updatePastoralAppointment,
+        deletePastoralAppointment,
       }}
     >
       {children}
-
     </DataContext.Provider>
   );
 };

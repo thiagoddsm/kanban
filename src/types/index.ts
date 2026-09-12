@@ -12,7 +12,10 @@ export type Permission =
   | 'campuses.manage'
   | 'organization.manage'
   | 'reports.view'
-  | 'automations.manage';
+  | 'automations.manage'
+  | 'members.manage'
+  | 'pastoral.view'
+  | 'pastoral.manage';
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ADMIN: [
@@ -27,6 +30,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'organization.manage',
     'reports.view',
     'automations.manage',
+    'members.manage',
+    'pastoral.view',
+    'pastoral.manage',
   ],
   LEADER: [
     'tasks.create',
@@ -36,6 +42,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'events.manage',
     'reports.view',
     'automations.manage',
+    'members.manage',
+    'pastoral.view',
   ],
   TEAM: [
     'tasks.create',
@@ -481,6 +489,8 @@ export type NavigationTab =
   | 'gantt' 
   | 'calendar' 
   | 'archived' 
+  | 'members-journey'
+  | 'pastoral-care'
   | 'users'
   | 'settings';
 
@@ -536,4 +546,88 @@ export interface PagedResponse<T> {
   hasMore: boolean;
   lastDocId?: string;
 }
+
+// ==========================================
+// 2. INTEGRAÇÃO & JORNADA DE MEMBROS
+// ==========================================
+
+export type MemberJourneyStage = 
+  | 'VISITOR'           // Novo Visitante / Contato
+  | 'FIRST_CONTACT'     // Primeiro Contato Feito
+  | 'CONNECTED_GROUP'   // Encaminhado p/ Pequeno Grupo / Célula
+  | 'DISCIPLESHIP'      // Discipulado / Classe de Membresia
+  | 'INTEGRATED';       // Membro Efetivo / Servindo em Ministério
+
+export interface MemberContactLog {
+  id: string;
+  authorId: string;
+  authorName: string;
+  channel: 'WHATSAPP' | 'CALL' | 'IN_PERSON' | 'EMAIL';
+  notes: string;
+  createdAt: string;
+}
+
+export interface MemberJourneyCard {
+  id: string;
+  organizationId: string;
+  campusId?: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  neighborhood?: string;
+  firstVisitDate: string; // YYYY-MM-DD
+  ageGroup?: 'KIDS' | 'TEEN' | 'YOUTH' | 'ADULT' | 'COUPLE' | 'SENIOR';
+  stage: MemberJourneyStage;
+  assignedLeaderId?: string;
+  assignedLeaderName?: string;
+  smallGroupId?: string;
+  smallGroupName?: string;
+  notes?: string;
+  contactHistory?: MemberContactLog[];
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// 3. CUIDADO & AGENDA PASTORAL
+// ==========================================
+
+export type PastoralStatus = 
+  | 'TRIAGE'           // Nova Solicitação / Triagem
+  | 'SCHEDULED'        // Agendado
+  | 'IN_PROGRESS'      // Em Acompanhamento
+  | 'COMPLETED'        // Concluído / Realizado
+  | 'CANCELLED';       // Cancelado
+
+export type PastoralAppointmentType = 
+  | 'OFFICE'           // Gabinete Presencial
+  | 'HOSPITAL'         // Visita Hospitalar
+  | 'HOME'             // Visita Residencial
+  | 'ONLINE'           // Atendimento Online
+  | 'MARRIAGE'         // Aconselhamento de Casais / Noivos
+  | 'OTHER';           // Outro
+
+export interface PastoralCareAppointment {
+  id: string;
+  organizationId: string;
+  campusId?: string;
+  personName: string;
+  phone: string;
+  email?: string;
+  appointmentType: PastoralAppointmentType;
+  status: PastoralStatus;
+  scheduledDate: string;      // YYYY-MM-DD
+  scheduledTime?: string;     // HH:mm
+  durationMinutes?: number;   // Padrão 60
+  assignedPastorId?: string;
+  assignedPastorName?: string;
+  location?: string;
+  reason?: string;             // Motivo público / resumido
+  confidentialNotes?: string;  // Anotações estritamente confidenciais do pastor
+  isConfidential?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 

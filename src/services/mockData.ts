@@ -8,7 +8,9 @@ import {
   ActivityLog, 
   Comment,
   DemandTypeDefinition,
-  EventTemplate
+  EventTemplate,
+  MemberJourneyCard,
+  PastoralCareAppointment
 } from '../types';
 
 export const DEMAND_TYPES: DemandTypeDefinition[] = [
@@ -295,11 +297,13 @@ export const INITIAL_MEMBERSHIPS: Membership[] = [
   }
 ];
 
-// 5. Zeroed Tasks, Events, Activities, and Comments (100% Clean)
+// 5. Zeroed Tasks, Events, Activities, Comments, Members and Pastoral Care (100% Clean)
 export const INITIAL_EVENTS: ChurchEvent[] = [];
 export const INITIAL_TASKS: Task[] = [];
 export const INITIAL_ACTIVITIES: ActivityLog[] = [];
 export const INITIAL_COMMENTS: Comment[] = [];
+export const INITIAL_MEMBER_JOURNEYS: MemberJourneyCard[] = [];
+export const INITIAL_PASTORAL_APPOINTMENTS: PastoralCareAppointment[] = [];
 
 // 6. Default Event Categories
 export const DEFAULT_EVENT_CATEGORIES = [

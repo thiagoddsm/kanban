@@ -50,6 +50,9 @@ interface AccessContextType {
   canArchive: boolean;
   canManageEvents: boolean;
   canManageCampuses: boolean;
+  canManageMembers: boolean;
+  canViewPastoral: boolean;
+  canManagePastoral: boolean;
 }
 
 const AccessContext = createContext<AccessContextType | undefined>(undefined);
@@ -516,6 +519,9 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         canArchive: hasPermission('tasks.delete') || isLeader,
         canManageEvents: hasPermission('events.manage'),
         canManageCampuses: hasPermission('campuses.manage'),
+        canManageMembers: hasPermission('members.manage') || isLeader,
+        canViewPastoral: hasPermission('pastoral.view') || isAdmin,
+        canManagePastoral: hasPermission('pastoral.manage') || isAdmin,
       }}
     >
       {children}
