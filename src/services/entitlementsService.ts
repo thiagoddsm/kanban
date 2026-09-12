@@ -22,7 +22,7 @@ export const PLAN_DEFAULT_LIMITS: Record<TenantPlan, PlanLimits> = {
     apiAccess: false,
   },
   STARTER: {
-    maxMembers: 30,
+    maxMembers: 2,
     maxCampuses: 3,
     maxEvents: 30,
     maxTasks: 300,

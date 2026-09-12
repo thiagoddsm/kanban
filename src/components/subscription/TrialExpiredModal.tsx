@@ -97,7 +97,7 @@ export const TrialExpiredModal: React.FC<TrialExpiredModalProps> = ({ isOpen, on
               <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-700/50">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Até 15 voluntários e líderes</span>
+                  <span>Até 2 usuários (Pastor + Auxiliar)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />

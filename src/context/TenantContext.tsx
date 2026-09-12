@@ -214,7 +214,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         currentPeriodEnd: trialEndDate,
       },
       limits: {
-        maxMembers: plan === 'PRO' ? 50 : 15,
+        maxMembers: plan === 'ENTERPRISE' ? 1000 : plan === 'PRO' ? 50 : 2,
         maxCampuses: plan === 'PRO' ? 10 : 2,
         maxEvents: plan === 'PRO' ? 100 : 20,
         maxTasks: plan === 'PRO' ? 1000 : 200,

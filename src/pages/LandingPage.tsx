@@ -42,7 +42,7 @@ export const LandingPage: React.FC = () => {
       badge: 'Plano Pastor',
       highlight: false,
       features: [
-        'Até 15 usuários/voluntários',
+        'Até 2 usuários (Pastor + Auxiliar)',
         'Máx. 2 Congregações / Sedes',
         'Quadro Kanban de Tarefas & Obras',
         'Jornada de Membros (até 50 contatos/mês)',
