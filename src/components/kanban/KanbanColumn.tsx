@@ -91,7 +91,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       </div>
 
       {/* Cards List */}
-      <div className="flex-1 p-3 overflow-y-auto space-y-3 min-h-[420px] max-h-[calc(100vh-230px)] custom-scrollbar">
+      <div className="flex-1 p-3 overflow-y-auto space-y-3 min-h-[220px] sm:min-h-[380px] max-h-[calc(100dvh-280px)] sm:max-h-[calc(100dvh-220px)] custom-scrollbar">
         {tasks.length === 0 ? (
           <div className="h-40 flex flex-col items-center justify-center text-center p-4 border border-dashed border-slate-300 dark:border-slate-800/80 rounded-2xl">
             <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Nenhuma demanda nesta etapa</p>

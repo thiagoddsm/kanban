@@ -149,7 +149,7 @@ export const Layout: React.FC = () => {
           onNavigate={navigateToTab}
         />
 
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative pb-16 lg:pb-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               onNavigate={navigateToTab}

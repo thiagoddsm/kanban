@@ -19,7 +19,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const { currentUser } = useAuth();
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/90 backdrop-blur-md border-t border-slate-800 px-3 py-2 flex items-center justify-around select-none">
+    <nav 
+      style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-3 py-2 flex items-center justify-around select-none shadow-2xl"
+    >
       {/* 1. Painel */}
       <button
         onClick={() => onNavigate('dashboard')}
