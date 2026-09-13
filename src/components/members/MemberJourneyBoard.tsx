@@ -152,9 +152,9 @@ export const MemberJourneyBoard: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Top Header & Metrics Banner */}
-      <div className="p-6 border-b border-slate-800/80 bg-slate-900/40 space-y-5">
+      <div className="p-6 border-b border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-900/40 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
@@ -162,11 +162,11 @@ export const MemberJourneyBoard: React.FC = () => {
                 <UserCheck className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-xl font-black text-white tracking-tight">
+                <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                   Jornada & Integração de Membros
                 </h1>
-                <p className="text-xs text-slate-400">
-                  Feche a "porta dos fundos" da igreja: acompanhe cada visitante até se tornar membro ativo
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Feche a &quot;porta dos fundos&quot; da igreja: acompanhe cada visitante até se tornar membro ativo
                 </p>
               </div>
             </div>
@@ -174,7 +174,7 @@ export const MemberJourneyBoard: React.FC = () => {
 
           <button
             onClick={() => handleOpenNew('VISITOR')}
-            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 shrink-0 group self-start sm:self-auto"
+            className="px-4 py-2.5 rounded-2xl bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white shadow-lg shadow-brand-600/30 transition-all flex items-center gap-2 shrink-0 group self-start sm:self-auto"
           >
             <UserPlus className="w-4 h-4 transition-transform group-hover:scale-110" />
             Novo Visitante / Contato
@@ -183,43 +183,43 @@ export const MemberJourneyBoard: React.FC = () => {
 
         {/* 4 Cards de Estatísticas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-brand-600 dark:text-blue-400 font-black text-sm">
               {totalCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Total na Jornada</p>
-              <p className="text-xs font-semibold text-slate-200">Pessoas em acompanhamento</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Total na Jornada</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Pessoas em acompanhamento</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400 font-black text-sm">
               {visitorsCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Novos Visitantes</p>
-              <p className="text-xs font-semibold text-slate-200">Aguardando 1º contato</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Novos Visitantes</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Aguardando 1º contato</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 font-black text-sm">
               {connectedCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Em Pequenos Grupos</p>
-              <p className="text-xs font-semibold text-slate-200">Conectados em comunhão</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Em Pequenos Grupos</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Conectados em comunhão</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">
               {integratedCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Membros Ativos</p>
-              <p className="text-xs font-semibold text-slate-200">Batizados e servindo</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Membros Ativos</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Batizados e servindo</p>
             </div>
           </div>
         </div>
@@ -227,13 +227,13 @@ export const MemberJourneyBoard: React.FC = () => {
         {/* Toolbar de Filtros e Busca */}
         <div className="flex flex-wrap items-center gap-2.5 pt-1">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar por nome, telefone, bairro ou grupo..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 transition-colors shadow-sm"
             />
           </div>
 
@@ -241,7 +241,7 @@ export const MemberJourneyBoard: React.FC = () => {
             <select
               value={filterCampusId}
               onChange={(e) => setFilterCampusId(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+              className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-brand-500 shadow-sm"
             >
               <option value="">Todos os Campi</option>
               {campuses.map((c) => (
@@ -253,7 +253,7 @@ export const MemberJourneyBoard: React.FC = () => {
           <select
             value={filterAgeGroup}
             onChange={(e) => setFilterAgeGroup(e.target.value)}
-            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-brand-500 shadow-sm"
           >
             <option value="">Todos os Perfis</option>
             <option value="ADULT">Adultos</option>
@@ -279,29 +279,29 @@ export const MemberJourneyBoard: React.FC = () => {
                 onDragOver={(e) => handleDragOver(e, col.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, col.id)}
-                className={`w-72 shrink-0 bg-slate-900/60 rounded-3xl border flex flex-col max-h-full transition-all duration-200 ${
+                className={`w-72 shrink-0 bg-slate-100/70 dark:bg-slate-900/60 rounded-3xl border flex flex-col max-h-full transition-all duration-200 ${
                   isOver 
-                    ? 'border-indigo-500 bg-indigo-950/20 shadow-lg shadow-indigo-500/10' 
-                    : 'border-slate-800/80 hover:border-slate-700/80'
+                    ? 'border-brand-500 bg-brand-50/50 dark:bg-indigo-950/20 shadow-lg shadow-brand-500/10' 
+                    : 'border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80'
                 }`}
               >
                 {/* Column Header */}
-                <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between">
+                <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-black tracking-tight ${col.badgeBg} px-2 py-0.5 rounded-full border`}>
                         {col.title}
                       </span>
-                      <span className="text-xs font-bold text-slate-400">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                         {colMembers.length}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-1 truncate">{col.description}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">{col.description}</p>
                   </div>
 
                   <button
                     onClick={() => handleOpenNew(col.id)}
-                    className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors ml-1 shrink-0"
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors ml-1 shrink-0"
                     title={`Adicionar novo em ${col.title}`}
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -311,9 +311,9 @@ export const MemberJourneyBoard: React.FC = () => {
                 {/* Column Card List */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-[140px]">
                   {colMembers.length === 0 ? (
-                    <div className="h-28 flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-dashed border-slate-800/60 text-slate-500">
+                    <div className="h-28 flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800/60 text-slate-400 dark:text-slate-500">
                       <p className="text-[11px] font-semibold">Nenhuma pessoa nesta etapa</p>
-                      <p className="text-[9px] text-slate-600 mt-0.5">Arraste cards ou clique no + para adicionar</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-600 mt-0.5">Arraste cards ou clique no + para adicionar</p>
                     </div>
                   ) : (
                     colMembers.map((member) => {
@@ -326,24 +326,24 @@ export const MemberJourneyBoard: React.FC = () => {
                           draggable
                           onDragStart={(e) => handleDragStart(e, member.id)}
                           onClick={() => setSelectedMember(member)}
-                          className="p-3 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-indigo-500/60 hover:bg-slate-850 cursor-pointer shadow-sm transition-all group"
+                          className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/90 hover:border-brand-500/60 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer shadow-sm transition-all group"
                         >
                           {/* Nome e Badge de Faixa Etária */}
                           <div className="flex items-start justify-between gap-2">
-                            <h3 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                            <h3 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-indigo-300 transition-colors">
                               {member.fullName}
                             </h3>
                             {member.ageGroup && (
-                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-bold uppercase shrink-0">
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold uppercase shrink-0 border border-slate-200 dark:border-transparent">
                                 {member.ageGroup}
                               </span>
                             )}
                           </div>
 
                           {/* Telefone & WhatsApp */}
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800/60 text-[11px] text-slate-400">
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-[11px] text-slate-500 dark:text-slate-400">
                             <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-slate-500" />
+                              <Phone className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                               {member.phone}
                             </span>
                             {waUrl && (
@@ -352,7 +352,7 @@ export const MemberJourneyBoard: React.FC = () => {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="p-1 rounded-md text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300 transition-colors"
+                                className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 transition-colors"
                                 title="Chamar no WhatsApp"
                               >
                                 <Phone className="w-3 h-3" />
@@ -365,13 +365,13 @@ export const MemberJourneyBoard: React.FC = () => {
                             <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-500">
                               {member.neighborhood && (
                                 <span className="flex items-center gap-1 truncate">
-                                  <MapPin className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                                  <MapPin className="w-2.5 h-2.5 text-rose-500 shrink-0" />
                                   <span className="truncate">{member.neighborhood}</span>
                                 </span>
                               )}
                               {member.smallGroupName && (
                                 <span className="flex items-center gap-1 truncate">
-                                  <Users className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                                  <Users className="w-2.5 h-2.5 text-purple-500 shrink-0" />
                                   <span className="truncate">{member.smallGroupName}</span>
                                 </span>
                               )}
@@ -379,7 +379,7 @@ export const MemberJourneyBoard: React.FC = () => {
                           )}
 
                           {/* Líder Designado ou 1ª Visita */}
-                          <div className="flex items-center justify-between mt-2 text-[9px] text-slate-500">
+                          <div className="flex items-center justify-between mt-2 text-[9px] text-slate-400 dark:text-slate-500">
                             <span>
                               {member.assignedLeaderName ? `Líder: ${member.assignedLeaderName}` : 'Sem líder atribuído'}
                             </span>

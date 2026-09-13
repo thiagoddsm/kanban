@@ -107,19 +107,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-slate-900 border-r border-slate-800/80 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 left-0 bottom-0 z-40 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800/80 flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Top Header: Brand & Organization Switcher */}
-        <div className="p-4 border-b border-slate-800/80 space-y-3">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800/80 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30 font-black text-sm">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 font-black text-sm">
                 O
               </div>
               <div>
-                <span className="text-sm font-black text-white tracking-tight block leading-none">
+                <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight block leading-none">
                   Oiko Gestão
                 </span>
               </div>
@@ -127,7 +127,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               onClick={onCloseMobile}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+              className="lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800"
             >
               <X className="w-4 h-4" />
             </button>
@@ -145,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             return (
               <div key={secIdx} className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 mb-1.5 block">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-3 mb-1.5 block">
                   {sec.title}
                 </span>
 
@@ -160,14 +160,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={onCloseMobile}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
                         isActive
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-bold'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20 font-bold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <Icon
                           className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-105 ${
-                            isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-400'
+                            isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-600 dark:group-hover:text-indigo-400'
                           }`}
                         />
                         <span className="truncate">{item.label}</span>
@@ -176,8 +176,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {item.badge && !isActive && (
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
                           item.badge === 'Sigilo'
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
                         }`}>
                           {item.badge}
                         </span>
@@ -193,23 +193,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* User Footer with Role */}
         <div 
           onClick={() => setIsMyAccountOpen(true)}
-          className="p-3.5 border-t border-slate-800/80 bg-slate-950/40 hover:bg-slate-900/80 cursor-pointer transition-colors group"
+          className="p-3.5 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-slate-950/40 hover:bg-slate-100 dark:hover:bg-slate-900/80 cursor-pointer transition-colors group"
           title="Clique para abrir Minha Conta & Perfil"
         >
           <div className="flex items-center gap-3">
             <img
               src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt={currentUser?.name || 'Membro'}
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-indigo-500/30 group-hover:ring-indigo-400 shrink-0"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-brand-500/30 dark:ring-indigo-500/30 group-hover:ring-brand-500 dark:group-hover:ring-indigo-400 shrink-0"
             />
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-1">
-                <p className="text-xs font-bold text-white group-hover:text-indigo-300 truncate transition-colors">{currentUser?.name || 'Membro'}</p>
-                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase">
+                <p className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-brand-600 dark:group-hover:text-indigo-300 truncate transition-colors">{currentUser?.name || 'Membro'}</p>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-brand-100 text-brand-700 dark:bg-indigo-500/20 dark:text-indigo-300 uppercase">
                   {currentRole}
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 truncate">{currentUser?.email || ''}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || ''}</p>
             </div>
           </div>
         </div>

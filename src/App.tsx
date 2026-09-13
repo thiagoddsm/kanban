@@ -12,17 +12,19 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { PublicDemandPortalPage } from './pages/PublicDemandPortalPage';
 import { PublicProtocolTrackerPage } from './pages/PublicProtocolTrackerPage';
+import { ThemeProvider } from './context/ThemeContext';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 
 export function App() {
   return (
     <ErrorBoundary>
-      <NotificationProvider>
-        <AuthProvider>
-          <TenantProvider>
-            <AccessProvider>
-              <DataProvider>
+      <ThemeProvider>
+        <NotificationProvider>
+          <AuthProvider>
+            <TenantProvider>
+              <AccessProvider>
+                <DataProvider>
                 <Routes>
                   {/* Páginas Públicas / Institucionais & Autenticação */}
                   <Route path="/" element={<LandingPage />} />
@@ -51,8 +53,9 @@ export function App() {
           </TenantProvider>
         </AuthProvider>
       </NotificationProvider>
-    </ErrorBoundary>
-  );
+    </ThemeProvider>
+  </ErrorBoundary>
+);
 }
 
 export default App;

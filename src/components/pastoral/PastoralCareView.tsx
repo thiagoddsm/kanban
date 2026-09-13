@@ -84,12 +84,12 @@ export const PastoralCareView: React.FC = () => {
   // Se o usuário não tiver permissão para ver atendimentos pastorais (Sigilo Ministerial)
   if (!canViewPastoral && !isAdmin) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-950 text-center">
-        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-4 shadow-xl">
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 dark:bg-slate-950 text-center">
+        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400 mb-4 shadow-xl">
           <Lock className="w-8 h-8" />
         </div>
-        <h2 className="text-lg font-bold text-white tracking-tight">Área Restrita ao Corpo Pastoral</h2>
-        <p className="text-xs text-slate-400 max-w-md mt-1 leading-relaxed">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Área Restrita ao Corpo Pastoral</h2>
+        <p className="text-xs text-slate-600 dark:text-slate-400 max-w-md mt-1 leading-relaxed">
           Os atendimentos, visitas a enfermos e anotações de gabinete possuem sigilo ministerial estrito.
           Solicite ao pastor sênior ou administrador da igreja caso necessite de acesso pastoral.
         </p>
@@ -165,9 +165,9 @@ export const PastoralCareView: React.FC = () => {
   }, [filteredAppointments]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-950 overflow-hidden">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Header & Metrics */}
-      <div className="p-6 border-b border-slate-800/80 bg-slate-900/40 space-y-5">
+      <div className="p-6 border-b border-slate-200 dark:border-slate-800/80 bg-white/60 dark:bg-slate-900/40 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
@@ -176,14 +176,14 @@ export const PastoralCareView: React.FC = () => {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-black text-white tracking-tight">
+                  <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
                     Cuidado & Agenda Pastoral
                   </h1>
-                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 uppercase border border-amber-500/30">
+                  <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 uppercase border border-amber-500/20 dark:border-amber-500/30">
                     Sigilo Pastoral
                   </span>
                 </div>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Gabinete, aconselhamentos e visitas a enfermos com discrição e privacidade ministerial
                 </p>
               </div>
@@ -192,13 +192,13 @@ export const PastoralCareView: React.FC = () => {
 
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {/* Alternador de Modo (Kanban / Agenda) */}
-            <div className="bg-slate-900 p-1 rounded-2xl border border-slate-800 flex items-center gap-1">
+            <div className="bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-1 shadow-sm">
               <button
                 onClick={() => setActiveViewMode('kanban')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                   activeViewMode === 'kanban'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -208,8 +208,8 @@ export const PastoralCareView: React.FC = () => {
                 onClick={() => setActiveViewMode('calendar')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                   activeViewMode === 'calendar'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <CalendarDays className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ export const PastoralCareView: React.FC = () => {
 
             <button
               onClick={() => handleOpenNew('SCHEDULED')}
-              className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all flex items-center gap-2 shrink-0 group"
+              className="px-4 py-2.5 rounded-2xl bg-brand-600 hover:bg-brand-500 text-xs font-bold text-white shadow-lg shadow-brand-600/30 transition-all flex items-center gap-2 shrink-0 group"
             >
               <Plus className="w-4 h-4 transition-transform group-hover:scale-110" />
               Novo Atendimento
@@ -229,43 +229,43 @@ export const PastoralCareView: React.FC = () => {
 
         {/* 4 Cards de Métricas */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-brand-600 dark:text-blue-400 font-black text-sm">
               {triageCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Em Triagem</p>
-              <p className="text-xs font-semibold text-slate-200">Aguardando agendamento</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Em Triagem</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Aguardando agendamento</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 dark:text-amber-400 font-black text-sm">
               {scheduledCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Agendados</p>
-              <p className="text-xs font-semibold text-slate-200">Confirmados na agenda</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Agendados</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Confirmados na agenda</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400 font-black text-sm">
               {inProgressCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Acompanhamento</p>
-              <p className="text-xs font-semibold text-slate-200">Processo contínuo</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Acompanhamento</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Processo contínuo</p>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 font-black text-sm">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-black text-sm">
               {completedCount}
             </div>
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-400">Realizados</p>
-              <p className="text-xs font-semibold text-slate-200">Concluídos com oração</p>
+              <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Realizados</p>
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Concluídos com oração</p>
             </div>
           </div>
         </div>
@@ -273,20 +273,20 @@ export const PastoralCareView: React.FC = () => {
         {/* Toolbar de Filtros */}
         <div className="flex flex-wrap items-center gap-2.5 pt-1">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar por nome, telefone ou motivo..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-brand-500 transition-colors shadow-sm"
             />
           </div>
 
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+            className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-brand-500 shadow-sm"
           >
             <option value="">Todos os Tipos</option>
             <option value="OFFICE">🏢 Gabinete</option>
@@ -301,7 +301,7 @@ export const PastoralCareView: React.FC = () => {
             <select
               value={filterPastorId}
               onChange={(e) => setFilterPastorId(e.target.value)}
-              className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+              className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-brand-500 shadow-sm"
             >
               <option value="">Todos os Pastores</option>
               {users.map((u: any) => (
@@ -327,29 +327,29 @@ export const PastoralCareView: React.FC = () => {
                   onDragOver={(e) => handleDragOver(e, col.id)}
                   onDragLeave={() => setDragOverColumn(null)}
                   onDrop={(e) => handleDrop(e, col.id)}
-                  className={`w-72 shrink-0 bg-slate-900/60 rounded-3xl border flex flex-col max-h-full transition-all duration-200 ${
+                  className={`w-72 shrink-0 bg-slate-100/70 dark:bg-slate-900/60 rounded-3xl border flex flex-col max-h-full transition-all duration-200 ${
                     isOver 
-                      ? 'border-indigo-500 bg-indigo-950/20 shadow-lg shadow-indigo-500/10' 
-                      : 'border-slate-800/80 hover:border-slate-700/80'
+                      ? 'border-brand-500 bg-brand-50/50 dark:bg-indigo-950/20 shadow-lg shadow-brand-500/10' 
+                      : 'border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80'
                   }`}
                 >
                   {/* Column Header */}
-                  <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between">
+                  <div className="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className={`text-xs font-black tracking-tight ${col.badgeBg} px-2 py-0.5 rounded-full border`}>
                           {col.title}
                         </span>
-                        <span className="text-xs font-bold text-slate-400">
+                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                           {colItems.length}
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-500 mt-1 truncate">{col.description}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">{col.description}</p>
                     </div>
 
                     <button
                       onClick={() => handleOpenNew(col.id)}
-                      className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors ml-1 shrink-0"
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors ml-1 shrink-0"
                       title={`Adicionar novo em ${col.title}`}
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -359,9 +359,9 @@ export const PastoralCareView: React.FC = () => {
                   {/* Card List */}
                   <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-[140px]">
                     {colItems.length === 0 ? (
-                      <div className="h-28 flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-dashed border-slate-800/60 text-slate-500">
+                      <div className="h-28 flex flex-col items-center justify-center text-center p-3 rounded-2xl border border-dashed border-slate-300 dark:border-slate-800/60 text-slate-400 dark:text-slate-500">
                         <p className="text-[11px] font-semibold">Nenhum atendimento nesta etapa</p>
-                        <p className="text-[9px] text-slate-600 mt-0.5">Arraste cards ou clique no + para agendar</p>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-600 mt-0.5">Arraste cards ou clique no + para agendar</p>
                       </div>
                     ) : (
                       colItems.map((item) => {
@@ -375,10 +375,10 @@ export const PastoralCareView: React.FC = () => {
                             draggable
                             onDragStart={(e) => handleDragStart(e, item.id)}
                             onClick={() => setSelectedAppointment(item)}
-                            className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800/90 hover:border-indigo-500/60 hover:bg-slate-850 cursor-pointer shadow-sm transition-all group"
+                            className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/90 hover:border-brand-500/60 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer shadow-sm transition-all group"
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <h3 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                              <h3 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-indigo-300 transition-colors">
                                 {item.personName}
                               </h3>
                               <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${typeInfo.color} shrink-0`}>
@@ -387,18 +387,18 @@ export const PastoralCareView: React.FC = () => {
                             </div>
 
                             {item.reason && (
-                              <p className="text-[11px] text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">
                                 {item.reason}
                               </p>
                             )}
 
                             {/* Data & Horário */}
-                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-800/60 text-[11px] text-slate-400">
+                            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/60 text-[11px] text-slate-500 dark:text-slate-400">
                               <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3 text-amber-400" />
+                                <Calendar className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                                 {new Date(item.scheduledDate).toLocaleDateString('pt-BR')}
                                 {item.scheduledTime && (
-                                  <span className="text-slate-500 font-semibold ml-1">
+                                  <span className="text-slate-600 dark:text-slate-400 font-semibold ml-1">
                                     às {item.scheduledTime}
                                   </span>
                                 )}
@@ -410,7 +410,7 @@ export const PastoralCareView: React.FC = () => {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={(e) => e.stopPropagation()}
-                                  className="p-1 rounded-md text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300 transition-colors"
+                                  className="p-1 rounded-md text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 transition-colors"
                                   title="Enviar mensagem no WhatsApp"
                                 >
                                   <Phone className="w-3 h-3" />
@@ -419,13 +419,13 @@ export const PastoralCareView: React.FC = () => {
                             </div>
 
                             {/* Pastor Atribuído & Local */}
-                            <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500">
+                            <div className="flex items-center justify-between mt-2 text-[10px] text-slate-400 dark:text-slate-500">
                               <span className="truncate">
                                 {item.assignedPastorName ? `Pastor: ${item.assignedPastorName}` : 'Sem pastor definido'}
                               </span>
                               {item.location && (
                                 <span className="flex items-center gap-1 shrink-0">
-                                  <MapPin className="w-2.5 h-2.5 text-rose-400" />
+                                  <MapPin className="w-2.5 h-2.5 text-rose-500 shrink-0" />
                                   <span className="truncate max-w-[100px]">{item.location}</span>
                                 </span>
                               )}
@@ -445,19 +445,19 @@ export const PastoralCareView: React.FC = () => {
         <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-indigo-400" />
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CalendarDays className="w-4 h-4 text-brand-600 dark:text-indigo-400" />
                 Linha do Tempo da Agenda Pastoral ({sortedByDate.length} registros)
               </h2>
             </div>
 
             {sortedByDate.length === 0 ? (
-              <div className="py-16 text-center rounded-3xl border border-dashed border-slate-800 bg-slate-900/30">
-                <HeartHandshake className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-400">Nenhum atendimento agendado</p>
+              <div className="py-16 text-center rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 bg-white/50 dark:bg-slate-900/30 shadow-sm">
+                <HeartHandshake className="w-10 h-10 text-slate-400 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Nenhum atendimento agendado</p>
                 <button
                   onClick={() => handleOpenNew('SCHEDULED')}
-                  className="mt-3 px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors"
+                  className="mt-3 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-500 transition-colors shadow-sm"
                 >
                   Agendar Primeiro Atendimento
                 </button>
@@ -465,27 +465,26 @@ export const PastoralCareView: React.FC = () => {
             ) : (
               sortedByDate.map((item) => {
                 const typeInfo = APPOINTMENT_TYPE_BADGES[item.appointmentType] || APPOINTMENT_TYPE_BADGES.OTHER;
-                const isPast = new Date(`${item.scheduledDate}T${item.scheduledTime || '23:59'}`) < new Date();
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => setSelectedAppointment(item)}
-                    className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                    className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-500/50 cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group shadow-sm"
                   >
                     <div className="flex items-start gap-3.5 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col items-center justify-center shrink-0">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center shrink-0">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">
                           {new Date(item.scheduledDate).toLocaleDateString('pt-BR', { month: 'short' })}
                         </span>
-                        <span className="text-base font-black text-white leading-none">
+                        <span className="text-base font-black text-slate-900 dark:text-white leading-none">
                           {new Date(item.scheduledDate).getDate()}
                         </span>
                       </div>
 
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors truncate">
+                          <h3 className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-indigo-300 transition-colors truncate">
                             {item.personName}
                           </h3>
                           <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold uppercase ${typeInfo.color}`}>
@@ -494,25 +493,25 @@ export const PastoralCareView: React.FC = () => {
                         </div>
 
                         {item.reason && (
-                          <p className="text-xs text-slate-400 mt-1 line-clamp-1">
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-1">
                             {item.reason}
                           </p>
                         )}
 
                         <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500">
                           {item.scheduledTime && (
-                            <span className="flex items-center gap-1 font-semibold text-slate-300">
-                              <Clock className="w-3 h-3 text-indigo-400" />
+                            <span className="flex items-center gap-1 font-semibold text-slate-700 dark:text-slate-300">
+                              <Clock className="w-3 h-3 text-brand-600 dark:text-indigo-400" />
                               {item.scheduledTime} ({item.durationMinutes || 60}m)
                             </span>
                           )}
                           <span className="flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-3 h-3 text-slate-400" />
                             {item.phone}
                           </span>
                           {item.assignedPastorName && (
                             <span className="flex items-center gap-1">
-                              <User className="w-3 h-3" />
+                              <User className="w-3 h-3 text-slate-400" />
                               {item.assignedPastorName}
                             </span>
                           )}

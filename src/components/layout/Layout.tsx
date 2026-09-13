@@ -96,13 +96,13 @@ export const Layout: React.FC = () => {
   // Splash Screen de Carregamento Seguro
   if (isLoadingAuth) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-slate-950 text-slate-100 font-sans">
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 animate-pulse">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-brand-600/30 animate-pulse">
             <span className="font-black text-xl">O</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
             <span>Validando sessão segura...</span>
           </div>
         </div>
@@ -116,7 +116,7 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white pb-16 lg:pb-0">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 selection:bg-brand-500 selection:text-white pb-16 lg:pb-0">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}

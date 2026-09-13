@@ -14,6 +14,7 @@ import { QAModal } from '../testing/QAModal';
 import { TaskModal } from '../kanban/TaskModal';
 import { AdminWhatsAppSettingsModal } from '../whatsapp/AdminWhatsAppSettingsModal';
 import { useNotification } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Task, NavigationTab } from '../../types';
 import { 
   Bell, 
@@ -22,6 +23,7 @@ import {
   Menu, 
   ShieldCheck, 
   Sun,
+  Moon,
   Zap,
   Settings,
   MoreVertical,
@@ -49,6 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { currentOrganization, currentCampus } = useTenant();
   const { searchQuery, setSearchQuery, tasks } = useData();
   const { success } = useNotification();
+  const { theme, toggleTheme, isDark } = useTheme();
 
   // Modals state
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -78,14 +81,15 @@ export const Header: React.FC<HeaderProps> = ({
       currentOrganization.id,
       currentUser.id,
       (remoteNotifs) => {
-        const key = `marketing_notifications_${currentOrganization.id}_v4_clean`;
-        localStorage.setItem(key, JSON.stringify(remoteNotifs));
-        setUnreadNotifCount(remoteNotifs.filter((n) => !n.readAt).length);
+        if (remoteNotifs && remoteNotifs.length >= 0) {
+          setUnreadNotifCount(NotificationService.getUnreadCount(currentOrganization.id, currentUser.id));
+        }
       }
     );
 
-    const handleUpdate = () => {
-      if (currentUser?.id && currentOrganization?.id) {
+    // Escuta evento customizado de atualização no Storage
+    const handleUpdate = (e: any) => {
+      if (e.detail?.orgId === currentOrganization.id && e.detail?.userId === currentUser.id) {
         setUnreadNotifCount(NotificationService.getUnreadCount(currentOrganization.id, currentUser.id));
       }
     };
@@ -107,25 +111,25 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="h-16 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-20 shrink-0">
+      <header className="h-16 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-20 shrink-0 transition-colors">
         {/* Left: Mobile Menu & Current Context Title */}
         <div className="flex items-center gap-3">
           <button
             onClick={onOpenSidebar}
-            className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
             title="Abrir menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
           <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs font-bold text-white tracking-tight">
+            <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">
               {currentOrganization.name}
             </span>
             {currentCampus && (
               <>
-                <span className="text-slate-600">•</span>
-                <span className="text-xs text-slate-400">
+                <span className="text-slate-400 dark:text-slate-600">•</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {currentCampus.name}
                 </span>
               </>
@@ -143,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar demandas, tarefas, pessoas ou eventos..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-950/60 border border-slate-800 focus:border-indigo-500 text-xs text-white placeholder-slate-500 focus:outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 focus:border-brand-500 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none transition-all"
             />
           </div>
         </div>
@@ -169,8 +173,8 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               onClick={() => setIsToolsMenuOpen(!isToolsMenuOpen)}
-              className={`p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1 ${
-                isToolsMenuOpen ? 'bg-slate-800 text-white' : ''
+              className={`p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors flex items-center gap-1 ${
+                isToolsMenuOpen ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : ''
               }`}
               title="Ferramentas e Resumo"
             >
@@ -183,8 +187,8 @@ export const Header: React.FC<HeaderProps> = ({
                   className="fixed inset-0 z-30"
                   onClick={() => setIsToolsMenuOpen(false)}
                 />
-                <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl py-2 z-40 animate-fade-in text-xs">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 mb-1">
+                <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-40 animate-fade-in text-xs">
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 mb-1">
                     Ferramentas & Ajustes
                   </div>
 
@@ -193,9 +197,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setIsToolsMenuOpen(false);
                       onNavigate?.('settings');
                     }}
-                    className="w-full px-3.5 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-medium text-indigo-300"
+                    className="w-full px-3.5 py-2 text-left text-brand-600 dark:text-indigo-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors font-medium"
                   >
-                    <Settings className="w-4 h-4 text-indigo-400" />
+                    <Settings className="w-4 h-4 text-brand-600 dark:text-indigo-400" />
                     <span>Configurações da Igreja & Listas</span>
                   </button>
 
@@ -290,14 +294,28 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
+          {/* Theme Toggle (Light / Dark Mode) */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors flex items-center justify-center"
+            title={isDark ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+            aria-label="Alternar tema de cores"
+          >
+            {isDark ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-brand-600" />
+            )}
+          </button>
+
           {/* Notification Button */}
           <button
             onClick={() => setIsNotifOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:border-slate-600 text-slate-300 hover:text-white transition-all text-xs font-semibold relative"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all text-xs font-semibold relative"
             title="Central de Notificações"
           >
             <div className="relative">
-              <Bell className="w-4 h-4 text-amber-400" />
+              <Bell className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               {unreadNotifCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-500 animate-ping" />
               )}
