@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
@@ -39,7 +39,10 @@ import {
   ChevronUp,
   Check,
   Building2,
-  FolderPlus
+  FolderPlus,
+  Mic,
+  MicOff,
+  Radio
 } from 'lucide-react';
 
 interface ImportJsonModalProps {
@@ -169,6 +172,90 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
       success('Chave da IA salva com sucesso para o seu usuário!');
     } else {
       warning('Chave removida.');
+    }
+  };
+
+  // Reconhecimento de Voz nativo (Microfone / Web Speech API)
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Limpeza de reconhecimento ao desmontar componente
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const handleToggleVoiceRecording = () => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsRecording(false);
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      notifyError(
+        'Navegador sem suporte',
+        'O reconhecimento de voz pelo microfone não está habilitado neste navegador. Recomendamos o Google Chrome ou Microsoft Edge.'
+      );
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          }
+        }
+
+        if (finalTranscript) {
+          setTranscriptInput((prev) =>
+            prev && prev.trim()
+              ? `${prev.trim()} ${finalTranscript.trim()}`
+              : finalTranscript.trim()
+          );
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          notifyError('Microfone bloqueado', 'Por favor, conceda permissão de microfone nas configurações do navegador.');
+        }
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      notifyError('Erro no microfone', err?.message || 'Falha ao iniciar o microfone.');
+      setIsRecording(false);
     }
   };
 
@@ -664,17 +751,56 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
                     <Sparkles className="w-4 h-4 text-amber-400" />
                     <span>Anotações ou Transcrição do Granola</span>
                   </span>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    {transcriptInput.length} caractere(s)
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {/* Botão de Microfone / Gravação por Voz */}
+                    <button
+                      type="button"
+                      onClick={handleToggleVoiceRecording}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all shadow-sm ${
+                        isRecording
+                          ? 'bg-rose-500 text-white animate-pulse shadow-rose-500/30'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                      }`}
+                      title={isRecording ? 'Clique para parar a captura de voz' : 'Falar em vez de escrever (ditar com microfone)'}
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="w-3.5 h-3.5 animate-bounce" />
+                          <span>Ouvindo... (Parar)</span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Falar (Microfone)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {transcriptInput.length} caractere(s)
+                    </span>
+                  </div>
                 </div>
+
+                {/* Banner animado quando estiver gravando com microfone */}
+                {isRecording && (
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-pulse">
+                    <Radio className="w-4 h-4 text-rose-400 animate-spin shrink-0" />
+                    <span className="font-semibold">
+                      Gravando sua voz em tempo real... O que você disser será convertido em texto abaixo.
+                    </span>
+                  </div>
+                )}
 
                 <textarea
                   rows={14}
                   value={transcriptInput}
                   onChange={(e) => setTranscriptInput(e.target.value)}
-                  placeholder={`Cole aqui as notas da reunião, ata ou transcrição do Granola, Otter, Whisper...\n\nA IA utilizará os nomes reais da sua equipe (${users.slice(0, 3).map((u) => u.name).join(', ')}...) e projetos para associar automaticamente as tarefas.`}
-                  className="flex-1 w-full p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-sans text-slate-200 placeholder-slate-600 focus:outline-none focus:border-amber-500 shadow-inner custom-scrollbar resize-none leading-relaxed"
+                  placeholder={`Cole aqui as notas da reunião, ata ou transcrição do Granola, Otter, Whisper...\nOu clique no botão 'Falar (Microfone)' acima para ditar o que foi conversado!\n\nA IA utilizará os nomes reais da sua equipe (${users.slice(0, 3).map((u) => u.name).join(', ')}...) e projetos para associar automaticamente as tarefas.`}
+                  className={`flex-1 w-full p-4 rounded-2xl bg-slate-950 border text-xs font-sans text-slate-200 placeholder-slate-600 focus:outline-none shadow-inner custom-scrollbar resize-none leading-relaxed transition-all ${
+                    isRecording ? 'border-rose-500/60 ring-2 ring-rose-500/20' : 'border-slate-800 focus:border-amber-500'
+                  }`}
                 />
 
                 <button

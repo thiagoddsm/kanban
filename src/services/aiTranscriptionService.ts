@@ -33,10 +33,10 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Padrão • Rápido e Gratuito' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Nova Geração • Alta Precisão' },
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Avançado • Experimental' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Raciocínio Profundo • Textos Longos' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Padrão • Mais Rápido' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
+  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
 ] as const;
 
 export type AiModelId = typeof AI_MODELS[number]['id'];
@@ -82,7 +82,7 @@ export class AiTranscriptionService {
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
       return stored;
     }
-    return 'gemini-1.5-flash';
+    return 'gemini-3.6-flash';
   }
 
   /**
@@ -233,7 +233,7 @@ ESTRUTURA JSON EXIGIDA:
         if (res.status === 404) {
           return {
             success: false,
-            error: `O modelo "${model}" não foi encontrado ou não está disponível para esta chave. Experimente selecionar o Gemini 1.5 Flash.`,
+            error: `O modelo "${model}" não foi encontrado ou não está disponível para esta chave. Experimente selecionar o Gemini 3.6 Flash.`,
           };
         }
         if (res.status === 429) {
