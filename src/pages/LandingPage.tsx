@@ -125,11 +125,8 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="bg-slate-50 text-slate-800 font-sans antialiased overflow-x-hidden selection:bg-brand-500 selection:text-white min-h-screen">
-      {/* Elementos visuais sutis de fundo (Gradient Orbs) */}
-      <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-brand-100/40 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
-        <div className="absolute top-40 left-0 w-[30rem] h-[30rem] bg-blue-100/40 rounded-full blur-[100px] -translate-x-1/2" />
-      </div>
+      {/* Elementos visuais sutis de fundo (Gradientes nativos ultra-leves sem sobrecarga de GPU) */}
+      <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(239,246,255,0.8),transparent_50%),radial-gradient(circle_at_20%_30%,rgba(219,234,254,0.5),transparent_40%)]" />
 
       {/* ── HEADER / NAVBAR ───────────────────────────────────────── */}
       <header className="fixed w-full top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 transition-all">

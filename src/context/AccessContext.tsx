@@ -67,7 +67,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Refresh memberships on mount or change & listen to Firestore
   useEffect(() => {
     setMemberships(StorageService.getMemberships());
-    if (!currentOrganization.id) return;
+    if (!currentUser || !currentOrganization.id) return;
 
     const dedupe = (list: Membership[]) => {
       const seen = new Set<string>();

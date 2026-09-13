@@ -3,7 +3,6 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager,
   getFirestore
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -33,12 +32,10 @@ try {
   }
   auth = getAuth(app);
 
-  // Inicialização do Firestore com cache local persistente nativo em IndexedDB (suporte multi-abas)
+  // Inicialização estável e leve do Firestore (sem trava de concorrência multi-abas que vaza memória)
   try {
     db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
+      localCache: persistentLocalCache({}),
     });
   } catch (e) {
     db = getFirestore(app);

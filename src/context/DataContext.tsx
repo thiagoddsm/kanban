@@ -204,7 +204,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Reload data whenever current organization changes + Firestore Realtime Sync
   useEffect(() => {
-    if (!currentOrganization.id) return;
+    if (!currentUser || !currentOrganization.id) return;
 
     setRawTasks(StorageService.getTasks(currentOrganization.id));
     setRawEvents(StorageService.getEvents(currentOrganization.id));
@@ -249,14 +249,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.fetchUsers().then((remoteUsers) => {
       if (remoteUsers && remoteUsers.length > 0) {
         setAllUsers(remoteUsers);
-        remoteUsers.forEach((u) => StorageService.addUser(u));
+        StorageService.saveUsers(remoteUsers);
       }
     });
 
     FirestoreRepository.fetchComments(currentOrganization.id).then((remoteComments) => {
       if (remoteComments && remoteComments.length > 0) {
         setComments(remoteComments);
-        remoteComments.forEach((c) => StorageService.addComment(c));
+        StorageService.saveComments(currentOrganization.id, remoteComments);
       }
     });
 
@@ -303,14 +303,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubUsers = FirestoreRepository.subscribeUsers((users) => {
       if (users && users.length > 0) {
         setAllUsers(users);
-        users.forEach((u) => StorageService.addUser(u));
+        StorageService.saveUsers(users);
       }
     });
 
     const unsubComments = FirestoreRepository.subscribeComments(currentOrganization.id, (comments) => {
       if (comments && comments.length >= 0) {
         setComments(comments);
-        comments.forEach((c) => StorageService.addComment(c));
+        StorageService.saveComments(currentOrganization.id, comments);
       }
     });
 
@@ -354,7 +354,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       unsubMembers();
       unsubPastoral();
     };
-  }, [currentOrganization.id]);
+  }, [currentOrganization.id, currentUser?.id]);
 
 
   // UNIFIED SCOPE ENGINE: Scoped Tasks com Resolução de Responsáveis
