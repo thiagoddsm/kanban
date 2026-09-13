@@ -22,6 +22,7 @@ import { TrialBanner } from './TrialBanner';
 import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
+import { useAccess } from '../../context/AccessContext';
 
 const VALID_TABS: NavigationTab[] = [
   'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'members-journey', 'pastoral-care', 'users', 'settings',
@@ -31,6 +32,7 @@ export const Layout: React.FC = () => {
   const { orgSlug, tab } = useParams<{ orgSlug: string; tab: string }>();
   const navigate = useNavigate();
   const { currentUser, isLoadingAuth } = useAuth();
+  const { isAdmin, canViewPastoral } = useAccess();
   const { 
     currentOrganization, 
     switchOrganizationBySlug,
@@ -46,6 +48,18 @@ export const Layout: React.FC = () => {
       navigate('/login', { replace: true });
     }
   }, [isLoadingAuth, currentUser, navigate]);
+
+  // Guard de Autorização RBAC: impede que não-admins ou usuários sem permissão acessem abas restritas
+  React.useEffect(() => {
+    if (!isLoadingAuth && currentUser) {
+      if ((tab === 'users' || tab === 'settings') && !isAdmin) {
+        navigate(`/${currentOrganization.slug}/dashboard`, { replace: true });
+      }
+      if (tab === 'pastoral-care' && !canViewPastoral) {
+        navigate(`/${currentOrganization.slug}/dashboard`, { replace: true });
+      }
+    }
+  }, [tab, isAdmin, canViewPastoral, isLoadingAuth, currentUser, currentOrganization.slug, navigate]);
 
   // Resolver a organização pelo slug da URL ao montar/mudar
   React.useEffect(() => {
@@ -147,9 +161,9 @@ export const Layout: React.FC = () => {
           {activeTab === 'calendar' && <CalendarView />}
           {activeTab === 'archived' && <ArchivedView />}
           {activeTab === 'members-journey' && <MemberJourneyBoard />}
-          {activeTab === 'pastoral-care' && <PastoralCareView />}
-          {activeTab === 'users' && <UsersView />}
-          {activeTab === 'settings' && <SettingsView />}
+          {activeTab === 'pastoral-care' && canViewPastoral && <PastoralCareView />}
+          {activeTab === 'users' && isAdmin && <UsersView />}
+          {activeTab === 'settings' && isAdmin && <SettingsView />}
         </main>
       </div>
 
