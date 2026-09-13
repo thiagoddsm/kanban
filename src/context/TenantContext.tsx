@@ -154,9 +154,18 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const switchOrganizationBySlug = (slug: string): boolean => {
-    const org = organizations.find(
+    let org = organizations.find(
       (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
     );
+    if (!org) {
+      const localOrgs = StorageService.getOrganizations();
+      org = localOrgs.find(
+        (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
+      );
+      if (org && !organizations.some((o) => o.id === org!.id)) {
+        setOrganizations(localOrgs);
+      }
+    }
     if (org) {
       switchOrganization(org.id, true);
       return true;

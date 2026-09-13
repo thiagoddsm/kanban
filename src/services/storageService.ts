@@ -83,6 +83,8 @@ export class StorageService {
     localStorage.removeItem(getOrgKey(orgId, 'demand_types'));
     localStorage.removeItem(getOrgKey(orgId, 'event_categories'));
     localStorage.removeItem(getOrgKey(orgId, 'departments'));
+    localStorage.removeItem(getOrgKey(orgId, 'member_journeys'));
+    localStorage.removeItem(getOrgKey(orgId, 'pastoral_appointments'));
     return updated;
   }
 
@@ -580,6 +582,8 @@ export class StorageService {
       localStorage.setItem(getOrgKey(org.id, 'demand_types'), JSON.stringify(DEMAND_TYPES));
       localStorage.setItem(getOrgKey(org.id, 'event_categories'), JSON.stringify(DEFAULT_EVENT_CATEGORIES));
       localStorage.setItem(getOrgKey(org.id, 'departments'), JSON.stringify(DEFAULT_DEPARTMENTS));
+      localStorage.setItem(getOrgKey(org.id, 'member_journeys'), JSON.stringify(INITIAL_MEMBER_JOURNEYS.filter((m) => m.organizationId === org.id)));
+      localStorage.setItem(getOrgKey(org.id, 'pastoral_appointments'), JSON.stringify(INITIAL_PASTORAL_APPOINTMENTS.filter((p) => p.organizationId === org.id)));
     });
   }
 }

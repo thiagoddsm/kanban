@@ -34,6 +34,7 @@ export const Layout: React.FC = () => {
   const { currentUser, isLoadingAuth } = useAuth();
   const { isAdmin, canViewPastoral } = useAccess();
   const { 
+    organizations,
     currentOrganization, 
     switchOrganizationBySlug,
     isTrialExpired,
@@ -65,12 +66,12 @@ export const Layout: React.FC = () => {
   React.useEffect(() => {
     if (orgSlug && orgSlug !== currentOrganization.slug) {
       const found = switchOrganizationBySlug(orgSlug);
-      if (!found) {
-        // Slug não encontrado — redireciona para a org padrão
+      if (!found && organizations.length > 0) {
+        // Slug não encontrado após carga das organizações — redireciona para a org padrão
         navigate(`/${currentOrganization.slug}/dashboard`, { replace: true });
       }
     }
-  }, [orgSlug]);
+  }, [orgSlug, currentOrganization.slug, organizations.length]);
 
   // Deriva a aba ativa do param de URL, validando contra as tabs conhecidas
   const activeTab: NavigationTab =

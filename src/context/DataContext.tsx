@@ -436,6 +436,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [filterTag, setFilterTag] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Limpa filtros sempre que a organização ativa mudar para não vazar IDs e filtros entre tenants
+  useEffect(() => {
+    setFilterOnlyMyTasks(false);
+    setFilterEventId('');
+    setFilterAssigneeId('');
+    setFilterPriority('');
+    setFilterDemandType('');
+    setFilterCampusId('');
+    setFilterTag('');
+    setSearchQuery('');
+  }, [currentOrganization.id]);
+
   const allTags = useMemo(() => {
     const set = new Set<string>();
     scopedTasks.forEach((t) => {
@@ -1137,7 +1149,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const template = EVENT_TEMPLATES.find((t) => t.id === templateId);
     if (!template) return null;
 
-    const leader = orgUsers[0];
+    const leader = orgUsers[0] || currentUser;
+    const leaderId = leader?.id || currentUser?.id || 'sys';
+    const leaderName = leader?.name || currentUser?.name || 'Líder Responsável';
+
     const createdEvent = createEvent({
       organizationId: currentOrganization.id,
       title: eventTitle,
@@ -1148,8 +1163,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       endDate: eventEndDate || eventStartDate,
       location: location || 'Templo Principal',
       campusId: campusId || null,
-      leaderId: leader.id,
-      leaderName: leader.name,
+      leaderId,
+      leaderName,
       teamIds: orgUsers.slice(0, 3).map((u) => u.id),
       bannerColor: 'from-indigo-600 to-purple-600',
     });
@@ -1526,6 +1541,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updatedAt: new Date().toISOString(),
     };
     setRawMemberJourneys((prev) => [newCard, ...prev]);
+    StorageService.addMemberJourney(currentOrganization.id, newCard);
     await FirestoreRepository.saveMemberJourney(currentOrganization.id, newCard);
     success('Novo contato registrado na jornada de acolhimento!');
     return newCard;
@@ -1537,11 +1553,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updatedAt: new Date().toISOString(),
     };
     setRawMemberJourneys((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
+    StorageService.updateMemberJourney(currentOrganization.id, updated);
     await FirestoreRepository.saveMemberJourney(currentOrganization.id, updated);
   };
 
   const deleteMemberJourney = async (id: string): Promise<void> => {
     setRawMemberJourneys((prev) => prev.filter((m) => m.id !== id));
+    StorageService.deleteMemberJourney(currentOrganization.id, id);
     await FirestoreRepository.deleteMemberJourney(currentOrganization.id, id);
     info('Contato removido da jornada.');
   };
@@ -1558,6 +1576,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updatedAt: new Date().toISOString(),
     };
     setRawPastoralAppointments((prev) => [newAppt, ...prev]);
+    StorageService.addPastoralAppointment(currentOrganization.id, newAppt);
     await FirestoreRepository.savePastoralAppointment(currentOrganization.id, newAppt);
     success('Atendimento pastoral registrado com sucesso!');
     return newAppt;
@@ -1569,11 +1588,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updatedAt: new Date().toISOString(),
     };
     setRawPastoralAppointments((prev) => prev.map((a) => (a.id === item.id ? updated : a)));
+    StorageService.updatePastoralAppointment(currentOrganization.id, updated);
     await FirestoreRepository.savePastoralAppointment(currentOrganization.id, updated);
   };
 
   const deletePastoralAppointment = async (id: string): Promise<void> => {
     setRawPastoralAppointments((prev) => prev.filter((a) => a.id !== id));
+    StorageService.deletePastoralAppointment(currentOrganization.id, id);
     await FirestoreRepository.deletePastoralAppointment(currentOrganization.id, id);
     info('Atendimento pastoral removido.');
   };

@@ -554,6 +554,11 @@ export class FirestoreRepository {
     task: Task, 
     expectedVersion?: number
   ): Promise<{ success: boolean; conflict?: boolean; remoteTask?: Task; newVersion?: number }> {
+    if (!task || !task.id || !task.organizationId) {
+      console.warn('saveTask abortado: task.id ou task.organizationId ausente', task);
+      return { success: false };
+    }
+
     if (!isFirebaseConfigured || !db) {
       StorageService.updateTask(task);
       return { success: true };
@@ -619,6 +624,11 @@ export class FirestoreRepository {
     event: ChurchEvent,
     expectedVersion?: number
   ): Promise<{ success: boolean; conflict?: boolean; remoteEvent?: ChurchEvent }> {
+    if (!event || !event.id || !event.organizationId) {
+      console.warn('saveEvent abortado: event.id ou event.organizationId ausente', event);
+      return { success: false };
+    }
+
     if (!isFirebaseConfigured || !db) {
       StorageService.updateEvent(event);
       return { success: true };
