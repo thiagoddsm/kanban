@@ -35,15 +35,17 @@ import {
 } from '../types';
 
 function sanitizeForFirestore<T>(data: T): any {
-  if (data === undefined) return null;
+  if (data === undefined || typeof data === 'function') return null;
   if (data === null) return null;
   if (Array.isArray(data)) {
-    return data.map(sanitizeForFirestore);
+    return data
+      .filter((item) => typeof item !== 'function')
+      .map((item) => (item === undefined ? null : sanitizeForFirestore(item)));
   }
   if (typeof data === 'object' && !(data instanceof Date)) {
     const output: Record<string, any> = {};
     for (const [key, value] of Object.entries(data)) {
-      if (value !== undefined) {
+      if (value !== undefined && typeof value !== 'function') {
         output[key] = sanitizeForFirestore(value);
       }
     }
@@ -922,11 +924,12 @@ export class FirestoreRepository {
    */
   public static async recordActivity(activity: ActivityLog): Promise<void> {
     StorageService.addActivity(activity);
-    if (!isFirebaseConfigured || !db) return;
+    if (!isFirebaseConfigured || !db || !activity.organizationId) return;
 
     try {
       const actRef = doc(db, 'organizations', activity.organizationId, 'activities', activity.id);
-      await setDoc(actRef, activity);
+      const sanitized = sanitizeForFirestore(activity);
+      await setDoc(actRef, sanitized);
     } catch (e) {
       console.error('Erro ao gravar auditoria no Firestore:', e);
     }
