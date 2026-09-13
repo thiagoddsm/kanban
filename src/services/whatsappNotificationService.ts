@@ -2,6 +2,16 @@ import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from './evolutionApiSer
 import { Organization, Task, User } from '../types';
 
 export class WhatsAppNotificationService {
+  private static resolveBaseUrl(): string {
+    return typeof window !== 'undefined' ? window.location.origin : 'https://studio-5589719834-7481b.web.app';
+  }
+
+  private static resolveTaskUrl(org: Organization): string {
+    const baseUrl = this.resolveBaseUrl();
+    const slug = org.slug || 'ib';
+    return `${baseUrl}/${slug}/tasks`;
+  }
+
   /**
    * Resolve a instância a ser utilizada para o envio:
    * Prioridade: Instância conectada do autor -> Instância da Organização (Oiko_Gestao)
@@ -55,7 +65,8 @@ export class WhatsAppNotificationService {
       : 'Sem prazo definido';
 
     const firstName = (assigneeUser.name || (assigneeUser.email ? assigneeUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}\n\n👉 *Acesse a demanda:* https://studio-5589719834-7481b.web.app/tasks`;
+    const taskUrl = this.resolveTaskUrl(organization);
+    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}\n\n👉 *Acesse a demanda:* ${taskUrl}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -104,7 +115,8 @@ export class WhatsAppNotificationService {
 
     const actorName = actorUser?.name || 'Um membro';
     const firstName = (mentionedUser.name || (mentionedUser.email ? mentionedUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_\n\n👉 *Responder agora:* https://studio-5589719834-7481b.web.app/tasks`;
+    const taskUrl = this.resolveTaskUrl(organization);
+    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_\n\n👉 *Responder agora:* ${taskUrl}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -149,7 +161,8 @@ export class WhatsAppNotificationService {
     if (!phone) return false;
 
     const actorName = actorUser?.name || 'Um membro';
-    const text = `🚨 *Alerta de Demanda Bloqueada (Gargalo) - Kanban Oiko*\n\nA demanda *"${task.title}"* foi sinalizada como bloqueada por *${actorName}*.\n\n⚠️ *Motivo do Bloqueio:* _"${reason}"_\n\n👉 *Ver detalhes para desbloqueio:* https://studio-5589719834-7481b.web.app/tasks`;
+    const taskUrl = this.resolveTaskUrl(organization);
+    const text = `🚨 *Alerta de Demanda Bloqueada (Gargalo) - Kanban Oiko*\n\nA demanda *"${task.title}"* foi sinalizada como bloqueada por *${actorName}*.\n\n⚠️ *Motivo do Bloqueio:* _"${reason}"_\n\n👉 *Ver detalhes para desbloqueio:* ${taskUrl}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -193,7 +206,8 @@ export class WhatsAppNotificationService {
 
     const actorName = actorUser?.name || 'Líder';
     const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const text = `🎉 *Demanda Aprovada e Concluída! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\n👉 *Acessar:* https://studio-5589719834-7481b.web.app/tasks`;
+    const taskUrl = this.resolveTaskUrl(organization);
+    const text = `🎉 *Demanda Aprovada e Concluída! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\n👉 *Acessar:* ${taskUrl}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -306,6 +320,8 @@ export class WhatsAppNotificationService {
       let text = '';
       const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
 
+      const taskUrl = this.resolveTaskUrl(organization);
+
       if (userTasks.length === 1) {
         // Mensagem unitária
         const singleTask = userTasks[0];
@@ -313,7 +329,7 @@ export class WhatsAppNotificationService {
           ? new Date(singleTask.deadline + 'T00:00:00').toLocaleDateString('pt-BR')
           : 'Sem prazo definido';
 
-        text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${singleTask.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${singleTask.priority || 'Média'}\n\n👉 *Acesse a demanda:* https://studio-5589719834-7481b.web.app/tasks`;
+        text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${singleTask.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${singleTask.priority || 'Média'}\n\n👉 *Acesse a demanda:* ${taskUrl}`;
       } else {
         // Mensagem consolidada (Resumo de Múltiplas Tarefas)
         const taskItemsText = userTasks
@@ -327,7 +343,7 @@ export class WhatsAppNotificationService {
           })
           .join('\n\n');
 
-        text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* https://studio-5589719834-7481b.web.app/tasks`;
+        text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* ${taskUrl}`;
       }
 
       try {
