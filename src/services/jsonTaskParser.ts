@@ -58,7 +58,21 @@ export class JsonTaskParser {
     }
   }
 
-  private static normalizeRawTask(
+  public static normalizeTasksList(
+    rawItems: any[],
+    context: {
+      organizationId: string;
+      users: User[];
+      events: ChurchEvent[];
+      campuses: Campus[];
+      currentUserId: string;
+      currentUserName: string;
+    }
+  ): ParsedTaskResult[] {
+    return rawItems.map((item) => this.normalizeRawTask(item, context));
+  }
+
+  public static normalizeRawTask(
     raw: any,
     context: {
       organizationId: string;

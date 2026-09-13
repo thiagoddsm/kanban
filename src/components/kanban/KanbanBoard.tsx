@@ -271,11 +271,12 @@ export const KanbanBoard: React.FC = () => {
                   setIsImportJsonOpen(true);
                 }
               }}
-              title="Importar ou criar tarefas via JSON (Atalho: J)"
+              title="Criar tarefas com IA (Transcrição / Granola) ou JSON (Atalho: J)"
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-xs font-semibold border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 transition-all shrink-0"
             >
-              <Code2 className="w-3.5 h-3.5 text-brand-600 dark:text-cyan-400" />
-              <span className="hidden sm:inline">Importar JSON</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Criar com IA / JSON</span>
+              <span className="sm:hidden">IA / JSON</span>
             </button>
           )}
         </div>
