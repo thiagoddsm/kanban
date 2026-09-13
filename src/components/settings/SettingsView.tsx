@@ -234,35 +234,35 @@ export const SettingsView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 custom-scrollbar bg-slate-50 dark:bg-transparent">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Configurações & Listas do Sistema
             </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
               {currentOrganization.name}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Personalize os Tipos de Demanda nos formulários, Categorias de Eventos, Ministérios e Identidade Visual.
           </p>
         </div>
       </div>
 
       {/* Subtabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto custom-scrollbar">
         <button
           onClick={() => setActiveSubTab('billing')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'billing'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/25'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600 text-white shadow-md shadow-brand-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
-          <Crown className="w-3.5 h-3.5 text-amber-400" />
+          <Crown className="w-3.5 h-3.5 text-amber-300" />
           <span>Meu Plano & Limites</span>
         </button>
 
@@ -270,8 +270,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('campuses')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'campuses'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <MapPin className="w-3.5 h-3.5" />
@@ -282,8 +282,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('organizations')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'organizations'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <Building2 className="w-3.5 h-3.5" />
@@ -294,8 +294,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('demands')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'demands'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <Palette className="w-3.5 h-3.5" />
@@ -306,8 +306,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('events')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'events'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <CalendarDays className="w-3.5 h-3.5" />
@@ -318,8 +318,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('departments')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'departments'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -330,8 +330,8 @@ export const SettingsView: React.FC = () => {
           onClick={() => setActiveSubTab('branding')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'branding'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-brand-600 dark:bg-indigo-600 text-white shadow-md shadow-brand-600/20'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -345,17 +345,17 @@ export const SettingsView: React.FC = () => {
       {/* TAB: SEDES & CAMPI */}
       {activeSubTab === 'campuses' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm dark:shadow-none">
             <div>
-              <h3 className="text-sm font-bold text-white">Sedes e Campi da Igreja ({currentOrganization.name})</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sedes e Campi da Igreja ({currentOrganization.name})</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Gerencie todas as filiais e congregações. O Kanban e os eventos podem ser filtrados por unidade.
               </p>
             </div>
 
             <button
               onClick={() => setIsNewCampusOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all self-start sm:self-auto"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 transition-all self-start sm:self-auto"
             >
               <Plus className="w-4 h-4" />
               <span>Novo Campus / Sede</span>
@@ -370,51 +370,51 @@ export const SettingsView: React.FC = () => {
                   key={camp.id}
                   className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
                     isSelected
-                      ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm'
-                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                      ? 'bg-brand-50/40 dark:bg-indigo-950/20 border-brand-300 dark:border-indigo-500/40 shadow-sm'
+                      : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm dark:shadow-none'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                        <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0">
                           <MapPin className="w-4 h-4" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-white leading-tight">{camp.name}</h4>
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 uppercase mt-0.5 inline-block">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{camp.name}</h4>
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-transparent uppercase mt-0.5 inline-block">
                             {camp.code}
                           </span>
                         </div>
                       </div>
                       {camp.isMainCampus && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 shrink-0">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20 shrink-0">
                           Principal (Sede)
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-3 text-xs text-slate-400 space-y-1">
+                    <div className="mt-3 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                       {camp.city && (
                         <p className="flex items-center gap-1.5">
-                          <span className="text-slate-500 font-semibold">Cidade:</span> {camp.city}
+                          <span className="text-slate-400 dark:text-slate-500 font-semibold">Cidade:</span> {camp.city}
                         </p>
                       )}
                       {camp.address && (
                         <p className="flex items-center gap-1.5 truncate">
-                          <span className="text-slate-500 font-semibold">Endereço:</span> {camp.address}
+                          <span className="text-slate-400 dark:text-slate-500 font-semibold">Endereço:</span> {camp.address}
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80">
                     <button
                       onClick={() => switchCampus(camp.id)}
                       className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
                         isSelected
-                          ? 'text-indigo-400 bg-indigo-500/10 font-bold'
-                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                          ? 'text-brand-700 dark:text-indigo-400 bg-brand-50 dark:bg-indigo-500/10 font-bold'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
                       {isSelected ? '✓ Ativo no Filtro' : 'Filtrar por este'}
@@ -423,7 +423,7 @@ export const SettingsView: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setSelectedCampusForEdit(camp)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Editar Campus"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -439,8 +439,8 @@ export const SettingsView: React.FC = () => {
                         disabled={campuses.length <= 1}
                         className={`p-1.5 rounded-lg transition-colors ${
                           campuses.length <= 1
-                            ? 'opacity-30 cursor-not-allowed text-slate-600'
-                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                            ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                            : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10'
                         }`}
                         title="Excluir Campus"
                       >
@@ -458,17 +458,17 @@ export const SettingsView: React.FC = () => {
       {/* TAB: IGREJAS / ORGANIZAÇÕES */}
       {activeSubTab === 'organizations' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm dark:shadow-none">
             <div>
-              <h3 className="text-sm font-bold text-white">Organizações e Igrejas (Multi-tenant SaaS)</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Organizações e Igrejas (Multi-tenant SaaS)</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Cada organização possui seus próprios membros, projetos, demandas, orçamentos e permissões isoladas.
               </p>
             </div>
 
             <button
               onClick={() => setIsOnboardingOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all self-start sm:self-auto"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white text-xs font-bold shadow-md shadow-brand-600/20 active:scale-95 transition-all self-start sm:self-auto"
             >
               <Plus className="w-4 h-4" />
               <span>Nova Organização (SaaS)</span>
@@ -483,8 +483,8 @@ export const SettingsView: React.FC = () => {
                   key={org.id}
                   className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
                     isActive
-                      ? 'bg-indigo-950/20 border-indigo-500/40 shadow-sm'
-                      : 'bg-slate-900/80 border-slate-800 hover:border-slate-700'
+                      ? 'bg-brand-50/40 dark:bg-indigo-950/20 border-brand-300 dark:border-indigo-500/40 shadow-sm'
+                      : 'bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-sm dark:shadow-none'
                   }`}
                 >
                   <div>
@@ -492,45 +492,45 @@ export const SettingsView: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div 
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-xs shadow-inner shrink-0"
-                          style={{ backgroundColor: org.branding?.primaryColor || '#4f46e5' }}
+                          style={{ backgroundColor: org.branding?.primaryColor || '#2563eb' }}
                         >
                           {org.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-white leading-tight">{org.name}</h4>
-                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 uppercase mt-0.5 inline-block">
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{org.name}</h4>
+                          <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded bg-brand-50 dark:bg-indigo-500/20 text-brand-700 dark:text-indigo-300 border border-brand-200 dark:border-transparent uppercase mt-0.5 inline-block">
                             Plano {org.subscription.plan}
                           </span>
                         </div>
                       </div>
                       {isActive && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20 shrink-0">
                           Ativa no Momento
                         </span>
                       )}
                     </div>
 
-                    <div className="mt-3 text-xs text-slate-400 space-y-1">
+                    <div className="mt-3 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                       <p className="flex items-center gap-1.5">
-                        <span className="text-slate-500 font-semibold">Identificador (Slug):</span> {org.slug}
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Identificador (Slug):</span> {org.slug}
                       </p>
                       <p className="flex items-center gap-1.5">
-                        <span className="text-slate-500 font-semibold">Criado em:</span> {new Date(org.createdAt).toLocaleDateString('pt-BR')}
+                        <span className="text-slate-400 dark:text-slate-500 font-semibold">Criado em:</span> {new Date(org.createdAt).toLocaleDateString('pt-BR')}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800/80">
                     {!isActive ? (
                       <button
                         onClick={() => switchOrganization(org.id)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white transition-all flex items-center gap-1"
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-brand-600 dark:bg-slate-800 dark:hover:bg-indigo-600 text-slate-700 hover:text-white dark:text-slate-300 dark:hover:text-white transition-all flex items-center gap-1 border border-slate-200 dark:border-transparent"
                       >
                         <span>Acessar Organização</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     ) : (
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <Check className="w-3.5 h-3.5" /> Sessão Atual
                       </span>
                     )}
@@ -538,7 +538,7 @@ export const SettingsView: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setSelectedOrgForEdit(org)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Editar Organização"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
@@ -554,8 +554,8 @@ export const SettingsView: React.FC = () => {
                         disabled={organizations.length <= 1}
                         className={`p-1.5 rounded-lg transition-colors ${
                           organizations.length <= 1
-                            ? 'opacity-30 cursor-not-allowed text-slate-600'
-                            : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
+                            ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-slate-600'
+                            : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10'
                         }`}
                         title="Excluir Organização"
                       >
@@ -573,10 +573,10 @@ export const SettingsView: React.FC = () => {
       {/* TAB 1: DEMAND TYPES */}
       {activeSubTab === 'demands' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm dark:shadow-none">
             <div>
-              <h3 className="text-sm font-bold text-white">Opções do Menu "Tipo de Demanda"</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Opções do Menu "Tipo de Demanda"</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Estas são as opções exibidas para os líderes e membros ao abrir uma nova solicitação ou criar uma tarefa no Kanban.
               </p>
             </div>
@@ -584,7 +584,7 @@ export const SettingsView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={resetDemandTypesToDefault}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors border border-slate-200 dark:border-transparent"
                 title="Restaurar padrões recomendados"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -593,7 +593,7 @@ export const SettingsView: React.FC = () => {
 
               <button
                 onClick={() => handleOpenDemandForm()}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-brand-600/20 transition-all active:scale-95"
               >
                 <Plus className="w-4 h-4" />
                 <span>Adicionar Novo Tipo</span>
@@ -605,7 +605,7 @@ export const SettingsView: React.FC = () => {
             {demandTypes.map((dt) => (
               <div
                 key={dt.type}
-                className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between group shadow-lg"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between group shadow-sm dark:shadow-lg"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -616,14 +616,14 @@ export const SettingsView: React.FC = () => {
                     <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleOpenDemandForm(dt)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         title="Editar Tipo"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => deleteDemandType(dt.type)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10 transition-colors"
                         title="Excluir Tipo"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -631,14 +631,14 @@ export const SettingsView: React.FC = () => {
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 mt-2.5 line-clamp-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2.5 line-clamp-2">
                     {dt.description}
                   </p>
                 </div>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Chave: <code className="text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded text-[10px]">{dt.type}</code></span>
-                  {dt.isCustom && <span className="text-amber-400 text-[10px] font-bold">Personalizado</span>}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Chave: <code className="text-slate-700 dark:text-slate-400 bg-slate-100 dark:bg-slate-950 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 dark:border-transparent">{dt.type}</code></span>
+                  {dt.isCustom && <span className="text-amber-600 dark:text-amber-400 text-[10px] font-bold">Personalizado</span>}
                 </div>
               </div>
             ))}
@@ -649,17 +649,17 @@ export const SettingsView: React.FC = () => {
       {/* TAB 2: EVENT CATEGORIES */}
       {activeSubTab === 'events' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm dark:shadow-none">
             <div>
-              <h3 className="text-sm font-bold text-white">Categorias de Projetos & Eventos</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Categorias de Projetos & Eventos</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Classificação de grandes encontros, conferências, séries e cultos especiais.
               </p>
             </div>
 
             <button
               onClick={() => handleOpenCatForm()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-brand-600/20 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Nova Categoria</span>
@@ -670,32 +670,32 @@ export const SettingsView: React.FC = () => {
             {eventCategories.map((cat) => (
               <div
                 key={cat.id}
-                className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex flex-col justify-between group shadow-lg"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col justify-between group shadow-sm dark:shadow-lg"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${cat.color}`} />
-                      <h4 className="text-xs font-bold text-white">{cat.name}</h4>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
                     </div>
 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleOpenCatForm(cat)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => deleteEventCategory(cat.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 mt-2 line-clamp-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 line-clamp-2">
                     {cat.description || 'Sem descrição cadastrada.'}
                   </p>
                 </div>
@@ -708,17 +708,17 @@ export const SettingsView: React.FC = () => {
       {/* TAB 3: DEPARTMENTS / MINISTRIES */}
       {activeSubTab === 'departments' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-4 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-sm dark:shadow-none">
             <div>
-              <h3 className="text-sm font-bold text-white">Ministérios & Departamentos Solicitantes</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Ministérios & Departamentos Solicitantes</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Departamentos da igreja que solicitam demandas de comunicação.
               </p>
             </div>
 
             <button
               onClick={() => setIsDeptModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-brand-600/20 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>Novo Ministério / Departamento</span>
@@ -729,18 +729,18 @@ export const SettingsView: React.FC = () => {
             {departments.map((dept) => (
               <div
                 key={dept.id}
-                className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between group shadow-lg"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between group shadow-sm dark:shadow-lg"
               >
                 <div>
-                  <h4 className="text-xs font-bold text-white">{dept.name}</h4>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">{dept.name}</h4>
                   {dept.description && (
-                    <p className="text-xs text-slate-400 mt-1">{dept.description}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{dept.description}</p>
                   )}
                 </div>
 
                 <button
                   onClick={() => deleteDepartment(dept.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -752,17 +752,17 @@ export const SettingsView: React.FC = () => {
 
       {/* TAB 4: BRANDING */}
       {activeSubTab === 'branding' && (
-        <div className="max-w-xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-5">
+        <div className="max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm dark:shadow-xl space-y-5">
           <div>
-            <h3 className="text-base font-bold text-white">Identidade da Igreja</h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Identidade da Igreja</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Personalize o nome da organização e o esquema de cores nos relatórios e menus.
             </p>
           </div>
 
           <form onSubmit={handleSaveBranding} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Nome da Igreja / Ministério
               </label>
               <input
@@ -770,16 +770,16 @@ export const SettingsView: React.FC = () => {
                 value={orgName}
                 onChange={(e) => setOrgName(e.target.value)}
                 disabled
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-400 cursor-not-allowed"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
               />
-              <span className="text-[10px] text-slate-500 mt-1 block">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
                 Nome atual do tenant (gerenciado pelo plano Enterprise/Pro).
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Cor Primária do Tema
                 </label>
                 <div className="flex items-center gap-2">
@@ -793,13 +793,13 @@ export const SettingsView: React.FC = () => {
                     type="text"
                     value={primaryColor}
                     onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white shadow-sm"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                   Cor Secundária
                 </label>
                 <div className="flex items-center gap-2">
@@ -813,14 +813,14 @@ export const SettingsView: React.FC = () => {
                     type="text"
                     value={secondaryColor}
                     onChange={(e) => setSecondaryColor(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-white"
+                    className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white shadow-sm"
                   />
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 URL do Logotipo (Opcional)
               </label>
               <input
@@ -828,13 +828,13 @@ export const SettingsView: React.FC = () => {
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-brand-500 shadow-sm"
               />
             </div>
 
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/25 active:scale-95 transition-all flex items-center gap-2"
+              className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-gradient-to-r dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white font-bold text-xs shadow-md shadow-brand-600/25 active:scale-95 transition-all flex items-center gap-2"
             >
               <Check className="w-4 h-4" />
               <span>Salvar Alterações</span>

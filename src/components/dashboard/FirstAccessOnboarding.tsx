@@ -90,37 +90,37 @@ export const FirstAccessOnboarding: React.FC = () => {
   };
 
   return (
-    <div className="mb-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/25 p-5 sm:p-6 shadow-xl relative overflow-hidden animate-fade-in">
+    <div className="mb-6 rounded-3xl bg-white dark:bg-gradient-to-r dark:from-slate-900 dark:via-indigo-950/40 dark:to-slate-900 border border-slate-200 dark:border-indigo-500/25 p-5 sm:p-6 shadow-sm dark:shadow-xl relative overflow-hidden animate-fade-in">
       {/* Background Subtle Glow */}
-      <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+      <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/5 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
 
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800/80">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold uppercase tracking-wider">
-            <Sparkles className="w-3 h-3 text-indigo-400" />
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-indigo-500/10 border border-brand-200 dark:border-indigo-500/30 text-brand-700 dark:text-indigo-300 text-[11px] font-bold uppercase tracking-wider">
+            <Sparkles className="w-3 h-3 text-brand-600 dark:text-indigo-400" />
             <span>Primeiro Acesso • Guia de Ativação</span>
           </div>
-          <h3 className="text-base sm:text-lg font-black text-white">
+          <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
             Boas-vindas ao Oiko Gestão, {currentOrganization.name}!
           </h3>
-          <p className="text-xs text-slate-400 max-w-xl">
+          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-xl">
             Siga os 3 passos práticos abaixo para colocar a comunicação e as operações da sua igreja em produção.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <span className="text-xs font-bold text-slate-300">{completedCount} de {steps.length} concluídos</span>
-            <div className="w-32 h-2 rounded-full bg-slate-800 overflow-hidden mt-1 border border-slate-700/50">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{completedCount} de {steps.length} concluídos</span>
+            <div className="w-32 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden mt-1 border border-slate-200 dark:border-slate-700/50">
               <div 
-                className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 transition-all duration-500 rounded-full"
+                className="h-full bg-gradient-to-r from-brand-600 to-emerald-500 dark:from-indigo-500 dark:to-emerald-400 transition-all duration-500 rounded-full"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
             title="Dispensar este guia"
           >
             <X className="w-4 h-4" />
@@ -137,19 +137,19 @@ export const FirstAccessOnboarding: React.FC = () => {
               key={step.id}
               className={`rounded-2xl p-4 border transition-all flex flex-col justify-between gap-3 ${
                 step.completed
-                  ? 'bg-slate-900/90 border-emerald-500/30 shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 hover:border-indigo-500/40'
+                  ? 'bg-emerald-50/50 dark:bg-slate-900/90 border-emerald-200 dark:border-emerald-500/30 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 hover:border-brand-400 dark:hover:border-indigo-500/40'
               }`}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                    step.completed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-indigo-500/10 text-indigo-400'
+                    step.completed ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-brand-50 dark:bg-indigo-500/10 text-brand-600 dark:text-indigo-400'
                   }`}>
                     <Icon className="w-4 h-4" />
                   </div>
                   {step.completed ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Concluído</span>
                     </span>
@@ -158,10 +158,10 @@ export const FirstAccessOnboarding: React.FC = () => {
                   )}
                 </div>
 
-                <h4 className="text-xs sm:text-sm font-bold text-white leading-snug">
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug">
                   {step.title}
                 </h4>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
                   {step.desc}
                 </p>
               </div>
@@ -170,13 +170,13 @@ export const FirstAccessOnboarding: React.FC = () => {
                 onClick={step.action}
                 className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   step.completed
-                    ? 'bg-slate-800 hover:bg-slate-750 text-slate-300'
-                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 active:scale-95'
+                    ? 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300'
+                    : 'bg-brand-600 hover:bg-brand-500 text-white shadow-md shadow-brand-600/20 active:scale-95'
                 }`}
               >
                 <span>{step.actionLabel}</span>
                 {copiedLink && step.id === 'portal' ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <Check className="w-3.5 h-3.5 text-emerald-300" />
                 ) : (
                   <ArrowRight className="w-3.5 h-3.5" />
                 )}

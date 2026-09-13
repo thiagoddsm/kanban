@@ -121,20 +121,20 @@ export const CalendarView: React.FC = () => {
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-900/50 p-4 sm:p-6 overflow-hidden space-y-4">
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-900/50 p-4 sm:p-6 overflow-hidden space-y-4">
       {/* Top Header & Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Calendário de Entregas & Cultos
             </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
               {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os campus'}
             </span>
 
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Visão mensal sincronizada de prazos das demandas e datas dos eventos da igreja.
           </p>
         </div>
@@ -143,23 +143,23 @@ export const CalendarView: React.FC = () => {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={prevMonth}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-transparent transition-colors shadow-sm dark:shadow-none"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={goToToday}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs"
+            className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold text-xs border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none"
           >
             Hoje
           </button>
           <button
             onClick={nextMonth}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="p-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-transparent transition-colors shadow-sm dark:shadow-none"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
-          <span className="text-sm font-black text-white ml-2 min-w-[140px]">
+          <span className="text-sm font-black text-slate-900 dark:text-white ml-2 min-w-[140px]">
             {monthNames[month]} {year}
           </span>
         </div>
@@ -170,7 +170,9 @@ export const CalendarView: React.FC = () => {
         <button
           onClick={() => setShowEvents(!showEvents)}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            showEvents ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40' : 'bg-slate-800 text-slate-400'
+            showEvents
+              ? 'bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-600/30 dark:text-purple-300 dark:border-purple-500/40'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none'
           }`}
         >
           Projetos / Eventos ({displayEvents.length})
@@ -178,7 +180,9 @@ export const CalendarView: React.FC = () => {
         <button
           onClick={() => setShowTasks(!showTasks)}
           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-            showTasks ? 'bg-indigo-600/30 text-indigo-300 border border-indigo-500/40' : 'bg-slate-800 text-slate-400'
+            showTasks
+              ? 'bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-600/30 dark:text-indigo-300 dark:border-indigo-500/40'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none'
           }`}
         >
           Tarefas ({displayTasks.length})
@@ -186,7 +190,9 @@ export const CalendarView: React.FC = () => {
         <button
           onClick={() => setFilterMyTasks(!filterMyTasks)}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-            filterMyTasks ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'
+            filterMyTasks
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-600/30 dark:text-emerald-300 dark:border-emerald-500/40'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none'
           }`}
         >
           Minhas Tarefas
@@ -194,7 +200,9 @@ export const CalendarView: React.FC = () => {
         <button
           onClick={() => setFilterOverdueOnly(!filterOverdueOnly)}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-            filterOverdueOnly ? 'bg-rose-600/30 text-rose-300 border border-rose-500/40' : 'bg-slate-800 text-slate-400'
+            filterOverdueOnly
+              ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-600/30 dark:text-rose-300 dark:border-rose-500/40'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none'
           }`}
         >
           Atrasadas
@@ -202,7 +210,9 @@ export const CalendarView: React.FC = () => {
         <button
           onClick={() => setFilterBlockedOnly(!filterBlockedOnly)}
           className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-            filterBlockedOnly ? 'bg-amber-600/30 text-amber-300 border border-amber-500/40' : 'bg-slate-800 text-slate-400'
+            filterBlockedOnly
+              ? 'bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-600/30 dark:text-amber-300 dark:border-amber-500/40'
+              : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-transparent shadow-sm dark:shadow-none'
           }`}
         >
           Bloqueadas
@@ -210,9 +220,9 @@ export const CalendarView: React.FC = () => {
       </div>
 
       {/* Calendar Grid Container */}
-      <div className="flex-1 bg-slate-900/90 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl overflow-hidden flex flex-col">
         {/* Days of Week Header */}
-        <div className="grid grid-cols-7 border-b border-slate-800 bg-slate-950 text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2.5">
+        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider py-2.5">
           <span>Dom</span>
           <span>Seg</span>
           <span>Ter</span>
@@ -223,7 +233,7 @@ export const CalendarView: React.FC = () => {
         </div>
 
         {/* Month Day Cells */}
-        <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-800/60 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 dark:divide-slate-800/60 overflow-y-auto custom-scrollbar">
           {calendarDays.map((day, idx) => {
             const isToday = day.dateStr === todayStr;
 
@@ -236,7 +246,9 @@ export const CalendarView: React.FC = () => {
               <div
                 key={idx}
                 className={`p-2 flex flex-col justify-between min-h-[95px] transition-colors ${
-                  day.isCurrentMonth ? 'bg-slate-900/40 hover:bg-slate-850/60' : 'bg-slate-950/40 opacity-40'
+                  day.isCurrentMonth
+                    ? 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-850/60'
+                    : 'bg-slate-50/50 dark:bg-slate-950/40 opacity-40'
                 }`}
               >
                 {/* Date Header */}
@@ -244,17 +256,17 @@ export const CalendarView: React.FC = () => {
                   <span
                     className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
                       isToday
-                        ? 'bg-indigo-600 text-white shadow-md font-black'
+                        ? 'bg-brand-600 text-white shadow-md font-black'
                         : day.isCurrentMonth
-                        ? 'text-slate-200'
-                        : 'text-slate-600'
+                        ? 'text-slate-800 dark:text-slate-200'
+                        : 'text-slate-400 dark:text-slate-600'
                     }`}
                   >
                     {day.date.getDate()}
                   </span>
 
                   {(dayEvents.length > 0 || dayTasks.length > 0) && (
-                    <span className="text-[9px] font-semibold text-slate-400 bg-slate-850 px-1 rounded">
+                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 px-1 rounded">
                       {dayEvents.length + dayTasks.length}
                     </span>
                   )}
@@ -270,10 +282,10 @@ export const CalendarView: React.FC = () => {
                         setSelectedEvent(evt);
                         setIsEventDetailsOpen(true);
                       }}
-                      className="px-1.5 py-0.5 rounded-lg bg-gradient-to-r from-purple-900/80 to-indigo-900/80 border border-purple-500/40 text-purple-200 text-[10px] font-bold truncate cursor-pointer hover:brightness-125 transition-all flex items-center gap-1"
+                      className="px-1.5 py-0.5 rounded-lg bg-purple-50 dark:bg-gradient-to-r dark:from-purple-900/80 dark:to-indigo-900/80 border border-purple-200 dark:border-purple-500/40 text-purple-800 dark:text-purple-200 text-[10px] font-bold truncate cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all flex items-center gap-1 shadow-sm dark:shadow-none"
                       title={evt.title}
                     >
-                      <Sparkles className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                      <Sparkles className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400 shrink-0" />
                       <span className="truncate">{evt.title}</span>
                     </div>
                   ))}
@@ -288,19 +300,19 @@ export const CalendarView: React.FC = () => {
                           setSelectedTask(t);
                           setIsTaskModalOpen(true);
                         }}
-                        className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium truncate cursor-pointer transition-all border flex items-center justify-between gap-1 ${
+                        className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium truncate cursor-pointer transition-all border flex items-center justify-between gap-1 shadow-sm dark:shadow-none ${
                           t.status === 'DONE'
-                            ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-500/30 dark:text-emerald-300'
                             : t.status === 'BLOCKED'
-                            ? 'bg-rose-950/60 border-rose-500/30 text-rose-300'
+                            ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/60 dark:border-rose-500/30 dark:text-rose-300'
                             : isOverdue
-                            ? 'bg-rose-950/80 border-rose-500 text-rose-200 animate-pulse'
-                            : 'bg-slate-800 border-slate-700 text-slate-200 hover:border-indigo-500'
+                            ? 'bg-rose-100 border-rose-300 text-rose-900 dark:bg-rose-950/80 dark:border-rose-500 dark:text-rose-200 animate-pulse'
+                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:border-brand-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-500'
                         }`}
                         title={t.title}
                       >
                         <span className="truncate">{t.title}</span>
-                        {t.status === 'BLOCKED' && <ShieldAlert className="w-2.5 h-2.5 text-rose-400 shrink-0" />}
+                        {t.status === 'BLOCKED' && <ShieldAlert className="w-2.5 h-2.5 text-rose-500 dark:text-rose-400 shrink-0" />}
                       </div>
                     );
                   })}

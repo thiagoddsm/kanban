@@ -187,19 +187,19 @@ export const UsersView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 custom-scrollbar bg-slate-50 dark:bg-transparent">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Gestão de Membros & Convites
             </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
               {currentOrganization.name}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Controle de convites, papéis (RBAC), restrição por campus e suspensão de acessos.
           </p>
         </div>
@@ -208,10 +208,10 @@ export const UsersView: React.FC = () => {
           <button
             onClick={handleSyncMembers}
             disabled={isSyncing}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 shadow-sm dark:shadow-none"
             title="Sincronizar usuários e atualizar cadastros no Firestore"
           >
-            <RefreshCw className={`w-4 h-4 text-indigo-400 ${isSyncing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-brand-600 dark:text-indigo-400 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Membros'}</span>
           </button>
 
@@ -224,7 +224,7 @@ export const UsersView: React.FC = () => {
                   setIsAddModalOpen(true);
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/25 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 dark:bg-gradient-to-r dark:from-indigo-600 dark:via-indigo-700 dark:to-purple-600 dark:hover:from-indigo-500 dark:hover:to-purple-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-brand-600/20 active:scale-95 transition-all"
             >
               <UserPlus className="w-4 h-4" />
               <span>Convidar Novo Membro</span>
@@ -234,20 +234,20 @@ export const UsersView: React.FC = () => {
       </div>
 
       {/* Members Grid / Table */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between flex-wrap gap-2">
+      <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm dark:shadow-xl">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <UsersIcon className="w-4 h-4 text-indigo-400" />
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+            <UsersIcon className="w-4 h-4 text-brand-600 dark:text-indigo-400" />
+            <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Membros da Organização ({orgMemberships.length})
             </h3>
           </div>
-          <span className="text-[11px] text-slate-400">
-            Plano: <strong className="text-white">{currentOrganization.subscription.plan}</strong> ({orgMemberships.length}/{EntitlementsService.getEffectiveLimits(currentOrganization).maxMembers} vagas preenchidas)
+          <span className="text-[11px] text-slate-500 dark:text-slate-400">
+            Plano: <strong className="text-slate-900 dark:text-white">{currentOrganization.subscription.plan}</strong> ({orgMemberships.length}/{EntitlementsService.getEffectiveLimits(currentOrganization).maxMembers} vagas preenchidas)
           </span>
         </div>
 
-        <div className="divide-y divide-slate-800/80">
+        <div className="divide-y divide-slate-200 dark:divide-slate-800/80">
           {orgMemberships.map((mem) => {
             const user = users.find((u) => u.id === mem.userId) || StorageService.getUsers().find((u) => u.id === mem.userId);
             const isEditing = editingMemId === mem.id;
@@ -266,19 +266,19 @@ export const UsersView: React.FC = () => {
                 : user?.email ? user.email.split('@')[0] : 'Membro';
 
             return (
-              <div key={mem.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-850/40 transition-colors">
+              <div key={mem.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-850/40 transition-colors">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <img
                     src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
                     alt={displayName}
-                    className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-800 shrink-0"
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-800 shrink-0"
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-xs sm:text-sm font-bold text-white truncate">
+                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                         {displayName}
                       </h4>
-                      <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full border border-slate-700">
+                      <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
                         {mem.department || 'Geral'}
                       </span>
                       {mem.status === 'SUSPENDED' && (
@@ -292,12 +292,12 @@ export const UsersView: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
                       <span className="flex items-center gap-1 truncate">
-                        <Mail className="w-3 h-3 text-slate-500" />
+                        <Mail className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                         {user?.email}
                       </span>
-                      <span className="flex items-center gap-1 truncate text-indigo-300">
+                      <span className="flex items-center gap-1 truncate text-brand-600 dark:text-indigo-300">
                         <MapPin className="w-3 h-3 text-rose-400" />
                         {campusNames}
                       </span>
@@ -312,19 +312,19 @@ export const UsersView: React.FC = () => {
                       <select
                         value={editRole}
                         onChange={(e) => setEditRole(e.target.value as UserRole)}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs text-white"
+                        className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white shadow-sm"
                       >
                         <option value="ADMIN">ADMIN</option>
                         <option value="LEADER">LEADER</option>
                         <option value="TEAM">TEAM</option>
                         <option value="REQUESTER">REQUESTER</option>
                       </select>
-                      <label className="flex items-center gap-1 text-[11px] text-slate-300">
+                      <label className="flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300">
                         <input
                           type="checkbox"
                           checked={editHasOrgWide}
                           onChange={(e) => setEditHasOrgWide(e.target.checked)}
-                          className="rounded text-indigo-600 bg-slate-800 border-slate-700"
+                          className="rounded text-brand-600 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
                         />
                         <span>Global</span>
                       </label>
@@ -337,7 +337,7 @@ export const UsersView: React.FC = () => {
                       </button>
                       <button
                         onClick={() => setEditingMemId(null)}
-                        className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         title="Cancelar"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -348,12 +348,12 @@ export const UsersView: React.FC = () => {
                       <span
                         className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
                           mem.role === 'ADMIN'
-                            ? 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                            ? 'text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30'
                             : mem.role === 'LEADER'
-                            ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                            ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'
                             : mem.role === 'TEAM'
-                            ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30'
-                            : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                            ? 'text-brand-700 dark:text-indigo-400 bg-brand-50 dark:bg-indigo-500/10 border-brand-200 dark:border-indigo-500/30'
+                            : 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30'
                         }`}
                       >
                         {mem.role}
@@ -363,7 +363,7 @@ export const UsersView: React.FC = () => {
                       {isAdmin && (
                         <button
                           onClick={() => handleCopyInviteLink(mem.id, displayName)}
-                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-300 hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 dark:hover:text-indigo-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                           title="Copiar Link de Convite"
                         >
                           <Copy className="w-3.5 h-3.5" />
@@ -375,7 +375,7 @@ export const UsersView: React.FC = () => {
                         <>
                           <button
                             onClick={() => handleStartEdit(mem.id, mem.role, mem.campusIds, mem.hasOrgWideAccess)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                             title="Editar Papel e Campi"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -385,8 +385,8 @@ export const UsersView: React.FC = () => {
                             onClick={() => handleToggleSuspend(mem.id, mem.status)}
                             className={`p-1.5 rounded-lg transition-colors ${
                               mem.status === 'SUSPENDED'
-                                ? 'text-emerald-400 hover:bg-emerald-500/10'
-                                : 'text-slate-400 hover:text-amber-400 hover:bg-amber-500/10'
+                                ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                                : 'text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'
                             }`}
                             title={mem.status === 'SUSPENDED' ? 'Reativar Acesso' : 'Suspender Membro'}
                           >
@@ -399,7 +399,7 @@ export const UsersView: React.FC = () => {
                                 removeMemberFromOrg(mem.id);
                               }
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                             title="Excluir Vínculo e Usuário Definitivamente"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

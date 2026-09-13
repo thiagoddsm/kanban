@@ -220,14 +220,14 @@ export const KanbanBoard: React.FC = () => {
 
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-900/60 p-4 sm:p-6 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-900/60 p-4 sm:p-6 overflow-hidden">
       {/* Board Top Header (Discreto, compacto no padrão Pipefy) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 shrink-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
+          <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight">
             Quadro de Demandas
           </h1>
-          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+          <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
             {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os campus'}
           </span>
 

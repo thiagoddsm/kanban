@@ -140,30 +140,30 @@ export const GanttView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-900/50 p-4 sm:p-6 overflow-hidden space-y-4">
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-50 dark:bg-slate-900/50 p-4 sm:p-6 overflow-hidden space-y-4">
       {/* Top Header & Zoom Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Cronograma Visual (Gantt)
             </h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20">
               {currentOrganization.name} {currentCampus ? `• ${currentCampus.name}` : '• Todos os campus'}
             </span>
 
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Visão temporal hierárquica por projeto e dependências com sincronização em tempo real.
           </p>
         </div>
 
         {/* Zoom Mode Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900 border border-slate-800 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 self-start sm:self-auto shadow-sm dark:shadow-none">
           <button
             onClick={() => setZoomLevel('DAY')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              zoomLevel === 'DAY' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              zoomLevel === 'DAY' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Dia
@@ -171,7 +171,7 @@ export const GanttView: React.FC = () => {
           <button
             onClick={() => setZoomLevel('WEEK')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              zoomLevel === 'WEEK' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              zoomLevel === 'WEEK' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Semana
@@ -179,7 +179,7 @@ export const GanttView: React.FC = () => {
           <button
             onClick={() => setZoomLevel('MONTH')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              zoomLevel === 'MONTH' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+              zoomLevel === 'MONTH' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Mês
@@ -188,19 +188,19 @@ export const GanttView: React.FC = () => {
       </div>
 
       {/* Gantt Interactive Container */}
-      <div className="flex-1 overflow-hidden bg-slate-900/90 border border-slate-800 rounded-3xl shadow-2xl flex flex-col">
+      <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl flex flex-col">
         {/* Horizontal Scroll Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative flex">
           {/* Left Column: Fixed Project/Task Labels */}
-          <div className="w-72 sm:w-80 shrink-0 bg-slate-950/80 border-r border-slate-800 sticky left-0 z-30 flex flex-col">
+          <div className="w-72 sm:w-80 shrink-0 bg-slate-50/90 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
             {/* Header */}
-            <div className="h-12 px-4 border-b border-slate-800 flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-950">
+            <div className="h-12 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-950">
               <span>Projetos & Demandas</span>
               <span>Status</span>
             </div>
 
             {/* Rows Labels */}
-            <div className="flex-1 divide-y divide-slate-800/60">
+            <div className="flex-1 divide-y divide-slate-200 dark:divide-slate-800/60">
               {groupedProjects.map((grp, gIdx) => (
                 <div key={gIdx} className="space-y-0">
                   {/* Event Group Header */}
@@ -213,13 +213,13 @@ export const GanttView: React.FC = () => {
                     }}
                     className={`h-11 px-4 flex items-center justify-between gap-2 text-xs font-bold ${
                       grp.event
-                        ? 'bg-purple-950/40 hover:bg-purple-950/60 text-purple-300 cursor-pointer'
-                        : 'bg-slate-900/80 text-slate-400'
-                    } border-b border-slate-800/80`}
+                        ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 dark:bg-purple-950/40 dark:hover:bg-purple-950/60 dark:text-purple-300 cursor-pointer'
+                        : 'bg-slate-100 text-slate-700 dark:bg-slate-900/80 dark:text-slate-400'
+                    } border-b border-slate-200 dark:border-slate-800/80`}
                   >
                     <span className="truncate">{grp.event ? grp.event.title : 'Demandas sem Projeto'}</span>
                     {grp.event && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
                         {grp.projectTasks.length} tarefas
                       </span>
                     )}
@@ -233,11 +233,11 @@ export const GanttView: React.FC = () => {
                         setSelectedTask(t);
                         setIsTaskModalOpen(true);
                       }}
-                      className="h-11 px-4 pl-7 flex items-center justify-between gap-2 hover:bg-slate-850/60 cursor-pointer text-xs border-b border-slate-850"
+                      className="h-11 px-4 pl-7 flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-850/60 cursor-pointer text-xs border-b border-slate-200 dark:border-slate-850"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <DemandTypeBadge type={t.demandType} size="sm" />
-                        <span className="text-white font-medium truncate">{t.title}</span>
+                        <span className="text-slate-900 dark:text-white font-medium truncate">{t.title}</span>
                       </div>
                       <StatusBadge status={t.status} />
                     </div>
@@ -250,7 +250,7 @@ export const GanttView: React.FC = () => {
           {/* Right Timeline Grid */}
           <div className="flex-1 flex flex-col relative" style={{ width: `${totalDays * cellWidth}px` }}>
             {/* Timeline Header (Days / Dates) */}
-            <div className="h-12 border-b border-slate-800 flex sticky top-0 z-20 bg-slate-950">
+            <div className="h-12 border-b border-slate-200 dark:border-slate-800 flex sticky top-0 z-20 bg-slate-100 dark:bg-slate-950">
               {datesList.map((date, idx) => {
                 const dateStr = date.toISOString().split('T')[0];
                 const isToday = dateStr === todayStr;
@@ -259,12 +259,12 @@ export const GanttView: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className={`shrink-0 flex flex-col items-center justify-center text-[10px] border-r border-slate-800/80 ${
+                    className={`shrink-0 flex flex-col items-center justify-center text-[10px] border-r border-slate-200 dark:border-slate-800/80 ${
                       isToday
-                        ? 'bg-indigo-600/20 text-indigo-300 font-black'
+                        ? 'bg-brand-50 text-brand-700 font-black dark:bg-indigo-600/20 dark:text-indigo-300'
                         : isWeekend
-                        ? 'bg-slate-900/40 text-slate-500'
-                        : 'text-slate-400'
+                        ? 'bg-slate-100 text-slate-400 dark:bg-slate-900/40 dark:text-slate-500'
+                        : 'text-slate-600 dark:text-slate-400'
                     }`}
                     style={{ width: `${cellWidth}px` }}
                   >
@@ -277,20 +277,20 @@ export const GanttView: React.FC = () => {
 
             {/* Vertical Marker for TODAY */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-indigo-500 z-10 pointer-events-none shadow-[0_0_8px_rgba(99,102,241,0.8)]"
+              className="absolute top-0 bottom-0 w-0.5 bg-brand-600 dark:bg-indigo-500 z-10 pointer-events-none shadow-[0_0_8px_rgba(37,99,235,0.6)] dark:shadow-[0_0_8px_rgba(99,102,241,0.8)]"
               style={{ left: `${todayOffset + cellWidth / 2}px` }}
             >
-              <div className="bg-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full absolute -top-1 -left-4 shadow">
+              <div className="bg-brand-600 dark:bg-indigo-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full absolute -top-1 -left-4 shadow">
                 Hoje
               </div>
             </div>
 
             {/* Gantt Timeline Bars */}
-            <div className="flex-1 divide-y divide-slate-800/60">
+            <div className="flex-1 divide-y divide-slate-200 dark:divide-slate-800/60">
               {groupedProjects.map((grp, gIdx) => (
                 <div key={gIdx}>
                   {/* Event Project Bar */}
-                  <div className="h-11 relative flex items-center border-b border-slate-800/80 bg-purple-950/20">
+                  <div className="h-11 relative flex items-center border-b border-slate-200 dark:border-slate-800/80 bg-purple-50/60 dark:bg-purple-950/20">
                     {grp.event && (
                       <div
                         onClick={() => {
@@ -315,7 +315,7 @@ export const GanttView: React.FC = () => {
                     const isOverdue = t.status !== 'DONE' && t.deadline < todayStr;
 
                     return (
-                      <div key={t.id} className="h-11 relative flex items-center border-b border-slate-850">
+                      <div key={t.id} className="h-11 relative flex items-center border-b border-slate-200 dark:border-slate-850">
                         <div
                           onClick={() => {
                             setSelectedTask(t);
@@ -333,7 +333,7 @@ export const GanttView: React.FC = () => {
                         >
                           <span className="truncate text-[11px]">{t.title}</span>
                           {t.assigneeName && (
-                            <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded shrink-0 ml-1">
+                            <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded shrink-0 ml-1 text-white">
                               {t.assigneeName.split(' ')[0]}
                             </span>
                           )}
