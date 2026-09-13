@@ -349,14 +349,17 @@ export const GanttView: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <TaskModal
-        task={selectedTask}
-        isOpen={isTaskModalOpen}
-        onClose={() => {
-          setIsTaskModalOpen(false);
-          setSelectedTask(null);
-        }}
-      />
+      {isTaskModalOpen && selectedTask && (
+        <TaskModal
+          key={selectedTask.id}
+          task={selectedTask}
+          isOpen={true}
+          onClose={() => {
+            setIsTaskModalOpen(false);
+            setSelectedTask(null);
+          }}
+        />
+      )}
 
       <EventDetailsModal
         event={selectedEvent}

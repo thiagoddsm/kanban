@@ -340,14 +340,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* Task Modal */}
-      <TaskModal
-        task={selectedTask}
-        isOpen={isTaskModalOpen}
-        onClose={() => {
-          setIsTaskModalOpen(false);
-          setSelectedTask(null);
-        }}
-      />
+      {isTaskModalOpen && selectedTask && (
+        <TaskModal
+          key={selectedTask.id}
+          task={selectedTask}
+          isOpen={true}
+          onClose={() => {
+            setIsTaskModalOpen(false);
+            setSelectedTask(null);
+          }}
+        />
+      )}
 
       {/* Export Executive & Pastoral Report Modal */}
       <ExportReportModal

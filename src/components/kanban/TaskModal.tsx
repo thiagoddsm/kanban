@@ -295,30 +295,22 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
       url: attUrl.trim(),
       type: attType,
     };
-    const updated = [...attachmentLinks, newAtt];
-    setAttachmentLinks(updated);
+    setAttachmentLinks((prev) => [...prev, newAtt]);
     setAttTitle('');
     setAttUrl('');
-    updateTask({ ...task, attachmentLinks: updated });
   };
 
   const handleRemoveAttachment = (attId: string) => {
-    const updated = attachmentLinks.filter((a) => a.id !== attId);
-    setAttachmentLinks(updated);
-    updateTask({ ...task, attachmentLinks: updated });
+    setAttachmentLinks((prev) => prev.filter((a) => a.id !== attId));
   };
 
   const handleAddDependency = (depId: string) => {
     if (!depId || dependencies.includes(depId)) return;
-    const updated = [...dependencies, depId];
-    setDependencies(updated);
-    updateTask({ ...task, dependencies: updated });
+    setDependencies((prev) => [...prev, depId]);
   };
 
   const handleRemoveDependency = (depId: string) => {
-    const updated = dependencies.filter((id) => id !== depId);
-    setDependencies(updated);
-    updateTask({ ...task, dependencies: updated });
+    setDependencies((prev) => prev.filter((id) => id !== depId));
   };
 
   const candidateDependencies = useMemo(() => {

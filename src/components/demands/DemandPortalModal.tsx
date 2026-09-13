@@ -163,6 +163,33 @@ export const DemandPortalModal: React.FC<DemandPortalModalProps> = ({ isOpen, on
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const resetForm = React.useCallback(() => {
+    setTitle('');
+    setSelectedTeamId('comunicacao');
+    setSelectedDeliverables([
+      'Feed / Carrossel Instagram',
+      'Slide de Telão (16:9)',
+    ]);
+    setBriefing(DEFAULT_BRIEFING_TEMPLATE);
+    const d = new Date();
+    d.setDate(d.getDate() + 5);
+    setDeadline(d.toISOString().split('T')[0]);
+    setUrgency('MEDIUM');
+    setLinkedEventId('');
+    setAttachedFiles([]);
+    setIsUploading(false);
+    setUploadProgress(null);
+    setSubmittedProtocol(null);
+    setCreatedTaskId(null);
+    setIsSubmitting(false);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
+
   // Generate dynamic protocol preview
   const protocolCode = useRef(
     `PIPE-${(currentOrganization.slug || 'OIKO').toUpperCase().slice(0, 4)}-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
