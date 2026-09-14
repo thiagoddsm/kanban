@@ -139,7 +139,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [currentOrganization.id]);
 
   const switchOrganization = (orgId: string, silent: boolean = false) => {
-    const org = organizations.find((o) => o.id === orgId || o.slug === orgId);
+    const org = organizations.find((o) => o.id === orgId || o.slug === orgId)
+             || StorageService.getOrganizations().find((o) => o.id === orgId || o.slug === orgId);
     if (org) {
       if (currentOrganization.id !== org.id) {
         setCurrentOrganization(org);
@@ -162,7 +163,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       org = localOrgs.find(
         (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
       );
-      if (org && !organizations.some((o) => o.id === org!.id)) {
+      if (org) {
         setOrganizations(localOrgs);
       }
     }
@@ -199,7 +200,14 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   ): Organization => {
 
 
-    const adminUser = creatorUser || currentUser;
+    const adminUser: User = (creatorUser || currentUser) ? {
+      ...(creatorUser || currentUser)!,
+    } : {
+      id: 'usr_' + Date.now().toString(36),
+      name: 'Pastor(a) / Administrador(a)',
+      email: '',
+      createdAt: new Date().toISOString(),
+    };
     const orgId = 'org_' + slug.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36).substring(2, 5);
     const trialEndDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -249,6 +257,8 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // Save Locally & Cloud
     const updatedOrgs = StorageService.addOrganization(newOrg);
     StorageService.addCampus(mainCampus);
+    localStorage.setItem(ACTIVE_ORG_KEY, newOrg.id);
+    localStorage.setItem(ACTIVE_CAMPUS_KEY, 'all');
 
     const membership: Membership = {
       id: 'mem_' + adminUser.id + '_' + orgId,
@@ -263,6 +273,21 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updatedAt: new Date().toISOString(),
     };
     StorageService.addMembership(membership);
+
+    // Atualiza o perfil do usuário administrador com a organização criada
+    if (adminUser.id) {
+      const allUsers = StorageService.getUsers();
+      const existingUser = allUsers.find((u) => u.id === adminUser.id);
+      const orgIds = Array.from(new Set([...(existingUser?.organizationIds || adminUser.organizationIds || []), orgId]));
+      const updatedAdminUser: User = {
+        ...(existingUser || adminUser),
+        activeOrganizationId: orgId,
+        tenantId: orgId,
+        organizationIds: orgIds,
+      };
+      StorageService.updateUser(updatedAdminUser);
+      FirestoreRepository.syncUser(updatedAdminUser).catch(console.warn);
+    }
 
     const auditLog: ActivityLog = {
       id: 'act_' + Math.random().toString(36).substring(2, 9),
@@ -461,11 +486,14 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const findAndSwitchUserOrg = async (userId: string): Promise<Organization | null> => {
-    // 1. Procurar nas memberships locais
+    // 1. Procurar nas memberships locais (ignorando a org demo fixa se for usuário real)
     const allMemberships = StorageService.getMemberships();
-    const userMem = allMemberships.find((m) => m.userId === userId && m.status === 'ACTIVE');
+    const userMem = allMemberships.find(
+      (m) => m.userId === userId && m.status === 'ACTIVE' && m.organizationId !== 'org_igreja_batista_da_manha_izw'
+    );
     if (userMem) {
-      const org = organizations.find((o) => o.id === userMem.organizationId);
+      const org = organizations.find((o) => o.id === userMem.organizationId)
+               || StorageService.getOrganizations().find((o) => o.id === userMem.organizationId);
       if (org) {
         switchOrganization(org.id, true);
         return org;
@@ -478,21 +506,19 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (remoteOrgs && remoteOrgs.length > 0) {
         setOrganizations(remoteOrgs);
         for (const org of remoteOrgs) {
+          if (org.id === 'org_igreja_batista_da_manha_izw') continue;
           const mems = await FirestoreRepository.fetchMemberships(org.id);
           if (mems && mems.some((m) => m.userId === userId && m.status === 'ACTIVE')) {
             switchOrganization(org.id, true);
             return org;
           }
         }
-        // Fallback: primeira org da lista
-        switchOrganization(remoteOrgs[0].id, true);
-        return remoteOrgs[0];
       }
     } catch (e) {
       console.warn('Erro ao resolver organização do usuário no Firestore:', e);
     }
 
-    return currentOrganization;
+    return null;
   };
 
 

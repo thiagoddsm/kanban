@@ -24,7 +24,7 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { signUpWithEmail, loginWithGoogle, currentUser, isLoadingAuth, authError, setAuthError } = useAuth();
-  const { createOrganization, organizations } = useTenant();
+  const { createOrganization, organizations, findAndSwitchUserOrg } = useTenant();
   const { success } = useNotification();
 
   // Selected Plan from query or default
@@ -85,28 +85,40 @@ export const RegisterPage: React.FC = () => {
     setIsSubmitting(true);
     setAuthError(null);
     try {
-      const loggedUser = await loginWithGoogle();
+      let loggedUser = currentUser;
+      if (!loggedUser?.id) {
+        loggedUser = await loginWithGoogle('NEW_REGISTRATION');
+      }
       if (!loggedUser) return;
 
-      setAdminName(loggedUser.name);
-      setAdminEmail(loggedUser.email);
+      setAdminName(loggedUser.name || '');
+      setAdminEmail(loggedUser.email || '');
 
-      if (churchName.trim()) {
-        const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
-        const finalSlug = resolveUniqueSlug(cleanSlug);
-        createOrganization(
-          churchName.trim(),
-          finalSlug,
-          mainCampusName.trim() || 'Sede Principal',
-          city.trim() || 'Cidade Principal',
-          selectedPlan,
-          loggedUser
-        );
-        success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
-        navigate(`/${finalSlug}/dashboard`);
-      } else {
-        success('Autenticado com Google!', 'Informe o nome da sua igreja abaixo para concluir a criação.');
+      // 1. Se o usuário já possuir uma organização ativa anterior, navega direto para o dashboard
+      const userOrg = await findAndSwitchUserOrg(loggedUser.id);
+      if (userOrg) {
+        success(`Bem-vindo(a) de volta, ${loggedUser.name}!`, `Entrando em ${userOrg.name}...`);
+        navigate(`/${userOrg.slug}/dashboard`);
+        return;
       }
+
+      // 2. Determina o nome da igreja e cria o tenant de teste gratuito
+      const firstName = (loggedUser.name || 'Pastor').trim().split(' ')[0];
+      const finalChurchName = churchName.trim() || `Igreja de ${firstName}`;
+      const cleanSlug = (slug.trim() || finalChurchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
+      const finalSlug = resolveUniqueSlug(cleanSlug);
+
+      createOrganization(
+        finalChurchName,
+        finalSlug,
+        mainCampusName.trim() || 'Sede Principal',
+        city.trim() || 'Cidade Principal',
+        selectedPlan,
+        loggedUser
+      );
+
+      success(`Igreja "${finalChurchName}" criada com sucesso!`, 'Seja bem-vindo ao Oiko Gestão. Seu teste de 14 dias está ativo!');
+      navigate(`/${finalSlug}/dashboard`);
     } catch (err: any) {
       console.error('Google Registration Error:', err);
     } finally {
@@ -144,13 +156,13 @@ export const RegisterPage: React.FC = () => {
     setAuthError(null);
 
     try {
-      // 1. Get or Create User
+      // 1. Obter ou criar usuário administrador
       let targetUser = currentUser;
       if (!targetUser?.email) {
-        targetUser = await signUpWithEmail(adminName.trim(), adminEmail.trim(), password);
+        targetUser = await signUpWithEmail(adminName.trim(), adminEmail.trim(), password, 'NEW_REGISTRATION');
       }
 
-      // 2. Create Organization, Campus & Admin Membership in Firestore
+      // 2. Criar Organização, Sede Principal & Membership no Firestore
       const cleanSlug = (slug.trim() || churchName.toLowerCase().replace(/[^a-z0-9]/g, '-')).toLowerCase();
       const finalSlug = resolveUniqueSlug(cleanSlug);
       createOrganization(
@@ -162,7 +174,7 @@ export const RegisterPage: React.FC = () => {
         targetUser
       );
 
-      success(`Igreja "${churchName}" criada com sucesso! Seja bem-vindo ao Oiko Gestão.`);
+      success(`Igreja "${churchName.trim()}" criada com sucesso!`, 'Seja bem-vindo ao Oiko Gestão. Seu teste de 14 dias está ativo!');
       navigate(`/${finalSlug}/dashboard`);
 
     } catch (err: any) {

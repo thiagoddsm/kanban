@@ -765,11 +765,11 @@ export class FirestoreRepository {
     let existingByUid = await this.getUser(fbUid);
 
     const allOrgs = await this.fetchOrganizations();
-    let targetOrg = targetOrgSlugOrId
+    let targetOrg = (targetOrgSlugOrId && targetOrgSlugOrId !== 'NEW_REGISTRATION')
       ? allOrgs.find((o) => o.id === targetOrgSlugOrId || o.slug === targetOrgSlugOrId)
       : null;
 
-    if (!targetOrg && allOrgs.length > 0) {
+    if (!targetOrg && targetOrgSlugOrId !== 'NEW_REGISTRATION' && allOrgs.length > 0) {
       targetOrg = allOrgs.find((o) => o.id === 'org_igreja_batista_da_manha_izw' || o.slug === 'igreja-batista-da-manha') || allOrgs[0];
     }
 
