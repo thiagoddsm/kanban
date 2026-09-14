@@ -20,7 +20,8 @@ import {
   HeartHandshake,
   Lock,
   Layers,
-  Phone
+  Phone,
+  LogIn
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -153,18 +154,21 @@ export const LandingPage: React.FC = () => {
           </nav>
           
           {/* CTAs */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link 
               to="/login" 
-              className="hidden sm:block text-sm font-medium text-slate-600 hover:text-slate-900 transition"
+              className="px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+              title="Acessar o sistema com minha conta"
             >
-              Entrar
+              <LogIn className="w-3.5 h-3.5 text-slate-600" />
+              <span>Entrar</span>
             </Link>
             <Link 
               to="/signup" 
-              className="px-5 py-2.5 rounded-lg text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-md shadow-brand-500/20 transition-all transform hover:scale-105"
+              className="px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-md shadow-brand-500/20 transition-all transform active:scale-95 sm:hover:scale-105 shrink-0"
             >
-              Testar 14 Dias Grátis
+              <span className="hidden sm:inline">Testar 14 Dias Grátis</span>
+              <span className="sm:hidden">Testar Grátis</span>
             </Link>
           </div>
         </div>
@@ -199,19 +203,26 @@ export const LandingPage: React.FC = () => {
             </p>
             
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto mb-8">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto mb-8">
               <Link 
                 to="/signup" 
-                className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-base font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-xl shadow-brand-500/20 transition-all transform hover:-translate-y-0.5"
+                className="flex items-center justify-center gap-2 w-full sm:w-auto px-7 py-4 rounded-xl text-base font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-xl shadow-brand-500/20 transition-all transform hover:-translate-y-0.5"
               >
                 <Zap className="w-5 h-5 fill-white text-white" />
                 Experimente 14 Dias Grátis
               </Link>
+              <Link 
+                to="/login" 
+                className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-4 rounded-xl text-base font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+              >
+                <LogIn className="w-4 h-4 text-slate-500" />
+                Já tenho conta (Entrar)
+              </Link>
               <a 
                 href="#precos" 
-                className="flex items-center justify-center px-8 py-4 rounded-xl text-base font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+                className="hidden md:flex items-center justify-center px-4 py-4 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors"
               >
-                Ver Tabela de Planos
+                Ver Tabela &rarr;
               </a>
             </div>
             
