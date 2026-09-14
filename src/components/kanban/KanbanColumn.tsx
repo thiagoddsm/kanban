@@ -52,7 +52,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex flex-col w-80 shrink-0 bg-slate-100/70 dark:bg-slate-950/40 rounded-3xl border transition-all duration-200 ${
+      className={`flex flex-col w-[85vw] sm:w-80 shrink-0 snap-center bg-slate-100/70 dark:bg-slate-950/40 rounded-3xl border transition-all duration-200 ${
         isDragOver
           ? 'border-brand-500 bg-brand-50/50 dark:bg-indigo-950/20 shadow-lg shadow-brand-500/10'
           : 'border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80'

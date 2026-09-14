@@ -62,21 +62,21 @@ export const RoleSwitcher: React.FC = () => {
       {/* Trigger Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700/80 hover:border-slate-600 transition-all text-xs"
+        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 transition-all text-xs text-slate-800 dark:text-slate-200"
         title="Minha Conta"
       >
         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${roleBadgeColor}`}>
           {currentRole}
         </span>
-        <span className="font-semibold text-slate-200 hidden md:inline truncate max-w-[140px]">
+        <span className="font-semibold text-slate-800 dark:text-slate-200 hidden md:inline truncate max-w-[140px]">
           {currentUser?.name || 'Usuário'}
         </span>
-        <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50 animate-slide-down space-y-3">
+        <div className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-1.5rem)] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-3 z-50 animate-slide-down space-y-3 text-slate-800 dark:text-slate-100">
           {/* User Profile Card */}
           <div 
             onClick={() => {

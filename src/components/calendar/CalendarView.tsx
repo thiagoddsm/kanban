@@ -490,19 +490,21 @@ export const CalendarView: React.FC = () => {
 
       {/* Calendar Grid Container */}
       <div className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl overflow-hidden flex flex-col">
-        {/* Days of Week Header */}
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider py-2.5">
-          <span>Dom</span>
-          <span>Seg</span>
-          <span>Ter</span>
-          <span>Qua</span>
-          <span>Qui</span>
-          <span>Sex</span>
-          <span>Sáb</span>
-        </div>
+        <div className="flex-1 flex flex-col overflow-x-auto custom-scrollbar">
+          <div className="flex-1 flex flex-col min-w-[560px] sm:min-w-0">
+            {/* Days of Week Header */}
+            <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider py-2.5">
+              <span>Dom</span>
+              <span>Seg</span>
+              <span>Ter</span>
+              <span>Qua</span>
+              <span>Qui</span>
+              <span>Sex</span>
+              <span>Sáb</span>
+            </div>
 
-        {/* Month Day Cells */}
-        <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 dark:divide-slate-800/60 overflow-y-auto custom-scrollbar">
+            {/* Month Day Cells */}
+            <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 dark:divide-slate-800/60 overflow-y-auto custom-scrollbar">
           {calendarDays.map((day, idx) => {
             const isToday = day.dateStr === todayStr;
 
@@ -597,6 +599,8 @@ export const CalendarView: React.FC = () => {
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
       </div>
 

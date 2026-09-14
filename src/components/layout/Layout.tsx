@@ -131,7 +131,7 @@ export const Layout: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 selection:bg-brand-500 selection:text-white pb-16 lg:pb-0">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 selection:bg-brand-500 selection:text-white">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -149,7 +149,7 @@ export const Layout: React.FC = () => {
           onNavigate={navigateToTab}
         />
 
-        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative pb-16 lg:pb-0">
+        <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative pb-20 lg:pb-0">
           {activeTab === 'dashboard' && (
             <DashboardView
               onNavigate={navigateToTab}

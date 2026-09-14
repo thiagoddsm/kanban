@@ -113,29 +113,26 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       <header className="h-16 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-20 shrink-0 transition-colors">
         {/* Left: Mobile Menu & Current Context Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onOpenSidebar}
-            className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
+            className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors shrink-0"
             title="Abrir menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-900 dark:text-white tracking-tight">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate max-w-[130px] sm:max-w-none">
               {currentOrganization.name}
             </span>
             {currentCampus && (
-              <>
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
                 <span className="text-slate-400 dark:text-slate-600">•</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  {currentCampus.name}
-                </span>
-              </>
+                <span>{currentCampus.name}</span>
+              </span>
             )}
           </div>
-
         </div>
 
         {/* Center: Search Bar */}
@@ -328,16 +325,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Primary CTA: Nova Solicitação */}
+          {/* Primary CTA: Nova Solicitação (Desktop - no mobile, use o botão central da BottomNav) */}
           {canCreateDemand && (
             <button
               onClick={onOpenDemandPortal}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 active:scale-95 transition-all shrink-0"
               title="Criar nova demanda (atalho: tecla N)"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nova Demanda</span>
-              <span className="sm:hidden">Nova</span>
+              <span>Nova Demanda</span>
             </button>
           )}
 

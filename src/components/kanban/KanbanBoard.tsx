@@ -363,7 +363,7 @@ export const KanbanBoard: React.FC = () => {
 
 
       {/* 6 Kanban Columns Horizontal Scrolling Container */}
-      <div className="flex-1 overflow-x-auto pb-4 flex gap-4 custom-scrollbar items-start touch-pan-x overscroll-x-contain">
+      <div className="flex-1 overflow-x-auto pb-4 flex gap-3 sm:gap-4 custom-scrollbar items-start touch-pan-x overscroll-x-contain snap-x snap-mandatory">
         {columns.map((column, index) => {
           const columnTasks = filteredTasks.filter((t) => t.status === column.id);
           return (

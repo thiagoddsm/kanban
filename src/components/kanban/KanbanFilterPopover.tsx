@@ -140,7 +140,7 @@ export const KanbanFilterPopover: React.FC<KanbanFilterPopoverProps> = ({
 
       {/* Pipefy-Style Filter Popover Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[340px] sm:w-[420px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 animate-slide-down space-y-4 font-sans text-slate-800 dark:text-slate-100">
+        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[420px] sm:w-[420px] max-h-[80vh] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 animate-slide-down space-y-4 font-sans text-slate-800 dark:text-slate-100">
           {/* Popover Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
