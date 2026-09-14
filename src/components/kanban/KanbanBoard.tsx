@@ -4,6 +4,7 @@ import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { KanbanColumn } from './KanbanColumn';
+import { KanbanCard } from './KanbanCard';
 import { KanbanFilterPopover } from './KanbanFilterPopover';
 import { TaskModal } from './TaskModal';
 
@@ -15,17 +16,20 @@ import {
   Plus, 
   MapPin, 
   ShieldAlert, 
-  Sparkles,
-  Filter,
-  Search,
-  User as UserIcon,
-  Calendar,
-  Tag,
-  Layers,
-  Flame,
-  X,
-  RotateCcw,
-  Code2
+  Sparkles, 
+  Filter, 
+  Search, 
+  User as UserIcon, 
+  Calendar, 
+  Tag, 
+  Layers, 
+  Flame, 
+  X, 
+  RotateCcw, 
+  Code2,
+  ChevronDown,
+  ChevronUp,
+  LayoutGrid
 } from 'lucide-react';
 
 export const KanbanBoard: React.FC = () => {
@@ -80,6 +84,77 @@ export const KanbanBoard: React.FC = () => {
 
   // Quick review filter
   const [filterReviewOnly, setFilterReviewOnly] = useState(false);
+
+  // Mobile Display Mode: 'ACCORDION' (Pipefy grouped style) vs 'COLUMNS' (classic horizontal)
+  const [mobileViewMode, setMobileViewMode] = useState<'ACCORDION' | 'COLUMNS'>('ACCORDION');
+  const [expandedColumnIds, setExpandedColumnIds] = useState<Record<string, boolean>>({
+    INBOX: true,
+  });
+
+  const toggleColumnExpanded = (columnId: string) => {
+    setExpandedColumnIds((prev) => ({
+      ...prev,
+      [columnId]: !prev[columnId],
+    }));
+  };
+
+  const COLUMN_ACCORDION_STYLES: Record<string, {
+    bg: string;
+    border: string;
+    text: string;
+    badgeBg: string;
+    badgeText: string;
+    dot: string;
+  }> = {
+    INBOX: {
+      bg: 'bg-purple-50/90 dark:bg-purple-950/30',
+      border: 'border-purple-200/80 dark:border-purple-800/50',
+      text: 'text-purple-900 dark:text-purple-300',
+      badgeBg: 'bg-purple-100 dark:bg-purple-900/60',
+      badgeText: 'text-purple-800 dark:text-purple-200',
+      dot: 'bg-purple-500',
+    },
+    PLANNING: {
+      bg: 'bg-blue-50/90 dark:bg-blue-950/30',
+      border: 'border-blue-200/80 dark:border-blue-800/50',
+      text: 'text-blue-900 dark:text-blue-300',
+      badgeBg: 'bg-blue-100 dark:bg-blue-900/60',
+      badgeText: 'text-blue-800 dark:text-blue-200',
+      dot: 'bg-blue-500',
+    },
+    IN_PROGRESS: {
+      bg: 'bg-amber-50/90 dark:bg-amber-950/30',
+      border: 'border-amber-200/80 dark:border-amber-800/50',
+      text: 'text-amber-900 dark:text-amber-300',
+      badgeBg: 'bg-amber-100 dark:bg-amber-900/60',
+      badgeText: 'text-amber-800 dark:text-amber-200',
+      dot: 'bg-amber-500',
+    },
+    REVIEW: {
+      bg: 'bg-indigo-50/90 dark:bg-indigo-950/30',
+      border: 'border-indigo-200/80 dark:border-indigo-800/50',
+      text: 'text-indigo-900 dark:text-indigo-300',
+      badgeBg: 'bg-indigo-100 dark:bg-indigo-900/60',
+      badgeText: 'text-indigo-800 dark:text-indigo-200',
+      dot: 'bg-indigo-500',
+    },
+    BLOCKED: {
+      bg: 'bg-rose-50/90 dark:bg-rose-950/30',
+      border: 'border-rose-200/80 dark:border-rose-800/50',
+      text: 'text-rose-900 dark:text-rose-300',
+      badgeBg: 'bg-rose-100 dark:bg-rose-900/60',
+      badgeText: 'text-rose-800 dark:text-rose-200',
+      dot: 'bg-rose-500',
+    },
+    DONE: {
+      bg: 'bg-emerald-50/90 dark:bg-emerald-950/30',
+      border: 'border-emerald-200/80 dark:border-emerald-800/50',
+      text: 'text-emerald-900 dark:text-emerald-300',
+      badgeBg: 'bg-emerald-100 dark:bg-emerald-900/60',
+      badgeText: 'text-emerald-800 dark:text-emerald-200',
+      dot: 'bg-emerald-500',
+    },
+  };
 
   // Global Keyboard Shortcuts (N for new, J for JSON import, / for search, Esc to close)
   React.useEffect(() => {
@@ -234,6 +309,36 @@ export const KanbanBoard: React.FC = () => {
           <span className="text-xs text-slate-500">
             ({filteredTasks.length} {filteredTasks.length === 1 ? 'card' : 'cards'})
           </span>
+
+          {/* Mobile View Switcher (Agrupado Pipefy vs Colunas) */}
+          <div className="sm:hidden flex items-center bg-slate-200/80 dark:bg-slate-800 p-0.5 rounded-xl text-[11px] font-semibold ml-auto sm:ml-0">
+            <button
+              type="button"
+              onClick={() => setMobileViewMode('ACCORDION')}
+              className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                mobileViewMode === 'ACCORDION'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
+              title="Visualização Agrupada (Pipefy Mobile)"
+            >
+              <Layers className="w-3 h-3" />
+              <span>Agrupado</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileViewMode('COLUMNS')}
+              className={`px-2 py-0.5 rounded-lg transition-all flex items-center gap-1 ${
+                mobileViewMode === 'COLUMNS'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm font-bold'
+                  : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+              }`}
+              title="Visualização em Colunas"
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>Colunas</span>
+            </button>
+          </div>
         </div>
 
         {/* Right Toolbar: Search + Filter Popover + New Demand Button */}
@@ -362,8 +467,95 @@ export const KanbanBoard: React.FC = () => {
       )}
 
 
-      {/* 6 Kanban Columns Horizontal Scrolling Container */}
-      <div className="flex-1 overflow-x-auto pb-4 flex gap-3 sm:gap-4 custom-scrollbar items-start touch-pan-x overscroll-x-contain snap-x snap-mandatory">
+      {/* 1. Mobile Accordion View (Padrão Pipefy Mobile) */}
+      {mobileViewMode === 'ACCORDION' && (
+        <div className="sm:hidden flex-1 overflow-y-auto space-y-2.5 pb-6 custom-scrollbar">
+          {columns.map((column) => {
+            const columnTasks = filteredTasks.filter((t) => t.status === column.id);
+            const isExpanded = !!expandedColumnIds[column.id];
+            const style = COLUMN_ACCORDION_STYLES[column.id] || {
+              bg: 'bg-slate-50 dark:bg-slate-900/60',
+              border: 'border-slate-200 dark:border-slate-800',
+              text: 'text-slate-800 dark:text-slate-200',
+              badgeBg: 'bg-slate-200 dark:bg-slate-800',
+              badgeText: 'text-slate-700 dark:text-slate-300',
+              dot: 'bg-slate-500',
+            };
+
+            return (
+              <div 
+                key={column.id} 
+                className={`rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm ${
+                  isExpanded ? 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-300 dark:border-slate-700' : `${style.border}`
+                }`}
+              >
+                {/* Pipefy Stage Header Bar */}
+                <button
+                  type="button"
+                  onClick={() => toggleColumnExpanded(column.id)}
+                  className={`w-full p-3.5 flex items-center justify-between text-left transition-all ${style.bg} ${
+                    isExpanded ? 'border-b border-slate-200/80 dark:border-slate-800/80' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
+                    <span className={`text-xs font-black uppercase tracking-wider truncate ${style.text}`}>
+                      {column.title}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${style.badgeBg} ${style.badgeText}`}>
+                      {columnTasks.length}
+                    </span>
+                    <div className={`p-0.5 rounded-full text-slate-400 dark:text-slate-500 transition-transform duration-200 ${
+                      isExpanded ? 'rotate-180' : 'rotate-0'
+                    }`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Stage Cards (Expanded) */}
+                {isExpanded && (
+                  <div className="p-3 space-y-3 animate-fade-in bg-slate-100/40 dark:bg-slate-950/40">
+                    {columnTasks.length === 0 ? (
+                      <div className="py-6 px-4 text-center text-xs text-slate-400 dark:text-slate-500 italic">
+                        Nenhuma demanda nesta etapa.
+                      </div>
+                    ) : (
+                      columnTasks.map((task) => (
+                        <KanbanCard
+                          key={task.id}
+                          task={task}
+                          onSelect={handleSelectTask}
+                          onDragStart={() => {}}
+                        />
+                      ))
+                    )}
+
+                    {canCreateDemand && (
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAdd(column.id)}
+                        className="w-full py-2.5 px-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-indigo-300 hover:border-brand-400 transition-colors flex items-center justify-center gap-1.5 bg-white/70 dark:bg-slate-900/40"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Adicionar demanda em {column.title}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 2. Desktop Kanban Columns Container (and Mobile when in 'COLUMNS' mode) */}
+      <div className={`${
+        mobileViewMode === 'ACCORDION' ? 'hidden sm:flex' : 'flex'
+      } flex-1 overflow-x-auto pb-4 gap-3 sm:gap-4 custom-scrollbar items-start touch-pan-x overscroll-x-contain snap-x snap-mandatory`}>
         {columns.map((column, index) => {
           const columnTasks = filteredTasks.filter((t) => t.status === column.id);
           return (

@@ -138,9 +138,17 @@ export const KanbanFilterPopover: React.FC<KanbanFilterPopoverProps> = ({
         )}
       </button>
 
-      {/* Pipefy-Style Filter Popover Dropdown */}
+      {/* Backdrop for Mobile Sheet */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-[420px] sm:w-[420px] max-h-[80vh] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-4 animate-slide-down space-y-4 font-sans text-slate-800 dark:text-slate-100">
+        <div 
+          onClick={() => setIsOpen(false)}
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 sm:hidden animate-fade-in"
+        />
+      )}
+
+      {/* Pipefy-Style Filter Popover (Bottom sheet on mobile, anchored popover on desktop) */}
+      {isOpen && (
+        <div className="fixed inset-x-3 bottom-3 sm:inset-x-auto sm:bottom-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] sm:w-[420px] max-h-[82vh] sm:max-h-[80vh] overflow-y-auto custom-scrollbar bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl sm:rounded-2xl shadow-2xl z-50 p-4 sm:p-4 animate-slide-up sm:animate-slide-down space-y-4 font-sans text-slate-800 dark:text-slate-100">
           {/* Popover Header */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
