@@ -111,7 +111,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-20 shrink-0 transition-colors">
+      <header 
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        className="border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-4 z-20 shrink-0 transition-colors h-[calc(4rem+env(safe-area-inset-top))] sm:h-16"
+      >
         {/* Left: Mobile Menu & Current Context Title */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button

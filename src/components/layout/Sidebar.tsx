@@ -112,7 +112,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Top Header: Brand & Organization Switcher */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800/80 space-y-3">
+        <div 
+          style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+          className="p-4 border-b border-slate-200 dark:border-slate-800/80 space-y-3"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-sky-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 font-black text-sm">

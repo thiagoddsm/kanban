@@ -142,12 +142,12 @@ export const Layout: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-64 overflow-hidden">
-        <TrialBanner />
         <Header
           onOpenSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenDemandPortal={handleOpenDemandPortal}
           onNavigate={navigateToTab}
         />
+        <TrialBanner />
 
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative pb-20 lg:pb-0">
           {activeTab === 'dashboard' && (
