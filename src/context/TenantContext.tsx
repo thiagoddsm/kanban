@@ -90,24 +90,45 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const closeTrialExpiredModal = () => setIsTrialModalOpen(false);
 
   // Initial sync & Realtime listener for Organizations
+  // IMPORTANTE: Filtramos as organizações pelo usuário corrente para evitar que
+  // um usuário veja ou acesse orgs de outros tenants.
   useEffect(() => {
+    const filterOrgsByUser = (allRemoteOrgs: Organization[]): Organization[] => {
+      if (!currentUser) return [];
+      const allowedIds = new Set<string>([
+        ...(currentUser.organizationIds || []),
+        ...(currentUser.tenantId ? [currentUser.tenantId] : []),
+        ...(currentUser.activeOrganizationId ? [currentUser.activeOrganizationId] : []),
+      ]);
+      // Se o usuário não tiver nenhuma org vinculada ainda, retorna vazio (não vaza orgs de outros)
+      if (allowedIds.size === 0) return [];
+      return allRemoteOrgs.filter((o) => allowedIds.has(o.id));
+    };
+
     FirestoreRepository.fetchOrganizations().then((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {
-        setOrganizations(remoteOrgs);
+        const userOrgs = filterOrgsByUser(remoteOrgs);
+        // Salva todas no cache local para lookup interno (switchOrganizationBySlug precisa de todas)
         remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
+        // Mas expõe no estado apenas as orgs do usuário
+        if (userOrgs.length > 0) {
+          setOrganizations(userOrgs);
+        }
       }
     });
 
-
     const unsubOrgs = FirestoreRepository.subscribeOrganizations((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {
-        setOrganizations(remoteOrgs);
+        const userOrgs = filterOrgsByUser(remoteOrgs);
         remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
+        if (userOrgs.length > 0) {
+          setOrganizations(userOrgs);
+        }
       }
     });
 
     return () => unsubOrgs();
-  }, []);
+  }, [currentUser?.id, currentUser?.organizationIds?.join(','), currentUser?.tenantId]);
 
   // Keep campuses in sync when organization changes + Realtime listener
   useEffect(() => {

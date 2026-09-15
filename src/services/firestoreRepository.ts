@@ -219,14 +219,24 @@ export class FirestoreRepository {
       const sanitized = sanitizeForFirestore(membership);
       await setDoc(memRef, sanitized, { merge: true });
 
-      // Vínculo bidirecional: registra o tenantId e a organização no perfil do usuário
+      // Vínculo bidirecional: adiciona a org ao array do usuário
+      // IMPORTANTE: NÃO sobrescrever tenantId/activeOrganizationId se o usuário já tiver uma org ativa.
+      // Isso causaria cross-tenant leakage (org ativa do usuário virando a última org que criou membership).
       const userRef = doc(db, 'users', membership.userId);
-      const localUser = StorageService.getUsers().find((u) => u.id === membership.userId);
+      const userSnap = await getDoc(userRef).catch(() => null);
+      const existingUserData = userSnap?.exists() ? (userSnap.data() as any) : null;
+      const hasActiveOrg = !!(existingUserData?.tenantId || existingUserData?.activeOrganizationId);
+
       const userFieldsToMerge: any = {
-        tenantId: membership.organizationId,
-        activeOrganizationId: membership.organizationId,
+        // Só define org ativa se o usuário não tiver nenhuma ainda
+        ...(hasActiveOrg ? {} : {
+          tenantId: membership.organizationId,
+          activeOrganizationId: membership.organizationId,
+        }),
         organizationIds: arrayUnion(membership.organizationId),
       };
+
+      const localUser = StorageService.getUsers().find((u) => u.id === membership.userId);
       if (localUser?.name && localUser.name !== 'Membro') {
         userFieldsToMerge.name = localUser.name;
       }
@@ -235,7 +245,7 @@ export class FirestoreRepository {
       }
       await setDoc(userRef, userFieldsToMerge, { merge: true });
 
-      console.log('✅ Membership e tenantId gravados no Firestore para /users/' + membership.userId, '-> org:', membership.organizationId);
+      console.log('✅ Membership gravada no Firestore para /users/' + membership.userId, '-> org:', membership.organizationId);
 
     } catch (e) {
       console.error('Erro ao gravar membership no Firestore:', e);
@@ -320,33 +330,52 @@ export class FirestoreRepository {
   }
 
   /**
-   * Delete Membership from Firestore and cleanup user doc if necessary
+   * Delete Membership from Firestore.
+   * IMPORTANT: This method NEVER deletes the global /users/{userId} document.
+   * A user may belong to multiple organizations. Deleting from one org must NOT
+   * affect their access to other orgs. Only the membership doc within the org is removed,
+   * and the orgId is removed from the user's organizationIds array.
    */
   public static async deleteMembership(orgId: string, userId: string, membershipId?: string): Promise<void> {
+    // Remove apenas a membership desta org no localStorage
     const mems = StorageService.getMemberships().filter(
       (m) => !(m.organizationId === orgId && (m.userId === userId || m.id === membershipId))
     );
     StorageService.saveMemberships(mems);
+
     if (!isFirebaseConfigured || !db) return;
 
     try {
-      // 1. Excluir membership do Firestore por userId
+      // 1. Excluir membership do Firestore por userId (chave principal)
       const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
       await deleteDoc(memRef);
 
-      // 2. Excluir membership do Firestore por membershipId (caso legado com ID próprio)
+      // 2. Excluir membership pelo membershipId legado (caso exista documento com ID próprio)
       if (membershipId && membershipId !== userId) {
         const memRefLegacy = doc(db, 'organizations', orgId, 'memberships', membershipId);
         await deleteDoc(memRefLegacy);
       }
 
-      // 3. Excluir o documento do usuário em /users/{userId}
+      // 3. Remover o orgId do array organizationIds do usuário (sem apagar o documento global)
       const userRef = doc(db, 'users', userId);
-      await deleteDoc(userRef);
+      const userSnap = await getDoc(userRef).catch(() => null);
+      if (userSnap?.exists()) {
+        const userData = userSnap.data() as any;
+        const updatedOrgIds = (userData.organizationIds || []).filter((id: string) => id !== orgId);
+        // Se a org ativa era esta, limpar para que o usuário escolha outra na próxima sessão
+        const isActiveOrg = userData.activeOrganizationId === orgId || userData.tenantId === orgId;
+        await setDoc(userRef, {
+          organizationIds: updatedOrgIds,
+          ...(isActiveOrg ? {
+            activeOrganizationId: updatedOrgIds[0] ?? null,
+            tenantId: updatedOrgIds[0] ?? null,
+          } : {}),
+        }, { merge: true });
+      }
 
-      console.log('✅ Membership e Usuário excluídos com sucesso do Firestore:', userId);
+      console.log('✅ Membership removida do Firestore para org:', orgId, 'usuário:', userId);
     } catch (e) {
-      console.error('Erro ao excluir membership/usuário do Firestore:', e);
+      console.error('Erro ao excluir membership do Firestore:', e);
     }
   }
 
@@ -765,22 +794,24 @@ export class FirestoreRepository {
     let existingByUid = await this.getUser(fbUid);
 
     const allOrgs = await this.fetchOrganizations();
-    let targetOrg = (targetOrgSlugOrId && targetOrgSlugOrId !== 'NEW_REGISTRATION')
-      ? allOrgs.find((o) => o.id === targetOrgSlugOrId || o.slug === targetOrgSlugOrId)
+    // Resolve targetOrg APENAS se um slug/id explícito foi informado.
+    // NUNCA fazer fallback para allOrgs[0] — isso causaria cross-tenant leakage.
+    const targetOrg = (targetOrgSlugOrId && targetOrgSlugOrId !== 'NEW_REGISTRATION')
+      ? allOrgs.find((o) => o.id === targetOrgSlugOrId || o.slug === targetOrgSlugOrId) ?? null
       : null;
-
-    if (!targetOrg && targetOrgSlugOrId !== 'NEW_REGISTRATION' && allOrgs.length > 0) {
-      targetOrg = allOrgs.find((o) => o.id === 'org_igreja_batista_da_manha_izw' || o.slug === 'igreja-batista-da-manha') || allOrgs[0];
-    }
 
     // If doc already exists with this UID, update profile attributes and ensure membership in targetOrg
     if (existingByUid) {
       let organizationIds = existingByUid.organizationIds || [];
       let activeOrgId = existingByUid.activeOrganizationId || existingByUid.tenantId;
 
-      if (targetOrg && (!organizationIds.includes(targetOrg.id) || !activeOrgId)) {
+      // Adicionar targetOrg ao organizationIds APENAS se foi explicitamente informado (convite/org-switching)
+      if (targetOrg && !organizationIds.includes(targetOrg.id)) {
         organizationIds = Array.from(new Set([...organizationIds, targetOrg.id]));
-        activeOrgId = activeOrgId || targetOrg.id;
+        // Só atualiza a org ativa se o usuário não tiver nenhuma ainda
+        if (!activeOrgId) {
+          activeOrgId = targetOrg.id;
+        }
       }
 
       const updated: User = {
@@ -794,14 +825,15 @@ export class FirestoreRepository {
       };
       await this.syncUser(updated);
 
-      if (activeOrgId) {
-        const memRef = doc(db!, 'organizations', activeOrgId, 'memberships', fbUid);
+      // Garantir membership apenas na org ativa do próprio usuário (targetOrg explícita)
+      if (targetOrg) {
+        const memRef = doc(db!, 'organizations', targetOrg.id, 'memberships', fbUid);
         const memSnap = await getDoc(memRef);
         if (!memSnap.exists()) {
           const newMem: Membership = {
-            id: 'mem_' + fbUid + '_' + activeOrgId,
+            id: 'mem_' + fbUid + '_' + targetOrg.id,
             userId: fbUid,
-            organizationId: activeOrgId,
+            organizationId: targetOrg.id,
             hasOrgWideAccess: true,
             campusIds: [],
             role: 'TEAM',

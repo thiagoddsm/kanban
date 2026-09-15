@@ -82,51 +82,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return res;
     };
 
-    FirestoreRepository.fetchMemberships(currentOrganization.id).then(async (remoteMems) => {
-      try {
-        // Auto-reconciliação SEGURA: apenas usuários que explicitamente declararam esta org
-        // NÃO usa !u.tenantId ou organizationIds vazio — isso pegava ghost docs sem nome/email
-        const remoteUsers = await FirestoreRepository.fetchUsers();
-        for (const u of remoteUsers) {
-          if (!u || !u.id || !currentOrganization?.id) continue;
-          
-          // Pula ghost users: sem nome E sem email são documentos inválidos
-          const hasName = u.name && u.name.trim() !== '' && u.name !== 'Membro';
-          const hasEmail = u.email && u.email.trim() !== '';
-          if (!hasName && !hasEmail) {
-            console.log('⚠️ Pulando ghost user sem nome/email:', u.id);
-            continue;
-          }
-
-          const uEmail = (u.email || '').toLowerCase();
-          // Condição restritiva: só considera usuários que explicitamente pertencem à org
-          const belongsToThisOrg = 
-            u.tenantId === currentOrganization.id || 
-            u.activeOrganizationId === currentOrganization.id || 
-            u.organizationIds?.includes(currentOrganization.id);
-
-          if (belongsToThisOrg && !remoteMems.some((m) => m.userId === u.id)) {
-            const recoveredMem: Membership = {
-              id: 'mem_' + u.id + '_' + currentOrganization.id,
-              userId: u.id,
-              organizationId: currentOrganization.id,
-              hasOrgWideAccess: true,
-              campusIds: [],
-              role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
-              department: 'Comunicação',
-              status: 'ACTIVE',
-              createdAt: u.createdAt || new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            remoteMems.push(recoveredMem);
-            await FirestoreRepository.saveMembership(recoveredMem);
-            console.log('✅ Membro recuperado:', u.name, u.email);
-          }
-        }
-      } catch (err) {
-        console.warn('Erro na reconciliação de membros:', err);
-      }
-
+    // Busca memberships apenas desta org no Firestore (não reconstrói memberships entre tenants)
+    FirestoreRepository.fetchMemberships(currentOrganization.id).then((remoteMems) => {
       if (remoteMems && remoteMems.length > 0) {
         setMemberships((prev) => {
           const others = prev.filter((m) => m.organizationId !== currentOrganization.id);
@@ -136,7 +93,6 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         });
       }
     });
-
 
     const unsub = FirestoreRepository.subscribeMemberships(currentOrganization.id, (remoteMems) => {
       if (remoteMems && remoteMems.length > 0) {
@@ -444,24 +400,18 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
     if (!targetUserId) targetUserId = membershipId;
 
-    // Remove do StorageService e estado local
-    const updated = StorageService.deleteMembership(membershipId);
-    if (targetUserId !== membershipId) {
-      StorageService.deleteMembership(targetUserId);
-    }
-    const filteredMems = updated.filter(
-      (m) => m.id !== membershipId && m.userId !== targetUserId && m.id !== `mem_${targetUserId}_${currentOrganization.id}`
+    // Remove APENAS a membership desta org no estado local e localStorage.
+    // NUNCA apagar o usuário globalmente — ele pode pertencer a outras orgs.
+    const filteredMems = memberships.filter(
+      (m) => !(
+        (m.id === membershipId || m.userId === targetUserId) &&
+        m.organizationId === currentOrganization.id
+      )
     );
     setMemberships(filteredMems);
     StorageService.saveMemberships(filteredMems);
 
-    // Remove usuário do StorageService
-    StorageService.deleteUser(targetUserId);
-    if (membershipId !== targetUserId) {
-      StorageService.deleteUser(membershipId);
-    }
-
-    // Remove do Firestore
+    // Remove do Firestore: apenas a membership da org corrente
     FirestoreRepository.deleteMembership(currentOrganization.id, targetUserId, membershipId);
 
     const auditLog: ActivityLog = {
@@ -469,7 +419,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       organizationId: currentOrganization.id,
       userId: currentUser?.id || 'sys',
       userName: currentUser?.name || 'Administrador',
-      action: `removeu o vínculo do membro`,
+      action: `removeu o vínculo do membro da organização ${currentOrganization.name}`,
       securityEvent: 'USER_REMOVED',
       targetType: 'security',
       targetId: membershipId,
@@ -479,7 +429,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     StorageService.addActivity(auditLog);
     FirestoreRepository.recordActivity(auditLog);
 
-    success('Membro e usuário removidos com sucesso do Firestore.');
+    success('Membro removido desta organização com sucesso.');
   };
 
   // RBAC Permission Flags backed by closed Permission matrix
