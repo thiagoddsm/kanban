@@ -81,6 +81,7 @@ export interface User {
   organizationIds?: string[];
   activeOrganizationId?: string;
   tenantId?: string;
+  isSuperAdmin?: boolean;
 }
 
 export type TenantPlan = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
@@ -492,7 +493,28 @@ export type NavigationTab =
   | 'members-journey'
   | 'pastoral-care'
   | 'users'
-  | 'settings';
+  | 'settings'
+  | 'organizations'
+  | 'saas-admin';
+
+export interface MasterOrganizationInfo {
+  organization: Organization;
+  adminUser?: User | null;
+  membersCount: number;
+  campusesCount: number;
+  tasksCount: number;
+}
+
+export interface MasterUserInfo {
+  user: User;
+  memberships: {
+    organizationId: string;
+    organizationName: string;
+    organizationSlug: string;
+    role: UserRole;
+    status: MembershipStatus;
+  }[];
+}
 
 export interface ColumnDefinition {
   id: TaskStatus;

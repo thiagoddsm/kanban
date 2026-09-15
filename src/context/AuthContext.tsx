@@ -27,6 +27,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   logout: () => Promise<void>;
+  isSuperAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -268,6 +269,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoadingAuth(false);
   };
 
+  const isSuperAdmin = currentUser?.isSuperAdmin === true || 
+    (currentUser?.email ? ['thiagoddsm@gmail.com', 'admin@oiko.com.br', 'admin@mail.com'].includes(currentUser.email.toLowerCase()) : false);
+
   return (
     <AuthContext.Provider
       value={{
@@ -284,6 +288,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         resetPassword,
         updateUserProfile,
         logout,
+        isSuperAdmin,
       }}
     >
       {children}

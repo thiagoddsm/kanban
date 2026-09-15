@@ -11,7 +11,9 @@ import {
   X,
   Settings,
   UserCheck,
-  HeartHandshake
+  HeartHandshake,
+  Building2,
+  ShieldAlert
 } from 'lucide-react';
 import { NavigationTab } from '../../types';
 import { useAccess } from '../../context/AccessContext';
@@ -50,6 +52,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isMyAccountOpen, setIsMyAccountOpen] = useState(false);
 
   const sections: MenuSection[] = [
+    {
+      title: 'Minha Conta & Organizações',
+      items: [
+        { id: 'organizations', label: 'Minhas Organizações', icon: Building2 },
+      ],
+    },
     {
       title: 'Operações & Tarefas',
       items: [
@@ -93,6 +101,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
   ];
+
+  if (currentUser?.isSuperAdmin || (currentUser?.email && ['thiagoddsm@gmail.com', 'admin@oiko.com.br', 'admin@mail.com'].includes(currentUser.email.toLowerCase()))) {
+    sections.push({
+      title: 'Gestor do SaaS',
+      items: [
+        { id: 'saas-admin', label: 'Painel Master', icon: ShieldAlert, badge: 'SuperAdmin' }
+      ]
+    });
+  }
 
   const slug = currentOrganization?.slug || 'minha-igreja';
 

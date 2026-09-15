@@ -13,6 +13,8 @@ import { UsersView } from '../users/UsersView';
 import { SettingsView } from '../settings/SettingsView';
 import { MemberJourneyBoard } from '../members/MemberJourneyBoard';
 import { PastoralCareView } from '../pastoral/PastoralCareView';
+import { MyOrganizationsView } from '../saas/MyOrganizationsView';
+import { SaasMasterView } from '../saas/SaasMasterView';
 import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
@@ -25,7 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 
 const VALID_TABS: NavigationTab[] = [
-  'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'members-journey', 'pastoral-care', 'users', 'settings',
+  'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'members-journey', 'pastoral-care', 'users', 'settings', 'organizations', 'saas-admin'
 ];
 
 export const Layout: React.FC = () => {
@@ -58,6 +60,12 @@ export const Layout: React.FC = () => {
       }
       if (tab === 'pastoral-care' && !canViewPastoral) {
         navigate(`/${currentOrganization.slug}/dashboard`, { replace: true });
+      }
+      if (tab === 'saas-admin') {
+        const isSuper = currentUser?.isSuperAdmin === true || (currentUser?.email && ['thiagoddsm@gmail.com', 'admin@oiko.com.br', 'admin@mail.com'].includes(currentUser.email.toLowerCase()));
+        if (!isSuper) {
+          navigate(`/${currentOrganization.slug}/dashboard`, { replace: true });
+        }
       }
     }
   }, [tab, isAdmin, canViewPastoral, isLoadingAuth, currentUser, currentOrganization.slug, navigate]);
@@ -165,6 +173,8 @@ export const Layout: React.FC = () => {
           {activeTab === 'pastoral-care' && canViewPastoral && <PastoralCareView />}
           {activeTab === 'users' && isAdmin && <UsersView />}
           {activeTab === 'settings' && isAdmin && <SettingsView />}
+          {activeTab === 'organizations' && <MyOrganizationsView />}
+          {activeTab === 'saas-admin' && <SaasMasterView />}
         </main>
       </div>
 

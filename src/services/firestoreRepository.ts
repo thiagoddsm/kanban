@@ -1402,5 +1402,151 @@ export class FirestoreRepository {
       console.error('Erro ao deletar atendimento pastoral do Firestore:', e);
     }
   }
+
+  // ==========================================
+  // SUPERADMIN / MASTER SAAS METHODS
+  // ==========================================
+
+  public static async fetchMasterOrganizationsWithAdmins(): Promise<any[]> {
+    if (!isFirebaseConfigured || !db) return [];
+    try {
+      const orgsSnap = await getDocs(collection(db, 'organizations'));
+      const orgs = orgsSnap.docs.map(d => d.data() as Organization);
+      
+      const masterList = await Promise.all(orgs.map(async (org) => {
+        // Find admins for this org
+        const memsSnap = await getDocs(query(collection(db, 'organizations', org.id, 'memberships'), where('role', '==', 'ADMIN')));
+        const adminMems = memsSnap.docs.map(d => d.data() as Membership);
+        
+        let adminUser: User | null = null;
+        if (adminMems.length > 0) {
+          const userSnap = await getDoc(doc(db, 'users', adminMems[0].userId));
+          if (userSnap.exists()) {
+            adminUser = userSnap.data() as User;
+          }
+        }
+        
+        // Count total members
+        const allMemsSnap = await getDocs(collection(db, 'organizations', org.id, 'memberships'));
+        
+        // Count campuses
+        const campusesSnap = await getDocs(collection(db, 'organizations', org.id, 'campuses'));
+        
+        return {
+          organization: org,
+          adminUser,
+          membersCount: allMemsSnap.size,
+          campusesCount: campusesSnap.size,
+          tasksCount: 0 // Could query tasks but skipping for perf
+        };
+      }));
+      
+      return masterList;
+    } catch (e) {
+      console.error('Erro ao buscar Master Organizations:', e);
+      return [];
+    }
+  }
+
+  public static async fetchMasterUsersWithAccess(): Promise<any[]> {
+    if (!isFirebaseConfigured || !db) return [];
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const users = usersSnap.docs.map(d => d.data() as User);
+      
+      // Mapear orgs pra pegar os nomes rápidos
+      const orgsSnap = await getDocs(collection(db, 'organizations'));
+      const orgsMap = new Map<string, {name: string, slug: string}>();
+      orgsSnap.docs.forEach(d => {
+        const data = d.data() as Organization;
+        orgsMap.set(data.id, { name: data.name, slug: data.slug });
+      });
+
+      const masterUsers = await Promise.all(users.map(async (u) => {
+        const memberships: any[] = [];
+        if (u.organizationIds && u.organizationIds.length > 0) {
+          for (const orgId of u.organizationIds) {
+            try {
+              const memSnap = await getDoc(doc(db, 'organizations', orgId, 'memberships', u.id));
+              if (memSnap.exists()) {
+                const mData = memSnap.data() as Membership;
+                const oData = orgsMap.get(orgId);
+                if (oData) {
+                  memberships.push({
+                    organizationId: orgId,
+                    organizationName: oData.name,
+                    organizationSlug: oData.slug,
+                    role: mData.role,
+                    status: mData.status
+                  });
+                }
+              }
+            } catch (err) {
+              // ignore deleted orgs
+            }
+          }
+        }
+        return {
+          user: u,
+          memberships
+        };
+      }));
+      
+      return masterUsers;
+    } catch (e) {
+      console.error('Erro ao buscar Master Users:', e);
+      return [];
+    }
+  }
+
+  public static async masterGrantUserAccess(userId: string, orgId: string, role: string): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
+      const newMem: Membership = {
+        id: 'mem_' + userId + '_' + orgId,
+        userId: userId,
+        organizationId: orgId,
+        hasOrgWideAccess: true,
+        campusIds: [],
+        role: role as any,
+        department: '',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await setDoc(memRef, newMem, { merge: true });
+      
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        organizationIds: arrayUnion(orgId)
+      });
+    } catch (e) {
+      console.error('Erro no masterGrantUserAccess:', e);
+    }
+  }
+
+  public static async masterUpdateOrgSubscription(orgId: string, updates: any): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const orgRef = doc(db, 'organizations', orgId);
+      const orgSnap = await getDoc(orgRef);
+      if (orgSnap.exists()) {
+        const data = orgSnap.data() as Organization;
+        const newSub = { ...data.subscription, ...updates };
+        await updateDoc(orgRef, { subscription: newSub });
+        
+        // Update local cache se for a org atual
+        const localOrgs = StorageService.getOrganizations();
+        const idx = localOrgs.findIndex(o => o.id === orgId);
+        if (idx >= 0) {
+          localOrgs[idx].subscription = newSub;
+          StorageService.saveOrganizations(localOrgs);
+        }
+      }
+    } catch (e) {
+      console.error('Erro no masterUpdateOrgSubscription:', e);
+    }
+  }
 }
 
