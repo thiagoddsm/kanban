@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 export const SaasMasterView: React.FC = () => {
-  const { isSuperAdmin } = useAuth();
+  const { currentUser, isSuperAdmin } = useAuth();
   const { switchOrganization } = useTenant();
   const { success, error: notifyError } = useNotification();
   const navigate = useNavigate();
@@ -80,10 +80,13 @@ export const SaasMasterView: React.FC = () => {
     loadData(); // recarrega para mostrar mudanças
   };
 
-  const handleImpersonate = (orgId: string, slug: string) => {
+  const handleImpersonate = async (orgId: string, slug: string) => {
+    if (currentUser) {
+      await FirestoreRepository.masterGrantUserAccess(currentUser.id, orgId, 'ADMIN');
+    }
     switchOrganization(orgId);
     navigate(`/${slug}/dashboard`);
-    success('Sessão Trocada', `Você acessou o painel da organização como Gestor.`);
+    success('Sessão Trocada', `Você acessou o painel da organização como Gestor Admin.`);
   };
 
   // KPIs

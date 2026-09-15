@@ -58,7 +58,7 @@ interface AccessContextType {
 const AccessContext = createContext<AccessContextType | undefined>(undefined);
 
 export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isSuperAdmin } = useAuth();
   const { organizations, currentOrganization, campuses } = useTenant();
   const { success, warning, error: notifyError } = useNotification();
 
@@ -118,13 +118,12 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     );
   }, [memberships, currentUser?.id, currentOrganization.id]);
 
-  // O papel do usuário vem exclusivamente da membership ativa no Firestore.
-  // Não existe mais superadmin baseado em e-mail hardcoded.
-  // Se o usuário não tiver membership ativa, recebe 'REQUESTER' como fallback mínimo.
-  const currentRole: UserRole = currentMembership?.role || 'REQUESTER';
+  // O papel do usuário vem da membership ativa no Firestore, mas SuperAdmin sempre possui papel ADMIN.
+  const currentRole: UserRole = isSuperAdmin ? 'ADMIN' : (currentMembership?.role || 'REQUESTER');
 
   // Permission Checking Engine — baseado 100% na matriz ROLE_PERMISSIONS
   const hasPermission = (permission: Permission): boolean => {
+    if (isSuperAdmin) return true;
     if (!currentMembership) {
       // Usuário sem membership ativa: apenas pode criar demandas (acesso mínimo)
       return permission === 'tasks.create';
@@ -150,9 +149,10 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return granted;
   };
 
-  // Orgs acessíveis: memberships ativas + organizations associadas ao perfil do usuário
+  // Orgs acessíveis: para SuperAdmin traz todas as orgs, para usuário comum traz suas permissões
   const accessibleOrganizations = useMemo(() => {
     if (!currentUser) return [];
+    if (isSuperAdmin) return organizations;
     const membershipOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
@@ -165,20 +165,22 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ]);
 
     return organizations.filter((o) => allowedOrgIds.has(o.id));
-  }, [organizations, memberships, currentUser]);
+  }, [organizations, memberships, currentUser, isSuperAdmin]);
 
   // Campi acessíveis: depende da membership e do hasOrgWideAccess
   const accessibleCampuses = useMemo(() => {
+    if (isSuperAdmin) return campuses;
     if (!currentMembership) return [];
 
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return campuses;
     }
     return campuses.filter((c) => currentMembership.campusIds.includes(c.id));
-  }, [campuses, currentMembership]);
+  }, [campuses, currentMembership, isSuperAdmin]);
 
   const hasCampusAccess = (campusId?: string | null): boolean => {
     if (!campusId) return true; // null/undefined = visão de toda a organização
+    if (isSuperAdmin) return true;
     if (!currentMembership) return false;
     if (currentMembership.hasOrgWideAccess || currentMembership.role === 'ADMIN') {
       return true;
