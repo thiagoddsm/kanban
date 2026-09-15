@@ -81,9 +81,26 @@ export class EvolutionApiService {
   }
 
   /**
+   * Constrói o nome da instância da organização no formato Oiko_Gestao_{NomeDaOrganização}
+   */
+  public static buildOrgInstanceName(orgName?: string, orgSlug?: string): string {
+    const rawName = orgName || orgSlug || '';
+    if (!rawName) return 'Oiko_Gestao';
+
+    const cleanName = rawName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^a-zA-Z0-9_-]/g, '_')  // substitui caracteres inválidos por _
+      .replace(/_+/g, '_')             // colapsa múltiplos _
+      .replace(/^_+|_+$/g, '');         // trim _
+
+    return `Oiko_Gestao_${cleanName}`;
+  }
+
+  /**
    * Sanitiza o slug da instância para um identificador seguro no Evolution
    */
-  public static sanitizeSlug(name: string, maxLength: number = 32): string {
+  public static sanitizeSlug(name: string, maxLength: number = 64): string {
     return (name || 'Oiko_Gestao')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')

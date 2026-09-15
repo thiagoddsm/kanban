@@ -19,8 +19,7 @@ export class WhatsAppNotificationService {
   private static resolveInstanceName(org: Organization, authorUser?: User | null): string {
     const orgInstance =
       org.evolutionConfig?.instanceName ||
-      DEFAULT_EVOLUTION_CONFIG.instanceName ||
-      'Oiko_Gestao';
+      EvolutionApiService.buildOrgInstanceName(org?.name, org?.slug);
 
     if (authorUser?.whatsappConnected && authorUser?.whatsappInstanceName) {
       return authorUser.whatsappInstanceName;
