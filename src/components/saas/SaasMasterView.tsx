@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Ban,
   Check,
-  CreditCard
+  CreditCard,
+  X
 } from 'lucide-react';
 
 export const SaasMasterView: React.FC = () => {
@@ -80,13 +81,18 @@ export const SaasMasterView: React.FC = () => {
     loadData(); // recarrega para mostrar mudanças
   };
 
-  const handleImpersonate = async (orgId: string, slug: string) => {
-    if (currentUser) {
-      await FirestoreRepository.masterGrantUserAccess(currentUser.id, orgId, 'ADMIN');
-    }
+  const handleImpersonate = (orgId: string, slug: string) => {
     switchOrganization(orgId);
     navigate(`/${slug}/dashboard`);
-    success('Sessão Trocada', `Você acessou o painel da organização como Gestor Admin.`);
+    success('Sessão Trocada', `Você acessou o painel da organização como Gestor (SuperAdmin).`);
+  };
+
+  const handleRevokeAccess = async (userId: string, orgId: string, orgName: string) => {
+    if (window.confirm(`Deseja remover o acesso deste usuário à organização "${orgName}"?`)) {
+      await FirestoreRepository.masterRevokeUserAccess(userId, orgId);
+      success('Acesso Removido', `O vínculo com "${orgName}" foi removido com sucesso.`);
+      loadData();
+    }
   };
 
   // KPIs
@@ -333,6 +339,13 @@ export const SaasMasterView: React.FC = () => {
                                     <Building2 className="w-3 h-3 text-slate-400" />
                                     <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300">{m.organizationName}</span>
                                     <span className="text-[9px] px-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 uppercase">{m.role}</span>
+                                    <button
+                                      onClick={() => handleRevokeAccess(u.user.id, m.organizationId, m.organizationName)}
+                                      className="p-0.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded transition-colors ml-0.5"
+                                      title="Remover vínculo desta organização"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
                                   </div>
                                 ))}
                               </div>

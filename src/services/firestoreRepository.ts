@@ -1526,6 +1526,21 @@ export class FirestoreRepository {
     }
   }
 
+  public static async masterRevokeUserAccess(userId: string, orgId: string): Promise<void> {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      const memRef = doc(db, 'organizations', orgId, 'memberships', userId);
+      await deleteDoc(memRef);
+      
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        organizationIds: arrayRemove(orgId)
+      });
+    } catch (e) {
+      console.error('Erro no masterRevokeUserAccess:', e);
+    }
+  }
+
   public static async masterUpdateOrgSubscription(orgId: string, updates: any): Promise<void> {
     if (!isFirebaseConfigured || !db) return;
     try {

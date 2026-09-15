@@ -184,9 +184,6 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       org = localOrgs.find(
         (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
       );
-      if (org) {
-        setOrganizations(localOrgs);
-      }
     }
     if (org) {
       switchOrganization(org.id, true);
