@@ -149,10 +149,9 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return granted;
   };
 
-  // Orgs acessíveis: para SuperAdmin traz todas as orgs, para usuário comum traz suas permissões
+  // Orgs acessíveis: apenas as que o usuário pertence (via memberships ou organizationIds)
   const accessibleOrganizations = useMemo(() => {
     if (!currentUser) return [];
-    if (isSuperAdmin) return organizations;
     const membershipOrgIds = memberships
       .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
       .map((m) => m.organizationId);
@@ -165,7 +164,7 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ]);
 
     return organizations.filter((o) => allowedOrgIds.has(o.id));
-  }, [organizations, memberships, currentUser, isSuperAdmin]);
+  }, [organizations, memberships, currentUser]);
 
   // Campi acessíveis: depende da membership e do hasOrgWideAccess
   const accessibleCampuses = useMemo(() => {

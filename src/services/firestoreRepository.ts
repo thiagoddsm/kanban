@@ -801,17 +801,30 @@ export class FirestoreRepository {
       : null;
 
     // If doc already exists with this UID, update profile attributes and ensure membership in targetOrg
+    // If doc already exists with this UID, update profile attributes and reconcile organizationIds
     if (existingByUid) {
       let organizationIds = existingByUid.organizationIds || [];
       let activeOrgId = existingByUid.activeOrganizationId || existingByUid.tenantId;
 
-      // Adicionar targetOrg ao organizationIds APENAS se foi explicitamente informado (convite/org-switching)
-      if (targetOrg && !organizationIds.includes(targetOrg.id)) {
-        organizationIds = Array.from(new Set([...organizationIds, targetOrg.id]));
-        // Só atualiza a org ativa se o usuário não tiver nenhuma ainda
-        if (!activeOrgId) {
-          activeOrgId = targetOrg.id;
+      // Sincronizar organizationIds APENAS com organizações onde o usuário possui membership real no Firestore
+      if (allOrgs && allOrgs.length > 0) {
+        const validOrgIds: string[] = [];
+        for (const orgId of organizationIds) {
+          try {
+            const memRef = doc(db!, 'organizations', orgId, 'memberships', fbUid);
+            const memSnap = await getDoc(memRef);
+            if (memSnap.exists() && memSnap.data()?.status === 'ACTIVE') {
+              validOrgIds.push(orgId);
+            }
+          } catch {
+            // ignore
+          }
         }
+        organizationIds = validOrgIds;
+      }
+
+      if (!activeOrgId || !organizationIds.includes(activeOrgId)) {
+        activeOrgId = organizationIds[0] || (allOrgs[0]?.id || '');
       }
 
       const updated: User = {
@@ -824,27 +837,6 @@ export class FirestoreRepository {
         organizationIds,
       };
       await this.syncUser(updated);
-
-      // Garantir membership apenas na org ativa do próprio usuário (targetOrg explícita)
-      if (targetOrg) {
-        const memRef = doc(db!, 'organizations', targetOrg.id, 'memberships', fbUid);
-        const memSnap = await getDoc(memRef);
-        if (!memSnap.exists()) {
-          const newMem: Membership = {
-            id: 'mem_' + fbUid + '_' + targetOrg.id,
-            userId: fbUid,
-            organizationId: targetOrg.id,
-            hasOrgWideAccess: true,
-            campusIds: [],
-            role: 'TEAM',
-            department: 'Comunicação',
-            status: 'ACTIVE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          await this.saveMembership(newMem);
-        }
-      }
 
       return updated;
     }
