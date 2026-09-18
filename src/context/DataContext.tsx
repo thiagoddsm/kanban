@@ -485,8 +485,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       if (filterEventId && t.eventId !== filterEventId) return false;
       if (filterAssigneeId) {
-        const matches = (t.assigneeIds && t.assigneeIds.includes(filterAssigneeId)) || t.assigneeId === filterAssigneeId;
-        if (!matches) return false;
+        if (filterAssigneeId === 'UNASSIGNED') {
+          const hasAssignee = 
+            (t.assigneeIds && t.assigneeIds.length > 0) || 
+            (Boolean(t.assigneeId && t.assigneeId.trim() !== '')) ||
+            (t.assignees && t.assignees.length > 0) ||
+            (Boolean(t.assigneeName && t.assigneeName.trim() !== ''));
+          if (hasAssignee) return false;
+        } else {
+          const matches = (t.assigneeIds && t.assigneeIds.includes(filterAssigneeId)) || t.assigneeId === filterAssigneeId;
+          if (!matches) return false;
+        }
       }
       if (filterPriority && t.priority !== filterPriority) return false;
       if (filterDemandType && t.demandType !== filterDemandType) return false;

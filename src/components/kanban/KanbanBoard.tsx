@@ -403,6 +403,17 @@ export const KanbanBoard: React.FC = () => {
             </span>
           )}
 
+          {filterAssigneeId && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
+              {filterAssigneeId === 'UNASSIGNED'
+                ? 'Sem responsável'
+                : `Responsável: ${users.find((u) => u.id === filterAssigneeId)?.name || 'Membro'}`}
+              <button onClick={() => setFilterAssigneeId('')} className="hover:text-white">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+
           {filterPriority && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[11px] font-medium">
               Prioridade: {filterPriority}
