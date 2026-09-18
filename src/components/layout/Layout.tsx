@@ -1,20 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { NavigationTab } from '../../types';
-import { DashboardView } from '../dashboard/DashboardView';
-import { KanbanBoard } from '../kanban/KanbanBoard';
-import { EventsView } from '../events/EventsView';
-import { GanttView } from '../gantt/GanttView';
-import { CalendarView } from '../calendar/CalendarView';
-import { ArchivedView } from '../archived/ArchivedView';
-import { UsersView } from '../users/UsersView';
-import { SettingsView } from '../settings/SettingsView';
-import { MemberJourneyBoard } from '../members/MemberJourneyBoard';
-import { PastoralCareView } from '../pastoral/PastoralCareView';
-import { MyOrganizationsView } from '../saas/MyOrganizationsView';
-import { SaasMasterView } from '../saas/SaasMasterView';
+// Layouts leves — carregados estaticamente (aparecem em toda tela)
 import { NewDemandModal } from '../kanban/NewDemandModal';
 import { AcceptInviteModal } from '../users/AcceptInviteModal';
 import { MyAccountModal } from '../auth/MyAccountModal';
@@ -25,6 +14,27 @@ import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
+
+// Views pesadas — carregadas sob demanda (lazy + Suspense) para reduzir bundle inicial
+const DashboardView = React.lazy(() => import('../dashboard/DashboardView').then(m => ({ default: m.DashboardView })));
+const KanbanBoard = React.lazy(() => import('../kanban/KanbanBoard').then(m => ({ default: m.KanbanBoard })));
+const EventsView = React.lazy(() => import('../events/EventsView').then(m => ({ default: m.EventsView })));
+const GanttView = React.lazy(() => import('../gantt/GanttView').then(m => ({ default: m.GanttView })));
+const CalendarView = React.lazy(() => import('../calendar/CalendarView').then(m => ({ default: m.CalendarView })));
+const ArchivedView = React.lazy(() => import('../archived/ArchivedView').then(m => ({ default: m.ArchivedView })));
+const UsersView = React.lazy(() => import('../users/UsersView').then(m => ({ default: m.UsersView })));
+const SettingsView = React.lazy(() => import('../settings/SettingsView').then(m => ({ default: m.SettingsView })));
+const MemberJourneyBoard = React.lazy(() => import('../members/MemberJourneyBoard').then(m => ({ default: m.MemberJourneyBoard })));
+const PastoralCareView = React.lazy(() => import('../pastoral/PastoralCareView').then(m => ({ default: m.PastoralCareView })));
+const MyOrganizationsView = React.lazy(() => import('../saas/MyOrganizationsView').then(m => ({ default: m.MyOrganizationsView })));
+const SaasMasterView = React.lazy(() => import('../saas/SaasMasterView').then(m => ({ default: m.SaasMasterView })));
+
+// Fallback de carregamento inline
+const ViewLoader = () => (
+  <div className="flex-1 flex items-center justify-center">
+    <div className="w-8 h-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
+  </div>
+);
 
 const VALID_TABS: NavigationTab[] = [
   'dashboard', 'tasks', 'events', 'gantt', 'calendar', 'archived', 'members-journey', 'pastoral-care', 'users', 'settings', 'organizations', 'saas-admin'
@@ -158,23 +168,25 @@ export const Layout: React.FC = () => {
         <TrialBanner />
 
         <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative pb-20 lg:pb-0">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              onNavigate={navigateToTab}
-              onOpenDemandPortal={handleOpenDemandPortal}
-            />
-          )}
-          {activeTab === 'tasks' && <KanbanBoard />}
-          {activeTab === 'events' && <EventsView onNavigate={navigateToTab} />}
-          {activeTab === 'gantt' && <GanttView />}
-          {activeTab === 'calendar' && <CalendarView />}
-          {activeTab === 'archived' && <ArchivedView />}
-          {activeTab === 'members-journey' && <MemberJourneyBoard />}
-          {activeTab === 'pastoral-care' && canViewPastoral && <PastoralCareView />}
-          {activeTab === 'users' && isAdmin && <UsersView />}
-          {activeTab === 'settings' && isAdmin && <SettingsView />}
-          {activeTab === 'organizations' && <MyOrganizationsView />}
-          {activeTab === 'saas-admin' && <SaasMasterView />}
+          <Suspense fallback={<ViewLoader />}>
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                onNavigate={navigateToTab}
+                onOpenDemandPortal={handleOpenDemandPortal}
+              />
+            )}
+            {activeTab === 'tasks' && <KanbanBoard />}
+            {activeTab === 'events' && <EventsView onNavigate={navigateToTab} />}
+            {activeTab === 'gantt' && <GanttView />}
+            {activeTab === 'calendar' && <CalendarView />}
+            {activeTab === 'archived' && <ArchivedView />}
+            {activeTab === 'members-journey' && <MemberJourneyBoard />}
+            {activeTab === 'pastoral-care' && canViewPastoral && <PastoralCareView />}
+            {activeTab === 'users' && isAdmin && <UsersView />}
+            {activeTab === 'settings' && isAdmin && <SettingsView />}
+            {activeTab === 'organizations' && <MyOrganizationsView />}
+            {activeTab === 'saas-admin' && <SaasMasterView />}
+          </Suspense>
         </main>
       </div>
 

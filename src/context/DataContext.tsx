@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { 
   Task, 
   ChurchEvent, 
@@ -216,66 +216,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAllUsers(StorageService.getUsers());
     setRawMemberJourneys(StorageService.getMemberJourneys(currentOrganization.id));
     setRawPastoralAppointments(StorageService.getPastoralAppointments(currentOrganization.id));
-
-    FirestoreRepository.fetchMemberJourneys(currentOrganization.id).then((remotes) => {
-      if (remotes && remotes.length > 0) {
-        setRawMemberJourneys(remotes);
-        StorageService.saveMemberJourneys(currentOrganization.id, remotes);
-      }
-    });
-
-    FirestoreRepository.fetchPastoralAppointments(currentOrganization.id).then((remotes) => {
-      if (remotes && remotes.length > 0) {
-        setRawPastoralAppointments(remotes);
-        StorageService.savePastoralAppointments(currentOrganization.id, remotes);
-      }
-    });
-
-    // Async Fetch from Firestore usando queries filtradas (isArchived: false)
-    FirestoreRepository.fetchTasks(currentOrganization.id, { isArchived: false }).then((remoteTasks) => {
-      if (remoteTasks) {
-        setRawTasks(remoteTasks);
-        StorageService.saveTasks(currentOrganization.id, remoteTasks);
-      }
-    });
-
-    FirestoreRepository.fetchEvents(currentOrganization.id, false).then((remoteEvents) => {
-      if (remoteEvents) {
-        setRawEvents(remoteEvents);
-        StorageService.saveEvents(currentOrganization.id, remoteEvents);
-      }
-    });
-
-    FirestoreRepository.fetchUsers().then((remoteUsers) => {
-      if (remoteUsers && remoteUsers.length > 0) {
-        setAllUsers(remoteUsers);
-        StorageService.saveUsers(remoteUsers);
-      }
-    });
-
-    FirestoreRepository.fetchComments(currentOrganization.id).then((remoteComments) => {
-      if (remoteComments && remoteComments.length > 0) {
-        setComments(remoteComments);
-        StorageService.saveComments(currentOrganization.id, remoteComments);
-      }
-    });
-
-    FirestoreRepository.fetchOrgConfig(currentOrganization.id).then((remoteConfig) => {
-      if (remoteConfig) {
-        if (remoteConfig.demandTypes) {
-          setDemandTypes(remoteConfig.demandTypes);
-          StorageService.saveDemandTypes(currentOrganization.id, remoteConfig.demandTypes);
-        }
-        if (remoteConfig.eventCategories) {
-          setEventCategories(remoteConfig.eventCategories);
-          StorageService.saveEventCategories(currentOrganization.id, remoteConfig.eventCategories);
-        }
-        if (remoteConfig.departments) {
-          setDepartments(remoteConfig.departments);
-          StorageService.saveDepartments(currentOrganization.id, remoteConfig.departments);
-        }
-      }
-    });
 
     // Realtime listeners filtrados por tarefas ativas - Firestore é a fonte única da verdade
     const unsubTasks = FirestoreRepository.subscribeTasks(
@@ -529,7 +469,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ]);
 
   // Dependency Checking
-  const checkDependencies = (task: Task): DependencyCheckResult => {
+  const checkDependencies = useCallback((task: Task): DependencyCheckResult => {
     if (!task.dependencies || task.dependencies.length === 0) {
       return { hasPending: false, pendingTasks: [] };
     }
@@ -540,9 +480,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       hasPending: pending.length > 0,
       pendingTasks: pending,
     };
-  };
+  }, [rawTasks]);
 
-  const remindPredecessors = (taskId: string) => {
+  const remindPredecessors = useCallback((taskId: string) => {
     const task = rawTasks.find((t) => t.id === taskId);
     if (!task) return { message: '' };
 
@@ -574,10 +514,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return { whatsappUrl, message: msg };
-  };
+  }, [rawTasks, checkDependencies, currentOrganization, currentUser, info]);
 
   // Task Actions
-  const createTask = (
+  const createTask = useCallback((
     taskData: Partial<Task> & { title: string; demandType: DemandType },
     options?: { skipNotification?: boolean }
   ): Task | null => {
@@ -697,9 +637,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     success('Demanda criada com sucesso!', newTask.title);
     return newTask;
-  };
+  }, [rawTasks, rawEvents, campuses, currentCampus, currentOrganization, currentUser, orgUsers, notifyError, success]);
 
-  const updateTask = (task: Task) => {
+  const updateTask = useCallback((task: Task) => {
     const oldTask = rawTasks.find((t) => t.id === task.id);
     const event = task.eventId ? rawEvents.find((e) => e.id === task.eventId) : undefined;
     const campus = task.campusId ? campuses.find((c) => c.id === task.campusId) : undefined;
@@ -774,10 +714,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
     success('Tarefa atualizada!', updatedTask.title);
-  };
+  }, [rawTasks, rawEvents, campuses, currentOrganization, currentUser, orgUsers, warning, success]);
 
 
-  const moveTask = (taskId: string, newStatus: TaskStatus, force = false): { success: boolean; blockedBy?: Task[] } => {
+  const moveTask = useCallback((taskId: string, newStatus: TaskStatus, force = false): { success: boolean; blockedBy?: Task[] } => {
     const task = rawTasks.find((t) => t.id === taskId);
     if (!task) return { success: false };
 
@@ -845,9 +785,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.recordActivity(newActivity);
 
     return { success: true };
-  };
+  }, [rawTasks, checkDependencies, currentOrganization, currentUser, leaderUserIds, warning]);
 
-  const blockTaskWithReason = (taskId: string, reason: string, actionRequiredBy: string) => {
+  const blockTaskWithReason = useCallback((taskId: string, reason: string, actionRequiredBy: string) => {
     const task = rawTasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -902,9 +842,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setActivities(StorageService.addActivity(act));
     FirestoreRepository.recordActivity(act);
     warning('Tarefa marcada como bloqueada', reason);
-  };
+  }, [rawTasks, currentOrganization, currentUser, orgUsers, leaderUserIds, warning]);
 
-  const unblockTask = (taskId: string) => {
+  const unblockTask = useCallback((taskId: string) => {
     const task = rawTasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -937,9 +877,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setActivities(StorageService.addActivity(act));
     FirestoreRepository.recordActivity(act);
     success('Tarefa desbloqueada com sucesso!');
-  };
+  }, [rawTasks, currentOrganization, currentUser, success]);
 
-  const approveTask = (taskId: string) => {
+  const approveTask = useCallback((taskId: string) => {
     const task = rawTasks.find((t) => t.id === taskId);
     if (!task) return;
 
@@ -974,9 +914,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setActivities(StorageService.addActivity(act));
     FirestoreRepository.recordActivity(act);
     success('Demanda aprovada e concluída com sucesso! 🎉');
-  };
+  }, [rawTasks, currentOrganization, currentUser, success]);
 
-  const archiveTask = (taskId: string, isArchived: boolean) => {
+  const archiveTask = useCallback((taskId: string, isArchived: boolean) => {
     const task = rawTasks.find((t) => t.id === taskId);
     const updated = StorageService.archiveTask(currentOrganization.id, taskId, isArchived);
     setRawTasks(updated);
@@ -999,10 +939,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       FirestoreRepository.recordActivity(act);
     }
     success(isArchived ? 'Tarefa arquivada!' : 'Tarefa restaurada!');
-  };
+  }, [rawTasks, currentOrganization, currentUser, success]);
 
   // 1. Soft Delete: move para a Lixeira
-  const deleteTask = (taskId: string) => {
+  const deleteTask = useCallback((taskId: string) => {
     const target = rawTasks.find((t) => t.id === taskId);
     if (!target) return;
 
@@ -1035,10 +975,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.recordActivity(act);
 
     info('Tarefa movida para a Lixeira (pode ser restaurada na aba Arquivados/Lixeira).');
-  };
+  }, [rawTasks, currentOrganization, currentUser, info]);
 
   // 2. Restaurar da Lixeira
-  const restoreTask = (taskId: string) => {
+  const restoreTask = useCallback((taskId: string) => {
     const target = rawTasks.find((t) => t.id === taskId);
     if (!target) return;
 
@@ -1071,10 +1011,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.recordActivity(act);
 
     success('Tarefa restaurada para o Kanban com sucesso!');
-  };
+  }, [rawTasks, currentOrganization, currentUser, success]);
 
   // 3. Excluir Definitivamente
-  const permanentlyDeleteTask = (taskId: string) => {
+  const permanentlyDeleteTask = useCallback((taskId: string) => {
     const target = rawTasks.find((t) => t.id === taskId);
     const updated = StorageService.deleteTask(currentOrganization.id, taskId);
     setRawTasks(updated);
@@ -1098,10 +1038,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     info('Tarefa excluída permanentemente.');
-  };
+  }, [rawTasks, currentOrganization, currentUser, info]);
 
   // Event Project Actions
-  const createEvent = (eventData: Omit<ChurchEvent, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>): ChurchEvent | null => {
+  const createEvent = useCallback((eventData: Omit<ChurchEvent, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>): ChurchEvent | null => {
     const activeEventsCount = rawEvents.filter((e) => !e.isArchived).length;
     const check = EntitlementsService.checkEventLimit(currentOrganization, activeEventsCount);
     if (!check.allowed) {
@@ -1148,9 +1088,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     success('Projeto de Evento criado com sucesso!', newEvent.title);
     return newEvent;
-  };
+  }, [rawEvents, campuses, currentCampus, currentOrganization, currentUser, orgUsers, notifyError, success]);
 
-  const createEventFromTemplate = (
+  const createEventFromTemplate = useCallback((
     templateId: string,
     eventTitle: string,
     eventStartDate: string,
@@ -1221,9 +1161,32 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 
     return createdEvent;
-  };
+  }, [createEvent, createTask, orgUsers, currentUser, currentOrganization, success]);
 
-  const updateEvent = (event: ChurchEvent): boolean => {
+  const getEventStats = useCallback((eventId: string): EventProjectStats => {
+    const eventTasks = rawTasks.filter((t) => t.eventId === eventId && !t.isArchived);
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const completedTasks = eventTasks.filter((t) => t.status === 'DONE').length;
+    const inProgressTasks = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW').length;
+    const blockedTasks = eventTasks.filter((t) => t.status === 'BLOCKED').length;
+    const overdueTasks = eventTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr).length;
+
+    const progressPercentage = eventTasks.length > 0
+      ? Math.round((completedTasks / eventTasks.length) * 100)
+      : 0;
+
+    return {
+      totalTasks: eventTasks.length,
+      completedTasks,
+      inProgressTasks,
+      blockedTasks,
+      overdueTasks,
+      progressPercentage,
+    };
+  }, [rawTasks]);
+
+  const updateEvent = useCallback((event: ChurchEvent): boolean => {
     if (event.status === 'FINISHED') {
       const stats = getEventStats(event.id);
       const pendingCount = stats.totalTasks - stats.completedTasks;
@@ -1277,9 +1240,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     success('Evento atualizado!', updatedEvent.title);
     return true;
-  };
+  }, [rawEvents, rawTasks, campuses, currentOrganization, currentUser, orgUsers, getEventStats, warning, success]);
 
-  const archiveEvent = (eventId: string, isArchived: boolean) => {
+  const archiveEvent = useCallback((eventId: string, isArchived: boolean) => {
     const updated = StorageService.archiveEvent(currentOrganization.id, eventId, isArchived);
     setRawEvents(updated);
     const targetEvent = updated.find((e) => e.id === eventId) || rawEvents.find((e) => e.id === eventId);
@@ -1302,40 +1265,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       FirestoreRepository.recordActivity(act);
     }
     success(isArchived ? 'Projeto arquivado com sucesso!' : 'Projeto restaurado com sucesso!');
-  };
+  }, [rawEvents, currentOrganization, currentUser, success]);
 
-  const deleteEvent = (eventId: string) => {
+  const deleteEvent = useCallback((eventId: string) => {
     const updated = StorageService.deleteEvent(currentOrganization.id, eventId);
     setRawEvents(updated);
     FirestoreRepository.deleteEvent(currentOrganization.id, eventId);
     info('Evento excluído permanentemente.');
-  };
-
-  const getEventStats = (eventId: string): EventProjectStats => {
-    const eventTasks = rawTasks.filter((t) => t.eventId === eventId && !t.isArchived);
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const completedTasks = eventTasks.filter((t) => t.status === 'DONE').length;
-    const inProgressTasks = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW').length;
-    const blockedTasks = eventTasks.filter((t) => t.status === 'BLOCKED').length;
-    const overdueTasks = eventTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr).length;
-
-    const progressPercentage = eventTasks.length > 0
-      ? Math.round((completedTasks / eventTasks.length) * 100)
-      : 0;
-
-    return {
-      totalTasks: eventTasks.length,
-      completedTasks,
-      inProgressTasks,
-      blockedTasks,
-      overdueTasks,
-      progressPercentage,
-    };
-  };
+  }, [currentOrganization, info]);
 
   // Comments with @mentions notification
-  const addComment = (taskId: string, content: string, mentionedUserIds?: string[]) => {
+  const addComment = useCallback((taskId: string, content: string, mentionedUserIds?: string[]) => {
     const newComment: Comment = {
       id: 'cmt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       organizationId: currentOrganization.id,
@@ -1409,98 +1349,98 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (targetUsersToNotify.length > 0) {
       info('Notificação de Menção', `${targetUsersToNotify.length} membro(s) notificado(s) com sucesso.`);
     }
-  };
+  }, [currentOrganization, currentCampus, currentUser, info]);
 
 
-  const getCommentsForTask = (taskId: string): Comment[] => {
+  const getCommentsForTask = useCallback((taskId: string): Comment[] => {
     return comments
       .filter((c) => c.taskId === taskId)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  };
+  }, [comments]);
 
   // Demand Types Management
-  const addDemandType = (newType: DemandTypeDefinition) => {
+  const addDemandType = useCallback((newType: DemandTypeDefinition) => {
     const updated = [...demandTypes, newType];
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     success('Novo tipo de demanda adicionado!', `Tipo "${newType.label}" agora disponível nas solicitações.`);
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const updateDemandType = (updatedType: DemandTypeDefinition) => {
+  const updateDemandType = useCallback((updatedType: DemandTypeDefinition) => {
     const updated = demandTypes.map((dt) => (dt.type === updatedType.type ? updatedType : dt));
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     success('Tipo de demanda atualizado com sucesso!');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const deleteDemandType = (typeName: string) => {
+  const deleteDemandType = useCallback((typeName: string) => {
     const updated = demandTypes.filter((dt) => dt.type !== typeName);
     setDemandTypes(updated);
     StorageService.saveDemandTypes(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: updated, eventCategories, departments });
     info('Tipo de demanda removido.');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, info]);
 
-  const resetDemandTypesToDefault = () => {
+  const resetDemandTypesToDefault = useCallback(() => {
     setDemandTypes(DEMAND_TYPES);
     StorageService.saveDemandTypes(currentOrganization.id, DEMAND_TYPES);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes: DEMAND_TYPES, eventCategories, departments });
     success('Tipos de demanda restaurados para o padrão.');
-  };
+  }, [eventCategories, departments, currentOrganization.id, success]);
 
   // Event Categories Management
-  const addEventCategory = (newCat: EventCategoryDefinition) => {
+  const addEventCategory = useCallback((newCat: EventCategoryDefinition) => {
     const updated = [...eventCategories, newCat];
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     success('Nova categoria de evento adicionada!');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const updateEventCategory = (updatedCat: EventCategoryDefinition) => {
+  const updateEventCategory = useCallback((updatedCat: EventCategoryDefinition) => {
     const updated = eventCategories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     success('Categoria de evento atualizada!');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const deleteEventCategory = (catId: string) => {
+  const deleteEventCategory = useCallback((catId: string) => {
     const updated = eventCategories.filter((c) => c.id !== catId);
     setEventCategories(updated);
     StorageService.saveEventCategories(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories: updated, departments });
     info('Categoria de evento removida.');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, info]);
 
   // Departments Management
-  const addDepartment = (newDept: DepartmentDefinition) => {
+  const addDepartment = useCallback((newDept: DepartmentDefinition) => {
     const updated = [...departments, newDept];
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     success('Novo ministério/departamento adicionado!');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const updateDepartment = (updatedDept: DepartmentDefinition) => {
+  const updateDepartment = useCallback((updatedDept: DepartmentDefinition) => {
     const updated = departments.map((d) => (d.id === updatedDept.id ? updatedDept : d));
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     success('Departamento atualizado!');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, success]);
 
-  const deleteDepartment = (deptId: string) => {
+  const deleteDepartment = useCallback((deptId: string) => {
     const updated = departments.filter((d) => d.id !== deptId);
     setDepartments(updated);
     StorageService.saveDepartments(currentOrganization.id, updated);
     FirestoreRepository.saveOrgConfig(currentOrganization.id, { demandTypes, eventCategories, departments: updated });
     info('Departamento removido.');
-  };
+  }, [demandTypes, eventCategories, departments, currentOrganization.id, info]);
 
-  const fetchArchivedData = async () => {
+  const fetchArchivedData = useCallback(async () => {
     if (!currentOrganization.id) return;
     try {
       const [archivedTasks, archivedEvents] = await Promise.all([
@@ -1524,9 +1464,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (e) {
       console.warn('Erro ao carregar dados arquivados do Firestore:', e);
     }
-  };
+  }, [currentOrganization.id]);
 
-  const resetAllData = () => {
+  const resetAllData = useCallback(() => {
     StorageService.resetData();
     setRawTasks(StorageService.getTasks(currentOrganization.id));
     setRawEvents(StorageService.getEvents(currentOrganization.id));
@@ -1539,10 +1479,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawPastoralAppointments(StorageService.getPastoralAppointments(currentOrganization.id));
     clearFilters();
     success('Dados restaurados para o padrão de demonstração multi-tenant!');
-  };
+  }, [currentOrganization.id, success]);
 
   // --- Member Journey Actions ---
-  const addMemberJourney = async (
+  const addMemberJourney = useCallback(async (
     data: Omit<MemberJourneyCard, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>
   ): Promise<MemberJourneyCard> => {
     const newCard: MemberJourneyCard = {
@@ -1557,9 +1497,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await FirestoreRepository.saveMemberJourney(currentOrganization.id, newCard);
     success('Novo contato registrado na jornada de acolhimento!');
     return newCard;
-  };
+  }, [currentOrganization.id, success]);
 
-  const updateMemberJourney = async (member: MemberJourneyCard): Promise<void> => {
+  const updateMemberJourney = useCallback(async (member: MemberJourneyCard): Promise<void> => {
     const updated = {
       ...member,
       updatedAt: new Date().toISOString(),
@@ -1567,17 +1507,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawMemberJourneys((prev) => prev.map((m) => (m.id === member.id ? updated : m)));
     StorageService.updateMemberJourney(currentOrganization.id, updated);
     await FirestoreRepository.saveMemberJourney(currentOrganization.id, updated);
-  };
+  }, [currentOrganization.id]);
 
-  const deleteMemberJourney = async (id: string): Promise<void> => {
+  const deleteMemberJourney = useCallback(async (id: string): Promise<void> => {
     setRawMemberJourneys((prev) => prev.filter((m) => m.id !== id));
     StorageService.deleteMemberJourney(currentOrganization.id, id);
     await FirestoreRepository.deleteMemberJourney(currentOrganization.id, id);
     info('Contato removido da jornada.');
-  };
+  }, [currentOrganization.id, info]);
 
   // --- Pastoral Care Actions ---
-  const addPastoralAppointment = async (
+  const addPastoralAppointment = useCallback(async (
     data: Omit<PastoralCareAppointment, 'id' | 'createdAt' | 'updatedAt' | 'organizationId'>
   ): Promise<PastoralCareAppointment> => {
     const newAppt: PastoralCareAppointment = {
@@ -1592,9 +1532,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await FirestoreRepository.savePastoralAppointment(currentOrganization.id, newAppt);
     success('Atendimento pastoral registrado com sucesso!');
     return newAppt;
-  };
+  }, [currentOrganization.id, success]);
 
-  const updatePastoralAppointment = async (item: PastoralCareAppointment): Promise<void> => {
+  const updatePastoralAppointment = useCallback(async (item: PastoralCareAppointment): Promise<void> => {
     const updated = {
       ...item,
       updatedAt: new Date().toISOString(),
@@ -1602,89 +1542,104 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setRawPastoralAppointments((prev) => prev.map((a) => (a.id === item.id ? updated : a)));
     StorageService.updatePastoralAppointment(currentOrganization.id, updated);
     await FirestoreRepository.savePastoralAppointment(currentOrganization.id, updated);
-  };
+  }, [currentOrganization.id]);
 
-  const deletePastoralAppointment = async (id: string): Promise<void> => {
+  const deletePastoralAppointment = useCallback(async (id: string): Promise<void> => {
     setRawPastoralAppointments((prev) => prev.filter((a) => a.id !== id));
     StorageService.deletePastoralAppointment(currentOrganization.id, id);
     await FirestoreRepository.deletePastoralAppointment(currentOrganization.id, id);
     info('Atendimento pastoral removido.');
-  };
+  }, [currentOrganization.id, info]);
+
+  // Memoize the entire context value to prevent unnecessary re-renders in consumers
+  const contextValue = useMemo(() => ({
+    tasks: scopedTasks,
+    events: scopedEvents,
+    users: orgUsers,
+    comments,
+    activities,
+    columns: KANBAN_COLUMNS,
+    templates: EVENT_TEMPLATES,
+    demandTypes,
+    eventCategories,
+    departments,
+    addDemandType,
+    updateDemandType,
+    deleteDemandType,
+    resetDemandTypesToDefault,
+    addEventCategory,
+    updateEventCategory,
+    deleteEventCategory,
+    addDepartment,
+    updateDepartment,
+    deleteDepartment,
+    filterOnlyMyTasks,
+    setFilterOnlyMyTasks,
+    filterEventId,
+    setFilterEventId,
+    filterAssigneeId,
+    setFilterAssigneeId,
+    filterPriority,
+    setFilterPriority,
+    filterDemandType,
+    setFilterDemandType,
+    filterCampusId,
+    setFilterCampusId,
+    filterTag,
+    setFilterTag,
+    allTags,
+    searchQuery,
+    setSearchQuery,
+    clearFilters,
+    filteredTasks,
+    createTask,
+    updateTask,
+    moveTask,
+    archiveTask,
+    deleteTask,
+    restoreTask,
+    permanentlyDeleteTask,
+    checkDependencies,
+    remindPredecessors,
+    blockTaskWithReason,
+    unblockTask,
+    approveTask,
+    createEvent,
+    createEventFromTemplate,
+    updateEvent,
+    archiveEvent,
+    deleteEvent,
+    getEventStats,
+    addComment,
+    getCommentsForTask,
+    fetchArchivedData,
+    resetAllData,
+    memberJourneys: rawMemberJourneys,
+    addMemberJourney,
+    updateMemberJourney,
+    deleteMemberJourney,
+    pastoralAppointments: rawPastoralAppointments,
+    addPastoralAppointment,
+    updatePastoralAppointment,
+    deletePastoralAppointment,
+  }), [
+    scopedTasks, scopedEvents, orgUsers, comments, activities,
+    demandTypes, eventCategories, departments,
+    addDemandType, updateDemandType, deleteDemandType, resetDemandTypesToDefault,
+    addEventCategory, updateEventCategory, deleteEventCategory,
+    addDepartment, updateDepartment, deleteDepartment,
+    filterOnlyMyTasks, filterEventId, filterAssigneeId, filterPriority,
+    filterDemandType, filterCampusId, filterTag, allTags, searchQuery, filteredTasks,
+    createTask, updateTask, moveTask, archiveTask, deleteTask, restoreTask, permanentlyDeleteTask,
+    checkDependencies, remindPredecessors, blockTaskWithReason, unblockTask, approveTask,
+    createEvent, createEventFromTemplate, updateEvent, archiveEvent, deleteEvent, getEventStats,
+    addComment, getCommentsForTask, fetchArchivedData, resetAllData,
+    rawMemberJourneys, addMemberJourney, updateMemberJourney, deleteMemberJourney,
+    rawPastoralAppointments, addPastoralAppointment, updatePastoralAppointment, deletePastoralAppointment,
+  ]);
 
   return (
-    <DataContext.Provider
-      value={{
-        tasks: scopedTasks,
-        events: scopedEvents,
-        users: orgUsers,
-        comments,
-        activities,
-        columns: KANBAN_COLUMNS,
-        templates: EVENT_TEMPLATES,
-        demandTypes,
-        eventCategories,
-        departments,
-        addDemandType,
-        updateDemandType,
-        deleteDemandType,
-        resetDemandTypesToDefault,
-        addEventCategory,
-        updateEventCategory,
-        deleteEventCategory,
-        addDepartment,
-        updateDepartment,
-        deleteDepartment,
-        filterOnlyMyTasks,
-        setFilterOnlyMyTasks,
-        filterEventId,
-        setFilterEventId,
-        filterAssigneeId,
-        setFilterAssigneeId,
-        filterPriority,
-        setFilterPriority,
-        filterDemandType,
-        setFilterDemandType,
-        filterCampusId,
-        setFilterCampusId,
-        filterTag,
-        setFilterTag,
-        allTags,
-        searchQuery,
-        setSearchQuery,
-        clearFilters,
-        filteredTasks,
-        createTask,
-        updateTask,
-        moveTask,
-        archiveTask,
-        deleteTask,
-        restoreTask,
-        permanentlyDeleteTask,
-        checkDependencies,
-        remindPredecessors,
-        blockTaskWithReason,
-        unblockTask,
-        approveTask,
-        createEvent,
-        createEventFromTemplate,
-        updateEvent,
-        archiveEvent,
-        deleteEvent,
-        getEventStats,
-        addComment,
-        getCommentsForTask,
-        fetchArchivedData,
-        resetAllData,
-        memberJourneys: rawMemberJourneys,
-        addMemberJourney,
-        updateMemberJourney,
-        deleteMemberJourney,
-        pastoralAppointments: rawPastoralAppointments,
-        addPastoralAppointment,
-        updatePastoralAppointment,
-        deletePastoralAppointment,
-      }}
-    >
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );

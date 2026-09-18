@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import { 
   Membership, 
   MembershipStatus,
@@ -8,7 +8,7 @@ import {
   Permission, 
   ROLE_PERMISSIONS, 
   SecurityAuditEvent,
-  ActivityLog
+  ActivityLog,
 } from '../types';
 
 import { StorageService } from '../services/storageService';
@@ -138,32 +138,15 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const currentRole: UserRole = isSuperAdmin ? 'ADMIN' : (currentMembership?.role || 'REQUESTER');
 
   // Permission Checking Engine — baseado 100% na matriz ROLE_PERMISSIONS
-  const hasPermission = (permission: Permission): boolean => {
+  const hasPermission = useCallback((permission: Permission): boolean => {
     if (isSuperAdmin) return true;
     if (!currentMembership) {
       // Usuário sem membership ativa: apenas pode criar demandas (acesso mínimo)
       return permission === 'tasks.create';
     }
     const permissions = ROLE_PERMISSIONS[currentRole] || [];
-    const granted = permissions.includes(permission);
-    if (!granted) {
-      // Log Security Audit Event: PERMISSION_DENIED
-      const auditLog: ActivityLog = {
-        id: 'act_' + Math.random().toString(36).substring(2, 9),
-        organizationId: currentOrganization.id,
-        userId: currentUser?.id || 'anonymous',
-        userName: currentUser?.name || 'Anônimo',
-        action: `tentou executar ação não autorizada: ${permission}`,
-        securityEvent: 'PERMISSION_DENIED',
-        targetType: 'security',
-        targetId: permission,
-        targetTitle: `Permissão: ${permission}`,
-        timestamp: new Date().toISOString(),
-      };
-      StorageService.addActivity(auditLog);
-    }
-    return granted;
-  };
+    return permissions.includes(permission);
+  }, [isSuperAdmin, currentMembership, currentRole]);
 
   // Orgs acessíveis: apenas as que o usuário pertence (via memberships ou organizationIds)
   const accessibleOrganizations = useMemo(() => {
