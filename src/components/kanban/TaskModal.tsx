@@ -4,6 +4,7 @@ import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
+import { useNotification } from '../../context/NotificationContext';
 import { StorageUploadService } from '../../services/storageUploadService';
 import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem, User } from '../../types';
 import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
@@ -64,6 +65,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const { currentUser } = useAuth();
   const { canAssignResponsible, canChangePriority, canApproveTasks, canArchive } = useAccess();
   const { campuses } = useTenant();
+  const { success: notifySuccess, error: notifyError } = useNotification();
 
   // Local editable states
   const [title, setTitle] = useState(task.title);
@@ -164,10 +166,23 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
         currentUser?.name || 'Membro',
         (progress) => setUploadProgress(progress)
       );
-      setAttachmentLinks((prev) => [...prev, newAtt]);
+
+      // Atualiza o estado local primeiro
+      const updatedLinks = [...(task.attachmentLinks || []), ...attachmentLinks.filter(a => !task.attachmentLinks?.some(ta => ta.id === a.id)), newAtt];
+      setAttachmentLinks(updatedLinks);
+
+      // IMPORTANTE: Persiste imediatamente no Firestore para que outros usuários vejam o anexo.
+      // Sem isso, o arquivo só aparece para os outros após clicar em "Salvar" manualmente.
+      updateTask({
+        ...task,
+        attachmentLinks: updatedLinks,
+      });
+
+      notifySuccess('Arquivo anexado!', `"${file.name}" foi salvo e já está visível para todos.`);
       setUploadProgress(null);
     } catch (err) {
       console.error('Erro no upload de arquivo:', err);
+      notifyError?.('Falha no Upload', 'Não foi possível fazer o upload do arquivo. Tente novamente.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
