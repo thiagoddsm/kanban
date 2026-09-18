@@ -476,7 +476,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (filterCampusId && t.campusId !== filterCampusId) return false;
       if (filterOnlyMyTasks) {
         const myId = currentUser?.id || '';
-        const isMine = (t.assigneeIds && t.assigneeIds.includes(myId)) || t.assigneeId === myId || t.requesterId === myId;
+        const myName = currentUser?.name?.toLowerCase().trim() || '';
+        const isMine = 
+          (t.assigneeIds && t.assigneeIds.includes(myId)) || 
+          t.assigneeId === myId ||
+          (t.assignees && t.assignees.some((a) => a.id === myId || (myName && a.name?.toLowerCase().trim() === myName)));
         if (!isMine) return false;
       }
       if (filterEventId && t.eventId !== filterEventId) return false;
