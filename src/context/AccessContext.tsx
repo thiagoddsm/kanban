@@ -66,7 +66,23 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Refresh memberships on mount or change & listen to Firestore
   useEffect(() => {
-    setMemberships(StorageService.getMemberships());
+    // Limpa do storage local memberships de organizações que o usuário não possui mais no perfil
+    if (currentUser && currentUser.organizationIds && currentUser.organizationIds.length > 0) {
+      const validOrgSet = new Set(currentUser.organizationIds);
+      const currentStoredMems = StorageService.getMemberships();
+      const cleanedMems = currentStoredMems.filter(
+        (m) => m.userId !== currentUser.id || validOrgSet.has(m.organizationId)
+      );
+      if (cleanedMems.length !== currentStoredMems.length) {
+        StorageService.saveMemberships(cleanedMems);
+        setMemberships(cleanedMems);
+      } else {
+        setMemberships(currentStoredMems);
+      }
+    } else {
+      setMemberships(StorageService.getMemberships());
+    }
+
     if (!currentUser || !currentOrganization.id) return;
 
     const dedupe = (list: Membership[]) => {
@@ -152,15 +168,14 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Orgs acessíveis: apenas as que o usuário pertence (via memberships ou organizationIds)
   const accessibleOrganizations = useMemo(() => {
     if (!currentUser) return [];
+    const userOrgIds = new Set(currentUser.organizationIds || []);
     const membershipOrgIds = memberships
-      .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE')
+      .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE' && (userOrgIds.size === 0 || userOrgIds.has(m.organizationId)))
       .map((m) => m.organizationId);
 
     const allowedOrgIds = new Set<string>([
       ...membershipOrgIds,
-      ...(currentUser.organizationIds || []),
-      ...(currentUser.tenantId ? [currentUser.tenantId] : []),
-      ...(currentUser.activeOrganizationId ? [currentUser.activeOrganizationId] : []),
+      ...userOrgIds,
     ]);
 
     return organizations.filter((o) => allowedOrgIds.has(o.id));
