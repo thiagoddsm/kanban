@@ -405,16 +405,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [rawEvents, currentCampus]);
 
-  // Organization Users
+  // Organization Users (Isolamento Estrito Multi-Tenant)
   const orgUsers = useMemo(() => {
-    const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id);
+    const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id && m.status === 'ACTIVE');
     const userIds = new Set(orgMemberships.map((m) => m.userId));
     return allUsers.filter((u) => {
+      // Usuário precisa ter membership ativa na organização OU estar explicitamente vinculado no array de organizationIds
       if (userIds.has(u.id)) return true;
-      if (u.tenantId === currentOrganization.id || u.activeOrganizationId === currentOrganization.id) return true;
       if (u.organizationIds?.includes(currentOrganization.id)) return true;
-      if (!u.tenantId && (!u.organizationIds || u.organizationIds.length === 0)) return true;
-      if (u.email && (u.email.toLowerCase().includes('hugo') || u.email.toLowerCase().includes('campanario') || u.email.toLowerCase().includes('marcello'))) return true;
+      if (u.tenantId === currentOrganization.id && (!u.organizationIds || u.organizationIds.includes(currentOrganization.id))) return true;
       return false;
     });
   }, [allUsers, memberships, currentOrganization.id]);

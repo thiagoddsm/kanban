@@ -504,10 +504,10 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const findAndSwitchUserOrg = async (userId: string): Promise<Organization | null> => {
-    // 1. Procurar nas memberships locais (ignorando a org demo fixa se for usuário real)
+    // 1. Procurar nas memberships locais
     const allMemberships = StorageService.getMemberships();
     const userMem = allMemberships.find(
-      (m) => m.userId === userId && m.status === 'ACTIVE' && m.organizationId !== 'org_igreja_batista_da_manha_izw'
+      (m) => m.userId === userId && m.status === 'ACTIVE'
     );
     if (userMem) {
       const org = organizations.find((o) => o.id === userMem.organizationId)
@@ -524,7 +524,6 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (remoteOrgs && remoteOrgs.length > 0) {
         setOrganizations(remoteOrgs);
         for (const org of remoteOrgs) {
-          if (org.id === 'org_igreja_batista_da_manha_izw') continue;
           const mems = await FirestoreRepository.fetchMemberships(org.id);
           if (mems && mems.some((m) => m.userId === userId && m.status === 'ACTIVE')) {
             switchOrganization(org.id, true);

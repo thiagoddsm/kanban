@@ -33,8 +33,9 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Padrão • Mais Rápido' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Estável • Recomendado' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Ultra Rápido' },
   { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
   { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
 ] as const;
@@ -82,7 +83,7 @@ export class AiTranscriptionService {
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
       return stored;
     }
-    return 'gemini-3.6-flash';
+    return 'gemini-2.5-flash';
   }
 
   /**
@@ -99,8 +100,9 @@ export class AiTranscriptionService {
   public static async extractTasksFromTranscript({
     transcriptText,
     apiKey,
-    model = 'gemini-1.5-flash',
+    model = 'gemini-2.5-flash',
     context,
+    onProgress,
   }: {
     transcriptText: string;
     apiKey: string;
@@ -112,7 +114,8 @@ export class AiTranscriptionService {
       campuses: Campus[];
       demandTypes: DemandTypeDefinition[];
     };
-  }): Promise<{ success: boolean; tasks?: AiTaskItem[]; summary?: string; error?: string }> {
+    onProgress?: (msg: string) => void;
+  }): Promise<{ success: boolean; tasks?: AiTaskItem[]; summary?: string; error?: string; usedFallbackModel?: string }> {
     if (!apiKey || !apiKey.trim()) {
       return {
         success: false,
@@ -139,33 +142,23 @@ export class AiTranscriptionService {
     const systemInstruction = `Você é um assistente sênior de gestão de projetos para equipes ministeriais e de marketing da igreja/organização "${context.organizationName}".
 Sua tarefa é analisar uma transcrição ou anotações brutas de reunião (vindo de ferramentas como Granola, Otter, Whisper ou ata manuscrita) e extrair TODAS as tarefas, demandas e planos de ação acordados.
 
-DATA ATUAL DE REFERÊNCIA: ${currentDateStr} (${dayOfWeek}).
-Use esta data para calcular prazos relativos citados na conversa (ex: "até sexta-feira", "na próxima semana", "fim do mês"). O formato de data deve ser estritamente YYYY-MM-DD.
+--- DIRETRIZES DE EXTRAÇÃO ---
+1. IDENTIFICAÇÃO DE DEMANDAS: Cada ação combinada, material a ser produzido, vídeo, arte, postagem, cobertura ou evento deve se tornar um item de tarefa individual.
+2. RESPONSÁVEIS: Identifique o nome das pessoas designadas para cada tarefa com base na lista de membros da igreja: [${memberNames}]. Se houver menção ao nome, associe no campo responsaveis.
+3. DATAS & PRAZOS:
+   - Data atual de referência: ${currentDateStr} (${dayOfWeek}).
+   - Se disser "até sexta-feira", calcule a data da próxima sexta a partir de ${currentDateStr}.
+   - Se disser "para o culto de domingo", calcule a data do próximo domingo.
+   - Formato estrito: YYYY-MM-DD.
+4. CAMPUS: Se mencionado, associe a um dos campi: [${campusNames}].
+5. PROJETO / EVENTO: Se a tarefa fizer parte de um evento específico da igreja, associe a: [${eventNames}].
+6. TIPO DE DEMANDA: Classifique segundo os tipos existentes: [${demandTypeNames}].
+7. CHECKLIST: Se a tarefa tiver subtarefas, etapas de aprovação ou marcos, liste no checklist_subtarefas.
 
-MEMBROS DA EQUIPE CADASTRADOS NO SISTEMA:
-${memberNames}
-SEMPRE tente mapear os responsáveis das tarefas aos nomes exatos desta lista quando mencionados.
-
-PROJETOS / EVENTOS ATIVOS:
-${eventNames}
-Se a tarefa pertencer a um desses projetos ou eventos, associe exatamente o nome dele.
-
-CAMPI / UNIDADES:
-${campusNames}
-
-TIPOS DE DEMANDA VÁLIDOS:
-${demandTypeNames}
-
-REGRAS DE FORMATAÇÃO:
-1. Retorne APENAS um objeto JSON válido. Não inclua blocos markdown como \`\`\`json ou texto explicativo fora do JSON.
-2. Cada tarefa deve ser um item de ação claro e acionável.
-3. Se houver etapas menores mencionadas na reunião, adicione-as no campo "checklist_subtarefas" da tarefa principal.
-4. "prioridade" deve ser estritamente uma de: "Baixa", "Média", "Alta" ou "Urgente".
-5. "status" pode ser "Em Triagem", "Em Andamento" ou "Planejamento".
-
-ESTRUTURA JSON EXIGIDA:
+--- FORMATO DE SAÍDA ---
+Responda ESTRITAMENTE em formato JSON válido, sem qualquer texto introdutório ou markdown antes ou depois. Use exatamente esta estrutura:
 {
-  "resumo_reuniao": "Breve resumo de 1 a 2 parágrafos dos principais pontos discutidos",
+  "resumo_reuniao": "Breve síntese executiva das decisões da reunião em 2 ou 3 frases.",
   "tarefas": [
     {
       "titulo": "Título sucinto e claro da demanda",
@@ -190,101 +183,153 @@ ESTRUTURA JSON EXIGIDA:
   ]
 }`;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    // Lista ordenada de modelos a testar com fallback automático
+    const rawFallbackList = [model, 'gemini-2.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+    const modelsToTry: string[] = [];
+    for (const m of rawFallbackList) {
+      if (m && !modelsToTry.includes(m)) {
+        modelsToTry.push(m);
+      }
+    }
 
-    try {
-      const payload = {
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `${systemInstruction}\n\n--- TRANSCRIÇÃO / ANOTAÇÕES DA REUNIÃO ---\n${transcriptText}`,
-              },
-            ],
+    const payload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `${systemInstruction}\n\n--- TRANSCRIÇÃO / ANOTAÇÕES DA REUNIÃO ---\n${transcriptText}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        response_mime_type: 'application/json',
+        temperature: 0.2,
+      },
+    };
+
+    let lastErrorMessage = '';
+
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const currentModel = modelsToTry[i];
+      const isFallback = i > 0;
+      const nextCandidate = modelsToTry[i + 1];
+
+      try {
+        if (isFallback) {
+          onProgress?.(`Modelo alternativo acionado: ${currentModel}. Interpretando reunião...`);
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ],
-        generationConfig: {
-          response_mime_type: 'application/json',
-          temperature: 0.2,
-        },
-      };
+          body: JSON.stringify(payload),
+        });
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || `Erro ${res.status}: ${res.statusText}`;
+          lastErrorMessage = errMsg;
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        const errMsg = errData?.error?.message || `Erro ${res.status}: ${res.statusText}`;
+          // Se a chave for inválida ou não autorizada, não adianta tentar outro modelo
+          if (res.status === 400 || res.status === 403) {
+            if (errMsg.toLowerCase().includes('api key') || errMsg.toLowerCase().includes('key not valid') || errMsg.toLowerCase().includes('apikey')) {
+              return {
+                success: false,
+                error: 'Chave do Gemini inválida ou sem permissão. Verifique sua chave no Google AI Studio.',
+              };
+            }
+          }
 
-        if (res.status === 400 || res.status === 403) {
-          if (errMsg.toLowerCase().includes('api key') || errMsg.toLowerCase().includes('key not valid') || errMsg.toLowerCase().includes('apikey')) {
+          // Se o modelo está sobrecarregado (503) ou atingiu rate limit (429) ou modelo não existe (404)
+          if (res.status === 503 || res.status === 429 || res.status === 404) {
+            if (nextCandidate) {
+              const reason = res.status === 503 ? 'sobrecarregado no Google' : res.status === 429 ? 'atingiu limite de taxa' : 'não disponível';
+              console.warn(`[AI Transcription] Modelo ${currentModel} ${reason} (${res.status}). Acionando fallback para ${nextCandidate}...`);
+              onProgress?.(`O modelo ${currentModel} está ${reason} (HTTP ${res.status}). Tentando automaticamente ${nextCandidate}...`);
+              await new Promise((resolve) => setTimeout(resolve, 1200));
+              continue; // Tenta o próximo modelo
+            } else {
+              if (res.status === 503) {
+                return {
+                  success: false,
+                  error: 'Os servidores do Google Gemini estão temporariamente com alta demanda/sobrecarga (HTTP 503). Aguarde 1 minuto e tente novamente.',
+                };
+              }
+              if (res.status === 429) {
+                return {
+                  success: false,
+                  error: 'Limite de requisições excedido na sua chave Gemini (Rate limit). Aguarde alguns instantes.',
+                };
+              }
+            }
+          }
+
+          if (!nextCandidate) {
             return {
               success: false,
-              error: 'Chave do Gemini inválida ou sem permissão. Verifique sua chave no Google AI Studio.',
+              error: `Falha na comunicação com o Gemini: ${errMsg}`,
             };
           }
+          continue;
         }
-        if (res.status === 404) {
+
+        const data = await res.json();
+        const rawResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!rawResponseText) {
+          if (nextCandidate) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            continue;
+          }
           return {
             success: false,
-            error: `O modelo "${model}" não foi encontrado ou não está disponível para esta chave. Experimente selecionar o Gemini 3.6 Flash.`,
+            error: 'A IA não retornou conteúdo. Tente novamente com um trecho diferente de texto.',
           };
         }
-        if (res.status === 429) {
+
+        let parsed: AiExtractionResponse;
+        try {
+          parsed = JSON.parse(rawResponseText);
+        } catch (parseErr) {
+          const cleaned = rawResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+          parsed = JSON.parse(cleaned);
+        }
+
+        if (!parsed || !Array.isArray(parsed.tarefas)) {
+          if (nextCandidate) {
+            continue;
+          }
           return {
             success: false,
-            error: 'Limite de requisições excedido na sua chave Gemini (Rate limit). Aguarde alguns instantes.',
+            error: 'A resposta da IA não continha a lista de tarefas esperada. Verifique as anotações.',
           };
         }
 
         return {
-          success: false,
-          error: `Falha na comunicação com o Gemini: ${errMsg}`,
+          success: true,
+          tasks: parsed.tarefas,
+          summary: parsed.resumo_reuniao,
+          usedFallbackModel: isFallback ? currentModel : undefined,
         };
+      } catch (networkErr: any) {
+        console.warn(`[AI Transcription] Erro de rede com modelo ${currentModel}:`, networkErr?.message);
+        if (nextCandidate) {
+          onProgress?.(`Oscilação de rede ao contatar ${currentModel}. Alternando para ${nextCandidate}...`);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+        lastErrorMessage = networkErr?.message || 'Falha de conexão com os servidores do Google Gemini.';
       }
-
-      const data = await res.json();
-      const rawResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!rawResponseText) {
-        return {
-          success: false,
-          error: 'A IA não retornou conteúdo. Tente novamente com um trecho diferente de texto.',
-        };
-      }
-
-      let parsed: AiExtractionResponse;
-      try {
-        parsed = JSON.parse(rawResponseText);
-      } catch (parseErr) {
-        const cleaned = rawResponseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        parsed = JSON.parse(cleaned);
-      }
-
-      if (!parsed || !Array.isArray(parsed.tarefas)) {
-        return {
-          success: false,
-          error: 'A resposta da IA não continha a lista de tarefas esperada. Verifique as anotações.',
-        };
-      }
-
-      return {
-        success: true,
-        tasks: parsed.tarefas,
-        summary: parsed.resumo_reuniao,
-      };
-    } catch (err: any) {
-      console.error('Erro ao chamar Gemini API:', err);
-      return {
-        success: false,
-        error: err?.message || 'Falha de conexão com os servidores do Google Gemini.',
-      };
     }
+
+    return {
+      success: false,
+      error: lastErrorMessage || 'Falha ao processar com os modelos disponíveis do Gemini. Tente novamente em instantes.',
+    };
   }
 }

@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const reservedRoutes = ['login', 'signup', 'register', 'portal', 'protocolo', 'solicitar', 'admin', 'api'];
             const firstPart = pathParts[0]?.toLowerCase();
             const urlOrg = new URLSearchParams(window.location.search).get('org') || 
-              (firstPart && !reservedRoutes.includes(firstPart) ? firstPart : 'igreja-batista-da-manha');
+              (firstPart && !reservedRoutes.includes(firstPart) ? firstPart : undefined);
 
             const userObj = await FirestoreRepository.reconcileUserOnLogin(
               fbUser.uid,

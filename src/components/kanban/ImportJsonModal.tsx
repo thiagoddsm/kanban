@@ -126,7 +126,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
   const { users, events, demandTypes, createTask } = useData();
   const { currentUser } = useAuth();
   const { currentOrganization, campuses } = useTenant();
-  const { success, warning, error: notifyError } = useNotification();
+  const { success, warning, info, error: notifyError } = useNotification();
 
   // Abas de Entrada: 'ai' (Transcrição / Granola) ou 'json' (Editor JSON Direto)
   const [activeTab, setActiveTab] = useState<'ai' | 'json'>('ai');
@@ -143,6 +143,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
   const [tempApiKey, setTempApiKey] = useState(apiKey);
   const [showApiKeyText, setShowApiKeyText] = useState(false);
   const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
+  const [aiProgressMessage, setAiProgressMessage] = useState<string>('');
   const [meetingSummary, setMeetingSummary] = useState<string | null>(null);
 
   // Estado do JSON
@@ -313,6 +314,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
     }
 
     setIsAnalyzingAi(true);
+    setAiProgressMessage(`Interpretando ata com ${selectedModel}...`);
     setMeetingSummary(null);
 
     try {
@@ -327,6 +329,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
           campuses,
           demandTypes,
         },
+        onProgress: (msg) => setAiProgressMessage(msg),
       });
 
       if (!response.success || !response.tasks) {
@@ -370,6 +373,13 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
         setMeetingSummary(response.summary);
       }
 
+      if (response.usedFallbackModel) {
+        info(
+          'Fallback Automático Concluído',
+          `O modelo primário estava com alta demanda no Google (503). O sistema utilizou automaticamente o ${response.usedFallbackModel} com sucesso!`
+        );
+      }
+
       success(
         'Tarefas Extraídas com Sucesso!',
         `A IA identificou ${mapped.length} demanda(s) acionável(is). Você pode revisá-las e editá-las à direita.`
@@ -378,6 +388,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
       notifyError('Erro na requisição da IA', err?.message || 'Falha ao conectar com o serviço do Gemini.');
     } finally {
       setIsAnalyzingAi(false);
+      setAiProgressMessage('');
     }
   };
 
@@ -812,7 +823,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
                   {isAnalyzingAi ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Interpretando Transcrição com {selectedModel}...</span>
+                      <span>{aiProgressMessage || `Interpretando Transcrição com ${selectedModel}...`}</span>
                     </>
                   ) : (
                     <>

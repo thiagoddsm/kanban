@@ -809,12 +809,12 @@ export class FirestoreRepository {
       // Sincronizar organizationIds APENAS com organizações onde o usuário possui membership real no Firestore
       if (allOrgs && allOrgs.length > 0) {
         const validOrgIds: string[] = [];
-        for (const orgId of organizationIds) {
+        for (const org of allOrgs) {
           try {
-            const memRef = doc(db!, 'organizations', orgId, 'memberships', fbUid);
+            const memRef = doc(db!, 'organizations', org.id, 'memberships', fbUid);
             const memSnap = await getDoc(memRef);
             if (memSnap.exists() && memSnap.data()?.status === 'ACTIVE') {
-              validOrgIds.push(orgId);
+              validOrgIds.push(org.id);
             }
           } catch {
             // ignore
@@ -823,8 +823,10 @@ export class FirestoreRepository {
         organizationIds = validOrgIds;
       }
 
-      if (!activeOrgId || !organizationIds.includes(activeOrgId)) {
-        activeOrgId = organizationIds[0] || (allOrgs[0]?.id || '');
+      if (targetOrg && organizationIds.includes(targetOrg.id)) {
+        activeOrgId = targetOrg.id;
+      } else if (!activeOrgId || !organizationIds.includes(activeOrgId)) {
+        activeOrgId = organizationIds[0] || '';
       }
 
       const updated: User = {
@@ -919,7 +921,8 @@ export class FirestoreRepository {
     await this.syncUser(consolidatedUser);
 
     // Garante que o documento de membership existe e está ATIVO no Firestore
-    if (activeOrganizationId) {
+    // APENAS se o usuário foi explicitamente convidado ou direcionado para a targetOrg
+    if (activeOrganizationId && targetOrg && targetOrg.id === activeOrganizationId) {
       const memRef = doc(db!, 'organizations', activeOrganizationId, 'memberships', fbUid);
       const memSnap = await getDoc(memRef);
       if (!memSnap.exists()) {

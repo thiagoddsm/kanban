@@ -88,11 +88,10 @@ export const UsersView: React.FC = () => {
         if (!hasName && !hasEmail) continue;
 
         const uEmail = (u.email || '').toLowerCase();
-        // Condição restritiva: só usuários que explicitamente pertencem à org
+        // Condição estrita: apenas usuários vinculados explicitamente a esta organização
         const belongs = 
-          u.tenantId === currentOrganization.id || 
-          u.activeOrganizationId === currentOrganization.id || 
-          u.organizationIds?.includes(currentOrganization.id);
+          u.organizationIds?.includes(currentOrganization.id) ||
+          (u.tenantId === currentOrganization.id && (!u.organizationIds || u.organizationIds.length === 0));
 
         if (belongs) {
           const hasMem = remoteMems.some((m) => m.userId === u.id);
@@ -113,11 +112,9 @@ export const UsersView: React.FC = () => {
             recovered++;
           }
 
-          if (u.tenantId !== currentOrganization.id || !u.organizationIds?.includes(currentOrganization.id)) {
+          if (!u.organizationIds?.includes(currentOrganization.id)) {
             const updatedUser = {
               ...u,
-              tenantId: currentOrganization.id,
-              activeOrganizationId: currentOrganization.id,
               organizationIds: Array.from(new Set([...(u.organizationIds || []), currentOrganization.id])),
             };
             await FirestoreRepository.syncUser(updatedUser);
