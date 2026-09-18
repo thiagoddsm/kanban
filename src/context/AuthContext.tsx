@@ -265,6 +265,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.warn('Sign out error:', err);
       }
     }
+    // SEGURANÇA: Limpa cache de organizações e sessão ativa ao deslogar.
+    // Impede que o próximo usuário no mesmo browser herde organizações da sessão anterior.
+    localStorage.removeItem('marketing_saas_organizations_v4_clean');
+    localStorage.removeItem('marketing_active_organization_id_v4_clean');
+    localStorage.removeItem('marketing_active_campus_id_v4_clean');
+    localStorage.removeItem('marketing_saas_memberships_v4_clean');
     setCurrentUserState(null);
     setIsLoadingAuth(false);
   };

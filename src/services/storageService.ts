@@ -42,13 +42,14 @@ export class StorageService {
   static getOrganizations(): Organization[] {
     const raw = localStorage.getItem(ORGS_KEY);
     if (!raw) {
-      localStorage.setItem(ORGS_KEY, JSON.stringify(INITIAL_ORGANIZATIONS));
-      return INITIAL_ORGANIZATIONS;
+      // Não inicializa com INITIAL_ORGANIZATIONS para novos usuários — o TenantContext
+      // carrega as orgs do Firestore filtradas pelo usuário corrente.
+      return [];
     }
     try {
       return JSON.parse(raw);
     } catch {
-      return INITIAL_ORGANIZATIONS;
+      return [];
     }
   }
 

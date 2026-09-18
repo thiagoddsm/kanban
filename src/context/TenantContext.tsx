@@ -53,15 +53,21 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const { currentUser } = useAuth();
   const { success, warning, error: notifyError } = useNotification();
 
-  const [organizations, setOrganizations] = useState<Organization[]>(() => StorageService.getOrganizations());
+  // SEGURANÇA: Inicializa como array vazio — orgs só são expostas após validação do Firestore.
+  // Nunca inicializar com StorageService.getOrganizations() pois o localStorage é compartilhado
+  // entre sessões de usuários diferentes no mesmo browser (cache persiste entre logins).
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   
   // Tenant Resolver: o slug da organização vem do param de URL /:orgSlug (gerenciado pelo Layout).
   // O estado inicial lê apenas o localStorage como fallback até o Layout sincronizar.
   const [currentOrganization, setCurrentOrganization] = useState<Organization>(() => {
-    const orgs = StorageService.getOrganizations();
     const savedOrgId = localStorage.getItem(ACTIVE_ORG_KEY);
-    const found = orgs.find((o) => o?.id === savedOrgId);
-    return found || orgs[0] || INITIAL_ORGANIZATIONS[0];
+    // Só usa o cache se tiver um ID salvo — o useEffect vai validar via Firestore
+    if (savedOrgId) {
+      const cached = StorageService.getOrganizations().find((o) => o?.id === savedOrgId);
+      if (cached) return cached;
+    }
+    return INITIAL_ORGANIZATIONS[0];
   });
 
   const [campuses, setCampuses] = useState<Campus[]>(() => {
@@ -108,22 +114,22 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     FirestoreRepository.fetchOrganizations().then((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {
         const userOrgs = filterOrgsByUser(remoteOrgs);
-        // Salva todas no cache local para lookup interno (switchOrganizationBySlug precisa de todas)
-        remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
-        // Mas expõe no estado apenas as orgs do usuário
-        if (userOrgs.length > 0) {
-          setOrganizations(userOrgs);
-        }
+        // SEGURANÇA: Salva no cache local APENAS as orgs do próprio usuário.
+        // Nunca salvar todas as orgs remotas — isso vaza dados de outros tenants
+        // para qualquer pessoa que usar o mesmo browser depois.
+        userOrgs.forEach((o) => StorageService.updateOrganization(o));
+        // Sempre atualiza o estado (mesmo vazio) para limpar cache poluído anterior
+        setOrganizations(userOrgs);
       }
     });
 
     const unsubOrgs = FirestoreRepository.subscribeOrganizations((remoteOrgs) => {
       if (remoteOrgs && remoteOrgs.length > 0) {
         const userOrgs = filterOrgsByUser(remoteOrgs);
-        remoteOrgs.forEach((o) => StorageService.updateOrganization(o));
-        if (userOrgs.length > 0) {
-          setOrganizations(userOrgs);
-        }
+        // SEGURANÇA: Idem — apenas as orgs do usuário vão para o cache local
+        userOrgs.forEach((o) => StorageService.updateOrganization(o));
+        // Sempre atualiza (mesmo vazio) para garantir isolamento
+        setOrganizations(userOrgs);
       }
     });
 
@@ -160,8 +166,9 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [currentOrganization.id]);
 
   const switchOrganization = (orgId: string, silent: boolean = false) => {
-    const org = organizations.find((o) => o.id === orgId || o.slug === orgId)
-             || StorageService.getOrganizations().find((o) => o.id === orgId || o.slug === orgId);
+    // SEGURANÇA: busca APENAS nas orgs autorizadas para este usuário.
+    // O fallback no StorageService foi removido — poderia expor orgs de outros tenants.
+    const org = organizations.find((o) => o.id === orgId || o.slug === orgId);
     if (org) {
       if (currentOrganization.id !== org.id) {
         setCurrentOrganization(org);
@@ -176,15 +183,12 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const switchOrganizationBySlug = (slug: string): boolean => {
-    let org = organizations.find(
+    // SEGURANÇA: busca APENAS nas orgs já validadas e filtradas para este usuário.
+    // Não fazer fallback no StorageService.getOrganizations() — isso permitiria acesso
+    // a orgs de outros tenants por manipulação de URL.
+    const org = organizations.find(
       (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
     );
-    if (!org) {
-      const localOrgs = StorageService.getOrganizations();
-      org = localOrgs.find(
-        (o) => o.slug.toLowerCase() === slug.toLowerCase() || o.id.toLowerCase() === slug.toLowerCase()
-      );
-    }
     if (org) {
       switchOrganization(org.id, true);
       return true;
