@@ -81,6 +81,11 @@ export class AiTranscriptionService {
     const storageKey = `${STORAGE_MODEL_PREFIX}_${orgId}_${userId}`;
     const stored = localStorage.getItem(storageKey) as AiModelId;
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
+      // Se o usuário tinha ficado com o 3.6-flash salvo no navegador (que está com instabilidade no Google), migra para o 2.5-flash
+      if (stored === 'gemini-3.6-flash') {
+        localStorage.setItem(storageKey, 'gemini-2.5-flash');
+        return 'gemini-2.5-flash';
+      }
       return stored;
     }
     return 'gemini-2.5-flash';
