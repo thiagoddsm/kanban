@@ -498,7 +498,7 @@ export const TenantProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       departments: DEFAULT_DEPARTMENTS,
     });
 
-    setOrganizations(updatedOrgs);
+    setOrganizations((prev) => [...prev.filter((o) => o.id !== newOrg.id), newOrg]);
     setCurrentOrganization(newOrg);
     setCampuses([mainCampus]);
     setCurrentCampus(null);

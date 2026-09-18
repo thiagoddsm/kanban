@@ -42,8 +42,15 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
     deleteOrganization,
     updateOrganization
   } = useTenant();
-  const { isAdmin } = useAccess();
+  const { accessibleOrganizations, accessibleCampuses, isAdmin } = useAccess();
   const { success, error: notifyError } = useNotification();
+
+  const visibleOrgs = accessibleOrganizations && accessibleOrganizations.length > 0 
+    ? accessibleOrganizations 
+    : organizations.filter((o) => o?.id === currentOrganization?.id);
+  const visibleCampuses = accessibleCampuses && accessibleCampuses.length > 0
+    ? accessibleCampuses
+    : campuses;
 
   const handleQuickActivateSubscription = (org: Organization) => {
     updateOrganization(org.id, {
@@ -107,7 +114,7 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
             }`}
           >
             <MapPin className="w-3.5 h-3.5" />
-            <span>Sedes & Campi ({campuses.length})</span>
+            <span>Sedes & Campi ({visibleCampuses.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('organizations')}
@@ -118,7 +125,7 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
             }`}
           >
             <Building2 className="w-3.5 h-3.5" />
-            <span>Igrejas / Organizações ({organizations.length})</span>
+            <span>Igrejas / Organizações ({visibleOrgs.length})</span>
           </button>
         </div>
 
@@ -139,7 +146,7 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
             </div>
 
             <div className="space-y-2">
-              {campuses.map((camp) => {
+              {visibleCampuses.map((camp) => {
                 const isActive = currentCampus?.id === camp.id;
                 return (
                   <div
@@ -183,15 +190,15 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
                       </button>
                       <button
                         onClick={() => {
-                          if (campuses.length <= 1) {
+                          if (visibleCampuses.length <= 1) {
                             notifyError('Ação não permitida', 'Não é possível excluir o único campus cadastrado.');
                             return;
                           }
                           deleteCampus(camp.id);
                         }}
-                        disabled={campuses.length <= 1}
+                        disabled={visibleCampuses.length <= 1}
                         className={`p-2 rounded-xl transition-colors ${
-                          campuses.length <= 1
+                          visibleCampuses.length <= 1
                             ? 'opacity-30 cursor-not-allowed text-slate-600'
                             : 'text-slate-400 hover:text-rose-400 hover:bg-rose-500/10'
                         }`}
@@ -224,7 +231,7 @@ export const OrganizationManagerModal: React.FC<OrganizationManagerModalProps> =
             </div>
 
             <div className="space-y-2">
-              {organizations.map((org) => {
+              {visibleOrgs.map((org) => {
                 const isActive = org.id === currentOrganization.id;
                 const isTrial = org.subscription?.isTrial || org.subscription?.status === 'TRIALING';
                 const isExpired = EntitlementsService.isTrialExpired(org);
