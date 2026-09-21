@@ -33,8 +33,10 @@ export async function handleAIPrompt(userId: string, tenantId: string, message: 
   `;
 
   // 3. Inicializar o Provedor de IA (Inversão de Dependência)
-  // Utiliza a variável de ambiente do Firebase (ou .env no Node) para a API Key
-  const aiProvider = new OpenAIProvider();
+  // Extrai a chave específica do Tenant (se a igreja contratou o próprio pacote de IA) 
+  // ou cai no fallback da chave global do Oiko.
+  const tenantApiKey = orgData?.aiSettings?.apiKey || null;
+  const aiProvider = new OpenAIProvider(tenantApiKey);
 
   // 4. Executar Prompt (o provedor já deve ter as Tools injetadas na sua configuração)
   const response = await aiProvider.generateResponse({

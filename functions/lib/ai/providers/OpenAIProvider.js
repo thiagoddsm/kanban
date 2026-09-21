@@ -8,11 +8,13 @@ const openai_1 = __importDefault(require("openai"));
 const aiTools_1 = require("../aiTools");
 class OpenAIProvider {
     openai;
-    constructor() {
-        // Pega a chave da variável de ambiente setada no Firebase Functions (ex: firebase functions:secrets:set OPENAI_API_KEY)
-        this.openai = new openai_1.default({
-            apiKey: process.env.OPENAI_API_KEY || 'dummy_key_for_build', // Evitar erro no build local
-        });
+    constructor(tenantApiKey) {
+        // Usa a chave do tenant se fornecida, senão usa a chave global do Oiko
+        const apiKey = tenantApiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error("API Key da OpenAI não configurada (Nem no Tenant, nem Global).");
+        }
+        this.openai = new openai_1.default({ apiKey });
     }
     async generateResponse(input) {
         const messages = [
