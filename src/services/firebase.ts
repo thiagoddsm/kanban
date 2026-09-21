@@ -6,6 +6,7 @@ import {
   getFirestore
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions } from 'firebase/functions';
 
 export const firebaseConfig = {
   apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || "AIzaSyADLqvQVfPzG6PS5jxiU9OKNZdzzJ3Bx3I",
@@ -20,6 +21,7 @@ let app: any = null;
 let auth: any = null;
 let db: any = null;
 let storage: any = null;
+let functionsInstance: any = null;
 let googleProvider: any = null;
 
 export const isFirebaseConfigured = true;
@@ -42,10 +44,21 @@ try {
   }
 
   storage = getStorage(app);
+  functionsInstance = getFunctions(app, 'us-central1');
+  
+  // Conectar APENAS as Functions no emulador local durante o desenvolvimento
+  // (Mantendo Firestore e Auth apontando para o projeto real para não perder os dados do painel)
+  if (import.meta.env?.DEV) {
+    import('firebase/functions').then(({ connectFunctionsEmulator }) => {
+      connectFunctionsEmulator(functionsInstance, 'localhost', 5001);
+      console.log("🔌 Firebase Functions conectado ao emulador local (Porta 5001)");
+    });
+  }
+
   googleProvider = new GoogleAuthProvider();
   console.log("🔥 Firebase Firestore inicializado com cache persistente IndexedDB nativo (SSOT)!");
 } catch (error) {
   console.warn("Aviso na inicialização do Firebase:", error);
 }
 
-export { app, auth, db, storage, googleProvider };
+export { app, auth, db, storage, googleProvider, functionsInstance as functions };

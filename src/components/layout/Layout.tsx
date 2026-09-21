@@ -14,6 +14,8 @@ import { ToastContainer } from '../common/Toast';
 import { useTenant } from '../../context/TenantContext';
 import { useAuth } from '../../context/AuthContext';
 import { useAccess } from '../../context/AccessContext';
+import { AIAssistantButton } from '../ai/AIAssistantButton';
+import { AIAssistantWidget } from '../ai/AIAssistantWidget';
 
 // Views pesadas — carregadas sob demanda (lazy + Suspense) para reduzir bundle inicial
 const DashboardView = React.lazy(() => import('../dashboard/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -213,11 +215,14 @@ export const Layout: React.FC = () => {
       {/* Accept Invitation Interceptor */}
       <AcceptInviteModal />
 
-      {/* My Account Modal */}
       <MyAccountModal
         isOpen={isMyAccountOpen}
         onClose={() => setIsMyAccountOpen(false)}
       />
+
+      {/* Oiko IA Engine UI */}
+      <AIAssistantButton />
+      <AIAssistantWidget />
 
       {/* Floating Notifications */}
       <ToastContainer />

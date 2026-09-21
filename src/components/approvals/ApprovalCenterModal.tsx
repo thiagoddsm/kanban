@@ -257,6 +257,17 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
                           {activeTask.campusName}
                         </span>
                       )}
+                      {onSelectTask && (
+                        <button
+                          onClick={() => {
+                            onSelectTask(activeTask);
+                          }}
+                          className="ml-auto flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1 rounded-full border border-indigo-500/30 transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Abrir Tarefa</span>
+                        </button>
+                      )}
                     </div>
                     <h3 className="text-lg font-black text-white">{activeTask.title}</h3>
                     {activeTask.description && (
