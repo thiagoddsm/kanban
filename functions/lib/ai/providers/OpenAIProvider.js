@@ -52,6 +52,11 @@ class OpenAIProvider {
         }
         catch (error) {
             console.error('OpenAI Error:', error);
+            if (error.status === 401) {
+                return {
+                    text: "⚠️ **Aviso do Sistema:** A chave de API configurada para esta igreja não é válida ou expirou. Por favor, atualize a chave da OpenAI (que começa com `sk-...`) nas configurações para eu poder conversar com você!"
+                };
+            }
             throw error;
         }
     }

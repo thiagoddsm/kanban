@@ -33,10 +33,18 @@ export async function handleAIPrompt(userId: string, tenantId: string, message: 
   `;
 
   // 3. Inicializar o Provedor de IA (Inversão de Dependência)
-  // Extrai a chave específica do Tenant (se a igreja contratou o próprio pacote de IA) 
-  // ou cai no fallback da chave global do Oiko.
+  // Extrai a chave específica do Tenant ou cai no fallback global
   const tenantApiKey = orgData?.aiSettings?.apiKey || null;
-  const aiProvider = new OpenAIProvider(tenantApiKey);
+  const preferredProvider = orgData?.aiSettings?.provider || process.env.AI_PROVIDER || 'gemini'; // 'openai' ou 'gemini'
+
+  let aiProvider;
+  
+  if (preferredProvider === 'gemini') {
+    const { GeminiProvider } = await import('./providers/GeminiProvider');
+    aiProvider = new GeminiProvider(tenantApiKey);
+  } else {
+    aiProvider = new OpenAIProvider(tenantApiKey);
+  }
 
   // 4. Executar Prompt (o provedor já deve ter as Tools injetadas na sua configuração)
   const response = await aiProvider.generateResponse({
