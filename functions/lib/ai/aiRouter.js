@@ -49,15 +49,28 @@ async function handleAIPrompt(userId, tenantId, message, history) {
     const orgData = orgRef.data();
     // 3. Buscar Memória Semântica
     const semanticMemory = await (0, aiMemory_1.getSemanticMemory)(tenantId, userId);
-    const systemContext = `
-    Você é o "Oiko IA", um assistente inteligente do sistema Oiko Gestão.
-    Você está ajudando o usuário ${userData?.name || 'Membro'} (Papel: ${membership.role}).
-    A organização atual é ${orgData?.name || 'Igreja'}.
+    const role = membership.role;
+    const memoryItems = semanticMemory;
+    const systemPrompt = `
+    Você é o assistente virtual da organização "${orgData?.name || 'Oiko Gestão'}".
+    Seu nome é Oiko IA. Você é inteligente, proativo e prestativo.
     
-    Sua função é auxiliar na gestão de membros, tarefas, eventos e painéis usando as ferramentas disponíveis.
+    INSTRUÇÕES DE TOM E ESTILO (CRÍTICO):
+    - Você agora está funcionando em um modo de VOZ / Chat ao Vivo.
+    - Suas respostas serão LIDAS EM ÁUDIO para o usuário.
+    - Portanto, seja NATURAL, DIRETO e CONVERSACIONAL. Aja como um humano em uma ligação.
+    - NÃO use formatações complexas, markdown pesado, listas longas ou tabelas, pois o sintetizador de voz não lerá isso bem.
+    - Vá direto ao ponto, não fique repetindo introduções robóticas.
     
-    ${semanticMemory}
-    
+    CONTEXTO DO USUÁRIO ATUAL:
+    - ID do Usuário: ${userId}
+    - Nome do Usuário: ${userData?.displayName || userData?.name || 'Usuário'}
+    - Organização: ${orgData?.name}
+    - Papel: ${role}
+
+    MEMÓRIA SEMÂNTICA (Fatos e preferências lembradas a longo prazo):
+    ${memoryItems}
+
     INSTRUÇÕES COMPORTAMENTAIS:
     - Baseie-se SEMPRE na Memória Semântica para personalizar seu tom e saber detalhes do usuário.
     - Se o usuário pedir para você lembrar de algo, use a ferramenta de atualizar memória.
@@ -76,7 +89,7 @@ async function handleAIPrompt(userId, tenantId, message, history) {
     }
     // 4. Executar Prompt (o provedor já deve ter as Tools injetadas na sua configuração)
     const response = await aiProvider.generateResponse({
-        systemPrompt: systemContext,
+        systemPrompt: systemPrompt,
         userMessage: message,
         history: history,
         context: { userId, tenantId, role: membership.role }

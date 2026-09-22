@@ -11,9 +11,12 @@ interface AIContextProps {
   setIsOpen: (val: boolean) => void;
   status: AIStatus;
   isListening: boolean;
+  isLiveMode: boolean;
   messages: AIMessage[];
   sendMessage: (text: string) => Promise<void>;
   toggleListening: () => void;
+  toggleLiveMode: () => void;
+  stopAudio: () => void;
   clearHistory: () => void;
 }
 
@@ -26,6 +29,8 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<AIStatus>('idle');
   const [isListening, setIsListening] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  
   const [messages, setMessages] = useState<AIMessage[]>([
     {
       id: 'msg_sys_1',
@@ -36,6 +41,12 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   ]);
 
   const speechProviderRef = useRef<SpeechProvider>(new BrowserSpeechProvider());
+  const isLiveModeRef = useRef(isLiveMode);
+
+  // Mantém a ref sincronizada para callbacks
+  useEffect(() => {
+    isLiveModeRef.current = isLiveMode;
+  }, [isLiveMode]);
 
   // Interrompe o áudio se o modal for fechado
   useEffect(() => {
@@ -43,9 +54,67 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       speechProviderRef.current.stopSpeaking();
       speechProviderRef.current.stopListening();
       setIsListening(false);
+      setIsLiveMode(false);
       if (status === 'speaking' || status === 'listening') setStatus('idle');
     }
   }, [isOpen]);
+
+  const startListeningInternal = () => {
+    const provider = speechProviderRef.current;
+    provider.stopSpeaking(); 
+    setIsListening(true);
+    setStatus('listening');
+    
+    provider.listen(
+      (text) => {
+        setIsListening(false);
+        sendMessage(text);
+      },
+      (err) => {
+        console.warn("Erro no reconhecimento de voz:", err);
+        setIsListening(false);
+        setStatus('idle');
+        if (err !== 'no-speech') {
+           notifyError('Voz', 'Não consegui entender, ou o microfone está bloqueado.');
+        }
+        // Se der erro, desativa o live mode pra não ficar em loop infinito
+        setIsLiveMode(false);
+      },
+      () => {
+        setIsListening(false);
+        if (status === 'listening') setStatus('idle');
+      }
+    );
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      speechProviderRef.current.stopListening();
+      setIsListening(false);
+      setStatus('idle');
+    } else {
+      startListeningInternal();
+    }
+  };
+
+  const toggleLiveMode = () => {
+    setIsLiveMode(prev => {
+      const next = !prev;
+      if (next && status !== 'listening') {
+        startListeningInternal();
+      }
+      return next;
+    });
+  };
+
+  const stopAudio = () => {
+    speechProviderRef.current.stopSpeaking();
+    if (status === 'speaking') {
+      setStatus('idle');
+    }
+    // Desativa modo ao vivo se o usuário forçou parar o áudio
+    setIsLiveMode(false);
+  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || !currentOrganization?.id) return;
@@ -72,6 +141,11 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       setStatus('speaking');
       await speechProviderRef.current.speak(responseMsg.content);
       setStatus('idle');
+
+      // Se o modo ao vivo ainda estiver ativo após a fala terminar, escuta novamente
+      if (isLiveModeRef.current) {
+        startListeningInternal();
+      }
     } catch (err) {
       notifyError('Erro de IA', 'Não consegui processar o comando agora.');
       setMessages(prev => [...prev, {
@@ -81,39 +155,7 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         timestamp: new Date().toISOString()
       }]);
       setStatus('idle');
-    }
-  };
-
-  const toggleListening = () => {
-    const provider = speechProviderRef.current;
-    
-    if (isListening) {
-      provider.stopListening();
-      setIsListening(false);
-      setStatus('idle');
-    } else {
-      provider.stopSpeaking(); // Interrompe fala atual se houver
-      setIsListening(true);
-      setStatus('listening');
-      
-      provider.listen(
-        (text) => {
-          setIsListening(false);
-          sendMessage(text);
-        },
-        (err) => {
-          console.warn("Erro no reconhecimento de voz:", err);
-          setIsListening(false);
-          setStatus('idle');
-          if (err !== 'no-speech') {
-             notifyError('Voz', 'Não consegui entender, ou o microfone está bloqueado.');
-          }
-        },
-        () => {
-          setIsListening(false);
-          if (status === 'listening') setStatus('idle');
-        }
-      );
+      setIsLiveMode(false);
     }
   };
 
@@ -130,7 +172,10 @@ export const AIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   };
 
   return (
-    <AIContext.Provider value={{ isOpen, setIsOpen, status, isListening, messages, sendMessage, toggleListening, clearHistory }}>
+    <AIContext.Provider value={{ 
+      isOpen, setIsOpen, status, isListening, isLiveMode, messages, 
+      sendMessage, toggleListening, toggleLiveMode, stopAudio, clearHistory 
+    }}>
       {children}
     </AIContext.Provider>
   );

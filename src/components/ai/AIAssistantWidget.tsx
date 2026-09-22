@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAI } from '../../context/AIContext';
-import { Sparkles, X, Send, Mic, Trash2, Bot, User } from 'lucide-react';
+import { Sparkles, X, Send, Mic, Trash2, Bot, User, Radio, Square } from 'lucide-react';
 
 export const AIAssistantWidget: React.FC = () => {
-  const { isOpen, setIsOpen, messages, status, isListening, toggleListening, sendMessage, clearHistory } = useAI();
+  const { isOpen, setIsOpen, messages, status, isListening, isLiveMode, toggleListening, toggleLiveMode, stopAudio, sendMessage, clearHistory } = useAI();
   const [input, setInput] = useState('');
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
@@ -33,13 +33,28 @@ export const AIAssistantWidget: React.FC = () => {
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-white">Oiko IA</h3>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              Oiko IA
+              {isLiveMode && (
+                <span className="flex items-center gap-1 text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full border border-rose-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                  AO VIVO
+                </span>
+              )}
+            </h3>
             <p className="text-[10px] text-slate-400">
               {status === 'thinking' ? 'Processando...' : 'Agente Assistente'}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button 
+            onClick={toggleLiveMode}
+            className={`p-2 rounded-xl transition-colors ${isLiveMode ? 'bg-rose-500/20 text-rose-400' : 'hover:bg-slate-800 text-slate-400 hover:text-indigo-400'}`}
+            title="Modo Conversa (Ao Vivo)"
+          >
+            <Radio className="w-4 h-4" />
+          </button>
           <button 
             onClick={clearHistory}
             className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-rose-400 transition-colors"
@@ -114,6 +129,16 @@ export const AIAssistantWidget: React.FC = () => {
             className="w-full bg-slate-800 border border-slate-700 rounded-2xl pl-4 pr-24 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500/50 transition-colors disabled:opacity-50"
           />
           <div className="absolute right-1 flex items-center gap-1">
+            {status === 'speaking' && (
+              <button 
+                type="button"
+                onClick={stopAudio}
+                className="p-2 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-slate-700/50 transition-colors animate-pulse"
+                title="Parar de Falar"
+              >
+                <Square className="w-4 h-4 fill-current" />
+              </button>
+            )}
             <button 
               type="button"
               onClick={toggleListening}

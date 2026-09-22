@@ -66,9 +66,19 @@ export class BrowserSpeechProvider implements SpeechProvider {
         return;
       }
 
+      // Remove markdown para a fala ficar natural (asteriscos, tralhas, etc)
+      const cleanText = text
+        .replace(/(\*\*|__)(.*?)\1/g, '$2') // Remove bold
+        .replace(/(\*|_)(.*?)\1/g, '$2')   // Remove italic
+        .replace(/#+\s/g, '')               // Remove headers
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1') // Remove links, keep text
+        .replace(/`{1,3}[^`]*`{1,3}/g, 'código') // Replace code blocks with "código"
+        .replace(/[-*]\s/g, '') // Remove list bullets
+        .replace(/>\s/g, ''); // Remove blockquotes
+
       this.stopSpeaking(); // Corta fala anterior
 
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'pt-BR';
       
       // Procura voz feminina agradável em PT-BR (Google/Microsoft) se disponível

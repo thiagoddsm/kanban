@@ -48,6 +48,23 @@ function getOikoToolsDefinition() {
         {
             type: 'function',
             function: {
+                name: 'get_user_tasks',
+                description: 'Busca as tarefas atribuídas ao usuário que está conversando com você. Útil quando o usuário pergunta \'quais são as minhas tarefas?\'.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        status: {
+                            type: 'string',
+                            description: 'Filtro opcional por status da tarefa.',
+                            enum: ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE']
+                        }
+                    }
+                }
+            }
+        },
+        {
+            type: 'function',
+            function: {
                 name: 'update_semantic_memory',
                 description: 'Salva uma preferência do usuário ou um fato importante sobre a organização na memória de longo prazo (Memória Semântica). Use quando o usuário disser "Lembre-se que...", "Meu nome é...", ou der instruções de como quer ser tratado.',
                 parameters: {
@@ -80,6 +97,8 @@ async function handleOikoToolExecution(toolName, args, context) {
     switch (toolName) {
         case 'get_dashboard_summary':
             return await executeGetDashboardSummary(tenantId);
+        case 'get_user_tasks':
+            return await executeGetUserTasks(tenantId, userId, args);
         case 'create_task':
             // 🟡 Ação Reversível: A IA cria a tarefa, e audita de quem partiu (AI Engine via Usuario X)
             return await executeCreateTask(tenantId, userId, args);
@@ -93,6 +112,41 @@ async function handleOikoToolExecution(toolName, args, context) {
 }
 // --- Domain Functions Mockup --- 
 // Em produção, isso iria interagir com o FirestoreRepository/Domain services reais.
+async function executeGetUserTasks(tenantId, userId, args) {
+    const db = (0, firestore_1.getFirestore)();
+    let query = db.collection('organizations').doc(tenantId).collection('tasks')
+        .where('assigneeIds', 'array-contains', userId)
+        .where('isArchived', '==', false);
+    if (args.status) {
+        query = query.where('status', '==', args.status);
+    }
+    else {
+        // Por padrão busca as pendentes
+        query = query.where('status', 'in', ['INBOX', 'TODO', 'IN_PROGRESS', 'REVIEW']);
+    }
+    const snap = await query.get();
+    if (snap.empty) {
+        return {
+            success: true,
+            message: "Você não possui tarefas pendentes atribuídas a você no momento.",
+            data: []
+        };
+    }
+    const tasks = snap.docs.map(doc => {
+        const d = doc.data();
+        return {
+            title: d.title,
+            status: d.status,
+            priority: d.priority,
+            campus: d.campusName || 'N/A'
+        };
+    });
+    return {
+        success: true,
+        message: `Foram encontradas ${tasks.length} tarefas. Detalhes em 'data'. Por favor, liste-as de forma clara.`,
+        data: tasks
+    };
+}
 async function executeGetDashboardSummary(tenantId) {
     const db = (0, firestore_1.getFirestore)();
     // Busca tarefas INBOX ou IN_PROGRESS
