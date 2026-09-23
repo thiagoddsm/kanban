@@ -65,6 +65,28 @@ function getOikoToolsDefinition() {
         {
             type: 'function',
             function: {
+                name: 'update_task_status',
+                description: 'Atualiza o status de uma tarefa existente (ex: marcar como concluída/DONE). Você pode passar o título ou um pedaço do nome da tarefa.',
+                parameters: {
+                    type: 'object',
+                    properties: {
+                        taskQuery: {
+                            type: 'string',
+                            description: 'O título da tarefa, um trecho dele (ex: "Configurar equipe") ou seu ID exato.'
+                        },
+                        status: {
+                            type: 'string',
+                            enum: ['INBOX', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE', 'ARCHIVED'],
+                            description: 'O novo status da tarefa.'
+                        }
+                    },
+                    required: ['taskQuery', 'status']
+                }
+            }
+        },
+        {
+            type: 'function',
+            function: {
                 name: 'update_semantic_memory',
                 description: 'Salva uma preferência do usuário ou um fato importante sobre a organização na memória de longo prazo (Memória Semântica). Use quando o usuário disser "Lembre-se que...", "Meu nome é...", ou der instruções de como quer ser tratado.',
                 parameters: {
@@ -99,6 +121,9 @@ async function handleOikoToolExecution(toolName, args, context) {
             return await executeGetDashboardSummary(tenantId);
         case 'get_user_tasks':
             return await executeGetUserTasks(tenantId, userId, args);
+        case 'update_task_status':
+            // 🟡 Ação Reversível: O usuário quer mudar o status da tarefa
+            return await executeUpdateTaskStatus(tenantId, userId, args);
         case 'create_task':
             // 🟡 Ação Reversível: A IA cria a tarefa, e audita de quem partiu (AI Engine via Usuario X)
             return await executeCreateTask(tenantId, userId, args);
@@ -112,6 +137,39 @@ async function handleOikoToolExecution(toolName, args, context) {
 }
 // --- Domain Functions Mockup --- 
 // Em produção, isso iria interagir com o FirestoreRepository/Domain services reais.
+async function executeUpdateTaskStatus(tenantId, userId, args) {
+    const db = (0, firestore_1.getFirestore)();
+    const tasksRef = db.collection('organizations').doc(tenantId).collection('tasks');
+    let targetRef = null;
+    // 1. Tenta buscar direto pelo ID exato
+    const docSnap = await tasksRef.doc(args.taskQuery).get();
+    if (docSnap.exists) {
+        targetRef = docSnap.ref;
+    }
+    else {
+        // 2. Se não achou por ID, busca pelas tarefas do usuário para tentar dar match no título
+        const userTasksSnap = await tasksRef
+            .where('assigneeIds', 'array-contains', userId)
+            .where('isArchived', '==', false)
+            .get();
+        const queryLower = args.taskQuery.toLowerCase();
+        const match = userTasksSnap.docs.find(d => d.data().title.toLowerCase().includes(queryLower));
+        if (match) {
+            targetRef = match.ref;
+        }
+    }
+    if (!targetRef) {
+        return { success: false, message: `Não encontrei nenhuma tarefa com o nome ou ID "${args.taskQuery}". Peça para o usuário confirmar o nome exato da tarefa.` };
+    }
+    await targetRef.update({
+        status: args.status,
+        updatedAt: new Date().toISOString()
+    });
+    return {
+        success: true,
+        message: `Tarefa atualizada com sucesso para o status ${args.status}. Confirme isso para o usuário.`
+    };
+}
 async function executeGetUserTasks(tenantId, userId, args) {
     const db = (0, firestore_1.getFirestore)();
     let query = db.collection('organizations').doc(tenantId).collection('tasks')
@@ -135,6 +193,7 @@ async function executeGetUserTasks(tenantId, userId, args) {
     const tasks = snap.docs.map(doc => {
         const d = doc.data();
         return {
+            id: doc.id, // Adicionado para a IA poder referenciar depois
             title: d.title,
             status: d.status,
             priority: d.priority,

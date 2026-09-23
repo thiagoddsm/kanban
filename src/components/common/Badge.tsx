@@ -116,8 +116,9 @@ export const DemandTypeBadge: React.FC<{ type: string; label?: string; size?: 's
     OUTRO: { label: 'Outro', icon: Package, color: 'text-slate-300 bg-slate-500/10 border-slate-500/30' },
   };
 
-  const item = map[type] || {
-    label: label || type.replace(/^CUSTOM_/, '').replace(/_/g, ' '),
+  const safeType = type || 'OUTRO';
+  const item = map[safeType as DemandType] || {
+    label: label || (typeof type === 'string' ? type.replace(/^CUSTOM_/, '').replace(/_/g, ' ') : 'Outro'),
     icon: Sparkles,
     color: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/30',
   };

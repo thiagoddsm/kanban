@@ -33,14 +33,25 @@ class GeminiProvider {
             parts: [{ text: input.userMessage }]
         });
         const modelName = process.env.AI_MODEL || 'gemini-2.5-flash';
-        let response = await this.ai.models.generateContent({
-            model: modelName,
-            contents,
-            config: {
-                systemInstruction,
-                tools: geminiTools
+        let response;
+        try {
+            response = await this.ai.models.generateContent({
+                model: modelName,
+                contents,
+                config: {
+                    systemInstruction,
+                    tools: geminiTools
+                }
+            });
+        }
+        catch (err) {
+            if (err?.message?.includes('429') || err?.status === 429 || err?.message?.includes('Quota')) {
+                return {
+                    text: "Poxa, atingimos o limite de velocidade do nosso plano gratuito na IA do Google. Você poderia aguardar só um minutinho e tentar de novo?"
+                };
             }
-        });
+            throw err;
+        }
         // Handle Tool Calling Loop (Oiko Engine -> Function Execution -> Gemini Callback)
         while (response.functionCalls && response.functionCalls.length > 0) {
             const call = response.functionCalls[0];
@@ -63,14 +74,24 @@ class GeminiProvider {
                 role: 'user',
                 parts: [{ functionResponse: { name: toolName, response: result } }]
             });
-            response = await this.ai.models.generateContent({
-                model: modelName,
-                contents,
-                config: {
-                    systemInstruction,
-                    tools: geminiTools
+            try {
+                response = await this.ai.models.generateContent({
+                    model: modelName,
+                    contents,
+                    config: {
+                        systemInstruction,
+                        tools: geminiTools
+                    }
+                });
+            }
+            catch (err) {
+                if (err?.message?.includes('429') || err?.status === 429 || err?.message?.includes('Quota')) {
+                    return {
+                        text: "Poxa, atingimos o limite de velocidade do plano gratuito do Google ao tentar concluir a ação. Aguarde um minutinho."
+                    };
                 }
-            });
+                throw err;
+            }
         }
         return {
             text: response.text || "Sem resposta compreensível."
