@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAI } from '../../context/AIContext';
+import { useTenant } from '../../context/TenantContext';
 import { Sparkles, X, Send, Mic, Trash2, Bot, User, Radio, Square } from 'lucide-react';
 
 export const AIAssistantWidget: React.FC = () => {
+  const { currentOrganization } = useTenant();
   const { isOpen, setIsOpen, messages, status, isListening, isLiveMode, toggleListening, toggleLiveMode, stopAudio, sendMessage, clearHistory } = useAI();
   const [input, setInput] = useState('');
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
@@ -48,6 +50,16 @@ export const AIAssistantWidget: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          <button 
+            onClick={() => {
+              setIsOpen(false);
+              window.location.href = `/${currentOrganization?.slug || 'ib'}/jarvis`;
+            }}
+            className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-cyan-400 transition-colors"
+            title="Modo Tela Cheia (J.A.R.V.I.S)"
+          >
+            <Sparkles className="w-4 h-4" />
+          </button>
           <button 
             onClick={toggleLiveMode}
             className={`p-2 rounded-xl transition-colors ${isLiveMode ? 'bg-rose-500/20 text-rose-400' : 'hover:bg-slate-800 text-slate-400 hover:text-indigo-400'}`}

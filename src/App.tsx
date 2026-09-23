@@ -16,6 +16,7 @@ import { PublicProtocolTrackerPage } from './pages/PublicProtocolTrackerPage';
 import { ThemeProvider } from './context/ThemeContext';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
+import { AILiveModePage } from './pages/AILiveModePage';
 
 export function App() {
   return (
@@ -44,6 +45,7 @@ export function App() {
                   <Route path="/:orgSlug/protocolo/:protocolId" element={<PublicProtocolTrackerPage />} />
 
                   {/* Painel Interno da Organização / Igreja */}
+                  <Route path="/:orgSlug/jarvis" element={<AILiveModePage />} />
                   <Route path="/:orgSlug/:tab" element={<Layout />} />
                   <Route path="/:orgSlug" element={<Navigate to="dashboard" replace />} />
 
