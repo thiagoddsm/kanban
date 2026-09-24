@@ -81,11 +81,16 @@ export class BrowserSpeechProvider implements SpeechProvider {
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'pt-BR';
       
-      // Procura voz feminina agradável em PT-BR (Google/Microsoft) se disponível
       const voices = this.synthesis.getVoices();
-      const ptVoice = voices.find(v => v.lang.includes('pt') && v.name.includes('Google')) || voices.find(v => v.lang.includes('pt'));
-      if (ptVoice) {
-        utterance.voice = ptVoice;
+      const ptVoices = voices.filter(v => v.lang.includes('pt-BR') || v.lang === 'pt_BR');
+      
+      // Tenta achar vozes mais naturais (Microsoft Online/Natural, Google, etc)
+      const selectedVoice = ptVoices.find(v => v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online')) 
+                       || ptVoices.find(v => v.name.includes('Google'))
+                       || ptVoices[0];
+
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
       }
 
       utterance.rate = 1.05; // Levemente mais rápido

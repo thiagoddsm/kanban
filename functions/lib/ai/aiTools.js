@@ -227,6 +227,7 @@ async function executeCreateTask(tenantId, userId, args) {
         organizationId: tenantId,
         title: args.title,
         description: args.description || '',
+        demandType: 'OUTRO',
         status: 'INBOX',
         priority: args.priority || 'MEDIUM',
         requesterId: userId,
