@@ -23,7 +23,14 @@ export class BrowserSpeechProvider implements SpeechProvider {
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'pt-BR';
       this.recognition.continuous = false; // Escuta uma frase e para
-      this.recognition.interimResults = false;
+    }
+    
+    // Força o carregamento assíncrono das vozes
+    if (this.synthesis) {
+      this.synthesis.getVoices();
+      if (this.synthesis.onvoiceschanged !== undefined) {
+        this.synthesis.onvoiceschanged = () => this.synthesis.getVoices();
+      }
     }
   }
 
