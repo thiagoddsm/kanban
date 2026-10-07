@@ -58,37 +58,37 @@ export const StatusBadge: React.FC<{ status: TaskStatus }> = ({ status }) => {
   switch (status) {
     case 'INBOX':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
           Inbox
         </span>
       );
     case 'PLANNING':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-blue-950/60 text-blue-300 border border-blue-800/60">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/60">
           Planejamento
         </span>
       );
     case 'IN_PROGRESS':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-amber-950/60 text-amber-300 border border-amber-800/60">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60">
           Em Andamento
         </span>
       );
     case 'BLOCKED':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-rose-950/60 text-rose-300 border border-rose-800/60">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60">
           Bloqueado
         </span>
       );
     case 'REVIEW':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-purple-950/60 text-purple-300 border border-purple-800/60">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/60">
           Revisão
         </span>
       );
     case 'DONE':
       return (
-        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800/60">
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-emerald-600 text-white border border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60">
           Concluído
         </span>
       );

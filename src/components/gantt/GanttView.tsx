@@ -200,13 +200,16 @@ export const GanttView: React.FC = () => {
         {/* Horizontal Scroll Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative flex">
           {/* Left Column: Fixed Project/Task Labels */}
-          <div className="w-40 sm:w-80 shrink-0 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
+          <div className="w-64 sm:w-[380px] shrink-0 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
             {/* Header */}
             <div className="h-12 px-2 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900">
-              <span className="truncate">Projetos & Demandas</span>
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline">Status</span>
-                <ArrowLeftRight className="w-3.5 h-3.5 text-slate-400 opacity-60 shrink-0" />
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="truncate">Projetos & Demandas</span>
+                <ArrowLeftRight className="w-3.5 h-3.5 text-slate-400 opacity-60 shrink-0 hidden sm:block" />
+              </div>
+              <div className="hidden sm:flex items-center gap-1 w-24 sm:w-28 justify-end">
+                <span>Status</span>
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400 opacity-60 shrink-0" />
               </div>
             </div>
 
@@ -221,21 +224,24 @@ export const GanttView: React.FC = () => {
                   {/* Event Group Header */}
                   <div
                     onClick={() => toggleGroup(groupId)}
-                    className={`h-11 px-2 sm:px-4 flex items-center justify-between gap-2 text-xs font-bold ${
+                    className={`h-14 sm:h-12 px-2 sm:px-4 flex items-center justify-between gap-2 text-xs font-bold ${
                       grp.event
                         ? 'bg-white hover:bg-purple-50 text-purple-900 dark:bg-slate-900 dark:hover:bg-purple-950/40 dark:text-purple-300 cursor-pointer'
                         : 'bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-400 cursor-pointer'
                     } border-b border-slate-100 dark:border-slate-800/80`}
                   >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <ChevronDown className={`w-3.5 h-3.5 text-purple-500 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                       <span className={`truncate ${!grp.event ? 'uppercase text-[10px] tracking-wider' : ''}`}>{grp.event ? grp.event.title : 'DEMANDAS SEM PROJETO'}</span>
                     </div>
-                    {grp.event && (
-                      <span className="hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
-                        {grp.projectTasks.length} tarefas
-                      </span>
-                    )}
+                    <div className="hidden sm:flex items-center justify-end w-24 sm:w-28 shrink-0">
+                      {grp.event && (
+                        <span className="flex flex-col items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
+                          <span className="font-black text-[10px] leading-none">{grp.projectTasks.length}</span>
+                          <span className="text-[7px] font-bold uppercase leading-none mt-0.5">tarefas</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tasks in this group */}
@@ -246,15 +252,15 @@ export const GanttView: React.FC = () => {
                         setSelectedTask(t);
                         setIsTaskModalOpen(true);
                       }}
-                      className="h-11 px-2 pl-4 sm:px-4 sm:pl-7 flex items-center justify-between gap-2 bg-white hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900/60 cursor-pointer text-xs border-b border-slate-100 dark:border-slate-850"
+                      className="h-12 sm:h-11 px-2 pl-4 sm:px-4 sm:pl-7 flex items-center justify-between gap-2 bg-white hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900/60 cursor-pointer text-xs border-b border-slate-100 dark:border-slate-850"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="hidden sm:block">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="hidden sm:block shrink-0">
                           <DemandTypeBadge type={t.demandType} size="sm" />
                         </div>
                         <span className="text-slate-600 dark:text-slate-300 font-medium truncate text-[11px] sm:text-xs">{t.title}</span>
                       </div>
-                      <div className="hidden sm:block">
+                      <div className="hidden sm:flex items-center justify-end w-24 sm:w-28 shrink-0">
                         <StatusBadge status={t.status} />
                       </div>
                     </div>
@@ -363,12 +369,16 @@ export const GanttView: React.FC = () => {
                         >
                           <span className="truncate text-[11px]">{t.title}</span>
                           <div className="flex items-center gap-1 shrink-0 ml-2">
-                            {t.assigneeName && (
-                              <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded text-white hidden sm:inline-block">
-                                {t.assigneeName.split(' ')[0]}
-                              </span>
+                            {(t.assigneeName || dateRangeStr) && (
+                              <div className="flex items-center gap-1.5 bg-slate-900/60 dark:bg-black/40 px-2 py-0.5 rounded-full text-white">
+                                {t.assigneeName && (
+                                  <span className="text-[9px] font-medium hidden sm:inline-block">
+                                    {t.assigneeName.split(' ')[0]}
+                                  </span>
+                                )}
+                                {dateRangeStr && <span className="text-[9px] font-bold opacity-90">{dateRangeStr}</span>}
+                              </div>
                             )}
-                            {dateRangeStr && <span className="text-[9px] opacity-80 font-medium">{dateRangeStr}</span>}
                           </div>
                         </div>
                       </div>
@@ -383,7 +393,7 @@ export const GanttView: React.FC = () => {
 
       {/* Floating Action Button (Sorting / Options) */}
       <button 
-        className="fixed bottom-[84px] lg:bottom-6 right-[84px] lg:right-24 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all z-40"
+        className="fixed bottom-[84px] lg:bottom-6 right-[84px] lg:right-[96px] w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all z-40"
         title="Inverter Ordem"
         onClick={() => {
           // Placeholder for sort toggle
