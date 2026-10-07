@@ -16,7 +16,9 @@ import {
   Building2,
   Lock,
   Layers,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { PriorityBadge, DemandTypeBadge, StatusBadge } from '../common/Badge';
 
@@ -31,6 +33,11 @@ export const GanttView: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<ChurchEvent | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  const toggleGroup = (groupId: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
 
   // Reference window: calculate min and max dates across all tasks and events
   const { startDate, endDate, totalDays, datesList } = useMemo(() => {
@@ -159,10 +166,10 @@ export const GanttView: React.FC = () => {
         </div>
 
         {/* Zoom Mode Switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 self-start sm:self-auto shadow-sm dark:shadow-none">
+        <div className="flex items-center p-1 rounded-full bg-slate-100 dark:bg-slate-800 self-start sm:self-auto shadow-sm dark:shadow-none">
           <button
             onClick={() => setZoomLevel('DAY')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               zoomLevel === 'DAY' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -170,7 +177,7 @@ export const GanttView: React.FC = () => {
           </button>
           <button
             onClick={() => setZoomLevel('WEEK')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               zoomLevel === 'WEEK' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -178,7 +185,7 @@ export const GanttView: React.FC = () => {
           </button>
           <button
             onClick={() => setZoomLevel('MONTH')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
               zoomLevel === 'MONTH' ? 'bg-brand-600 text-white shadow-md' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -188,36 +195,38 @@ export const GanttView: React.FC = () => {
       </div>
 
       {/* Gantt Interactive Container */}
-      <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl flex flex-col">
+      <div className="flex-1 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm flex flex-col">
         {/* Horizontal Scroll Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative flex">
           {/* Left Column: Fixed Project/Task Labels */}
-          <div className="w-40 sm:w-80 shrink-0 bg-slate-50/90 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
+          <div className="w-40 sm:w-80 shrink-0 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
             {/* Header */}
-            <div className="h-12 px-2 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-950">
+            <div className="h-12 px-2 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900">
               <span className="truncate">Projetos & Demandas</span>
               <span className="hidden sm:inline">Status</span>
             </div>
 
             {/* Rows Labels */}
-            <div className="flex-1 divide-y divide-slate-200 dark:divide-slate-800/60">
-              {groupedProjects.map((grp, gIdx) => (
+            <div className="flex-1 divide-y divide-slate-100 dark:divide-slate-800/60">
+              {groupedProjects.map((grp, gIdx) => {
+                const groupId = grp.event?.id || 'NO_PROJECT';
+                const isCollapsed = collapsedGroups[groupId];
+
+                return (
                 <div key={gIdx} className="space-y-0">
                   {/* Event Group Header */}
                   <div
-                    onClick={() => {
-                      if (grp.event) {
-                        setSelectedEvent(grp.event);
-                        setIsEventDetailsOpen(true);
-                      }
-                    }}
+                    onClick={() => toggleGroup(groupId)}
                     className={`h-11 px-2 sm:px-4 flex items-center justify-between gap-2 text-xs font-bold ${
                       grp.event
-                        ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 dark:bg-purple-950/40 dark:hover:bg-purple-950/60 dark:text-purple-300 cursor-pointer'
-                        : 'bg-slate-100 text-slate-700 dark:bg-slate-900/80 dark:text-slate-400'
-                    } border-b border-slate-200 dark:border-slate-800/80`}
+                        ? 'bg-white hover:bg-purple-50 text-purple-900 dark:bg-slate-900 dark:hover:bg-purple-950/40 dark:text-purple-300 cursor-pointer'
+                        : 'bg-white hover:bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-400 cursor-pointer'
+                    } border-b border-slate-100 dark:border-slate-800/80`}
                   >
-                    <span className="truncate">{grp.event ? grp.event.title : 'Demandas sem Projeto'}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                      <span className="truncate">{grp.event ? grp.event.title : 'Demandas sem Projeto'}</span>
+                    </div>
                     {grp.event && (
                       <span className="hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
                         {grp.projectTasks.length} tarefas
@@ -226,20 +235,20 @@ export const GanttView: React.FC = () => {
                   </div>
 
                   {/* Tasks in this group */}
-                  {grp.projectTasks.map((t) => (
+                  {!isCollapsed && grp.projectTasks.map((t) => (
                     <div
                       key={t.id}
                       onClick={() => {
                         setSelectedTask(t);
                         setIsTaskModalOpen(true);
                       }}
-                      className="h-11 px-2 pl-4 sm:px-4 sm:pl-7 flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-850/60 cursor-pointer text-xs border-b border-slate-200 dark:border-slate-850"
+                      className="h-11 px-2 pl-4 sm:px-4 sm:pl-7 flex items-center justify-between gap-2 bg-white hover:bg-slate-50 dark:bg-slate-950 dark:hover:bg-slate-900/60 cursor-pointer text-xs border-b border-slate-100 dark:border-slate-850"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="hidden sm:block">
                           <DemandTypeBadge type={t.demandType} size="sm" />
                         </div>
-                        <span className="text-slate-900 dark:text-white font-medium truncate text-[11px] sm:text-xs">{t.title}</span>
+                        <span className="text-slate-600 dark:text-slate-300 font-medium truncate text-[11px] sm:text-xs">{t.title}</span>
                       </div>
                       <div className="hidden sm:block">
                         <StatusBadge status={t.status} />
@@ -247,14 +256,14 @@ export const GanttView: React.FC = () => {
                     </div>
                   ))}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
           {/* Right Timeline Grid */}
           <div className="flex-1 flex flex-col relative" style={{ width: `${totalDays * cellWidth}px` }}>
             {/* Timeline Header (Days / Dates) */}
-            <div className="h-12 border-b border-slate-200 dark:border-slate-800 flex sticky top-0 z-20 bg-slate-100 dark:bg-slate-950">
+            <div className="h-12 border-b border-slate-200 dark:border-slate-800 flex sticky top-0 z-20 bg-white dark:bg-slate-950">
               {datesList.map((date, idx) => {
                 const dateStr = date.toISOString().split('T')[0];
                 const isToday = dateStr === todayStr;
@@ -263,17 +272,17 @@ export const GanttView: React.FC = () => {
                 return (
                   <div
                     key={idx}
-                    className={`shrink-0 flex flex-col items-center justify-center text-[10px] border-r border-slate-200 dark:border-slate-800/80 ${
+                    className={`shrink-0 flex flex-col items-center justify-center text-[10px] border-r border-slate-100 dark:border-slate-800/80 ${
                       isToday
-                        ? 'bg-brand-50 text-brand-700 font-black dark:bg-indigo-600/20 dark:text-indigo-300'
+                        ? 'text-brand-600 font-black border-b-2 border-b-brand-600 dark:text-indigo-400 dark:border-b-indigo-500'
                         : isWeekend
-                        ? 'bg-slate-100 text-slate-400 dark:bg-slate-900/40 dark:text-slate-500'
+                        ? 'bg-slate-50 text-slate-400 dark:bg-slate-900/40 dark:text-slate-500'
                         : 'text-slate-600 dark:text-slate-400'
                     }`}
                     style={{ width: `${cellWidth}px` }}
                   >
-                    <span className="font-semibold">{date.toLocaleDateString('pt-BR', { weekday: 'narrow' })}</span>
-                    <span className="font-bold">{date.getDate()}</span>
+                    <span className="font-semibold uppercase">{date.toLocaleDateString('pt-BR', { weekday: 'narrow' })}</span>
+                    <span className="font-bold text-sm leading-none mt-0.5">{date.getDate()}</span>
                   </div>
                 );
               })}
@@ -291,7 +300,9 @@ export const GanttView: React.FC = () => {
 
             {/* Gantt Timeline Bars */}
             <div className="flex-1 divide-y divide-slate-200 dark:divide-slate-800/60">
-              {groupedProjects.map((grp, gIdx) => (
+              {groupedProjects.map((grp, gIdx) => {
+                const isCollapsed = collapsedGroups[grp.event?.id || 'NO_PROJECT'];
+                return (
                 <div key={gIdx}>
                   {/* Event Project Bar */}
                   <div className="h-11 relative flex items-center border-b border-slate-200 dark:border-slate-800/80 bg-purple-50/60 dark:bg-purple-950/20">
@@ -313,7 +324,7 @@ export const GanttView: React.FC = () => {
                   </div>
 
                   {/* Task Bars */}
-                  {grp.projectTasks.map((t) => {
+                  {!isCollapsed && grp.projectTasks.map((t) => {
                     const barLeft = getPositionOffset(t.startDate);
                     const barWidth = Math.max(cellWidth, getBarWidth(t.startDate, t.deadline));
                     const isOverdue = t.status !== 'DONE' && t.deadline < todayStr;
@@ -346,11 +357,22 @@ export const GanttView: React.FC = () => {
                     );
                   })}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Floating Action Button (Sorting / Options) */}
+      <button 
+        className="fixed bottom-[84px] lg:bottom-6 right-[84px] lg:right-24 w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-all z-40"
+        title="Inverter Ordem"
+        onClick={() => {
+          // Placeholder for sort toggle
+        }}
+      >
+        <ArrowUpDown className="w-6 h-6" />
+      </button>
 
       {/* Modals */}
       {isTaskModalOpen && selectedTask && (
