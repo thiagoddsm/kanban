@@ -18,7 +18,8 @@ import {
   Layers,
   ArrowRight,
   ChevronDown,
-  ArrowUpDown
+  ArrowUpDown,
+  ArrowLeftRight
 } from 'lucide-react';
 import { PriorityBadge, DemandTypeBadge, StatusBadge } from '../common/Badge';
 
@@ -203,7 +204,10 @@ export const GanttView: React.FC = () => {
             {/* Header */}
             <div className="h-12 px-2 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900">
               <span className="truncate">Projetos & Demandas</span>
-              <span className="hidden sm:inline">Status</span>
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline">Status</span>
+                <ArrowLeftRight className="w-3.5 h-3.5 text-slate-400 opacity-60 shrink-0" />
+              </div>
             </div>
 
             {/* Rows Labels */}
@@ -224,8 +228,8 @@ export const GanttView: React.FC = () => {
                     } border-b border-slate-100 dark:border-slate-800/80`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
-                      <span className="truncate">{grp.event ? grp.event.title : 'Demandas sem Projeto'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                      <span className={`truncate ${!grp.event ? 'uppercase text-[10px] tracking-wider' : ''}`}>{grp.event ? grp.event.title : 'DEMANDAS SEM PROJETO'}</span>
                     </div>
                     {grp.event && (
                       <span className="hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
@@ -306,21 +310,28 @@ export const GanttView: React.FC = () => {
                 <div key={gIdx}>
                   {/* Event Project Bar */}
                   <div className="h-11 relative flex items-center border-b border-slate-200 dark:border-slate-800/80 bg-purple-50/60 dark:bg-purple-950/20">
-                    {grp.event && (
-                      <div
-                        onClick={() => {
-                          setSelectedEvent(grp.event);
-                          setIsEventDetailsOpen(true);
-                        }}
-                        className="absolute h-7 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 border border-purple-400/40 text-white text-xs font-bold flex items-center px-3 shadow-md cursor-pointer truncate hover:brightness-110 transition-all"
-                        style={{
-                          left: `${getPositionOffset(grp.event.startDate)}px`,
-                          width: `${Math.max(cellWidth * 2, getBarWidth(grp.event.startDate, grp.event.endDate))}px`,
-                        }}
-                      >
-                        <span className="truncate">{grp.event.title}</span>
-                      </div>
-                    )}
+                    {grp.event && (() => {
+                      const startDay = grp.event.startDate ? new Date(grp.event.startDate + 'T00:00:00').getDate() : '';
+                      const endDay = grp.event.endDate ? new Date(grp.event.endDate + 'T00:00:00').getDate() : startDay;
+                      const dateRangeStr = startDay && endDay ? (startDay === endDay ? `${startDay}` : `${startDay}–${endDay}`) : '';
+
+                      return (
+                        <div
+                          onClick={() => {
+                            setSelectedEvent(grp.event!);
+                            setIsEventDetailsOpen(true);
+                          }}
+                          className="absolute h-7 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 border border-purple-400/40 text-white text-xs font-bold flex items-center justify-between px-2.5 shadow-md cursor-pointer hover:brightness-110 transition-all"
+                          style={{
+                            left: `${getPositionOffset(grp.event.startDate)}px`,
+                            width: `${Math.max(cellWidth * 2, getBarWidth(grp.event.startDate, grp.event.endDate))}px`,
+                          }}
+                        >
+                          <span className="truncate">{grp.event.title}</span>
+                          {dateRangeStr && <span className="text-[9px] opacity-80 font-medium ml-2 shrink-0">{dateRangeStr}</span>}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Task Bars */}
@@ -328,6 +339,10 @@ export const GanttView: React.FC = () => {
                     const barLeft = getPositionOffset(t.startDate);
                     const barWidth = Math.max(cellWidth, getBarWidth(t.startDate, t.deadline));
                     const isOverdue = t.status !== 'DONE' && t.deadline < todayStr;
+                    
+                    const startDay = t.startDate ? new Date(t.startDate + 'T00:00:00').getDate() : '';
+                    const endDay = t.deadline ? new Date(t.deadline + 'T00:00:00').getDate() : startDay;
+                    const dateRangeStr = startDay && endDay ? (startDay === endDay ? `${startDay}` : `${startDay}–${endDay}`) : '';
 
                     return (
                       <div key={t.id} className="h-11 relative flex items-center border-b border-slate-200 dark:border-slate-850">
@@ -347,11 +362,14 @@ export const GanttView: React.FC = () => {
                           }}
                         >
                           <span className="truncate text-[11px]">{t.title}</span>
-                          {t.assigneeName && (
-                            <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded shrink-0 ml-1 text-white">
-                              {t.assigneeName.split(' ')[0]}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0 ml-2">
+                            {t.assigneeName && (
+                              <span className="text-[10px] bg-slate-900/60 px-1.5 py-0.2 rounded text-white hidden sm:inline-block">
+                                {t.assigneeName.split(' ')[0]}
+                              </span>
+                            )}
+                            {dateRangeStr && <span className="text-[9px] opacity-80 font-medium">{dateRangeStr}</span>}
+                          </div>
                         </div>
                       </div>
                     );
