@@ -192,11 +192,11 @@ export const GanttView: React.FC = () => {
         {/* Horizontal Scroll Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative flex">
           {/* Left Column: Fixed Project/Task Labels */}
-          <div className="w-72 sm:w-80 shrink-0 bg-slate-50/90 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
+          <div className="w-40 sm:w-80 shrink-0 bg-slate-50/90 dark:bg-slate-950/80 border-r border-slate-200 dark:border-slate-800 sticky left-0 z-30 flex flex-col">
             {/* Header */}
-            <div className="h-12 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-950">
-              <span>Projetos & Demandas</span>
-              <span>Status</span>
+            <div className="h-12 px-2 sm:px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider bg-slate-100 dark:bg-slate-950">
+              <span className="truncate">Projetos & Demandas</span>
+              <span className="hidden sm:inline">Status</span>
             </div>
 
             {/* Rows Labels */}
@@ -211,7 +211,7 @@ export const GanttView: React.FC = () => {
                         setIsEventDetailsOpen(true);
                       }
                     }}
-                    className={`h-11 px-4 flex items-center justify-between gap-2 text-xs font-bold ${
+                    className={`h-11 px-2 sm:px-4 flex items-center justify-between gap-2 text-xs font-bold ${
                       grp.event
                         ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 dark:bg-purple-950/40 dark:hover:bg-purple-950/60 dark:text-purple-300 cursor-pointer'
                         : 'bg-slate-100 text-slate-700 dark:bg-slate-900/80 dark:text-slate-400'
@@ -219,7 +219,7 @@ export const GanttView: React.FC = () => {
                   >
                     <span className="truncate">{grp.event ? grp.event.title : 'Demandas sem Projeto'}</span>
                     {grp.event && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
+                      <span className="hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
                         {grp.projectTasks.length} tarefas
                       </span>
                     )}
@@ -233,13 +233,17 @@ export const GanttView: React.FC = () => {
                         setSelectedTask(t);
                         setIsTaskModalOpen(true);
                       }}
-                      className="h-11 px-4 pl-7 flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-850/60 cursor-pointer text-xs border-b border-slate-200 dark:border-slate-850"
+                      className="h-11 px-2 pl-4 sm:px-4 sm:pl-7 flex items-center justify-between gap-2 hover:bg-slate-100 dark:hover:bg-slate-850/60 cursor-pointer text-xs border-b border-slate-200 dark:border-slate-850"
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <DemandTypeBadge type={t.demandType} size="sm" />
-                        <span className="text-slate-900 dark:text-white font-medium truncate">{t.title}</span>
+                        <div className="hidden sm:block">
+                          <DemandTypeBadge type={t.demandType} size="sm" />
+                        </div>
+                        <span className="text-slate-900 dark:text-white font-medium truncate text-[11px] sm:text-xs">{t.title}</span>
                       </div>
-                      <StatusBadge status={t.status} />
+                      <div className="hidden sm:block">
+                        <StatusBadge status={t.status} />
+                      </div>
                     </div>
                   ))}
                 </div>

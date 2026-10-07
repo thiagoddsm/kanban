@@ -17,7 +17,9 @@ import {
   Layers,
   MapPin,
   Building2,
-  Sparkles
+  Sparkles,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { DemandTypeBadge, StatusBadge, PriorityBadge } from '../common/Badge';
 
@@ -27,6 +29,7 @@ export const CalendarView: React.FC = () => {
   const { currentUser } = useAuth();
 
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'GRID' | 'AGENDA'>('GRID');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<ChurchEvent | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -300,9 +303,27 @@ export const CalendarView: React.FC = () => {
           >
             <ChevronRight className="w-4 h-4" />
           </button>
-          <span className="text-sm font-black text-slate-900 dark:text-white ml-2 min-w-[140px]">
+          <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white mx-1 sm:mx-2 flex-1 sm:flex-none truncate">
             {monthNames[month]} {year}
           </span>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 ml-auto">
+            <button
+              onClick={() => setViewMode('GRID')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'GRID' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              title="Visão em Grade"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('AGENDA')}
+              className={`p-1.5 rounded-lg transition-all ${viewMode === 'AGENDA' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              title="Visão em Lista / Agenda"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -488,120 +509,239 @@ export const CalendarView: React.FC = () => {
         </div>
       </div>
 
-      {/* Calendar Grid Container */}
-      <div className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl overflow-hidden flex flex-col">
-        <div className="flex-1 flex flex-col overflow-x-auto custom-scrollbar">
-          <div className="flex-1 flex flex-col min-w-[560px] sm:min-w-0">
-            {/* Days of Week Header */}
-            <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider py-2.5">
-              <span>Dom</span>
-              <span>Seg</span>
-              <span>Ter</span>
-              <span>Qua</span>
-              <span>Qui</span>
-              <span>Sex</span>
-              <span>Sáb</span>
-            </div>
-
-            {/* Month Day Cells */}
-            <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 dark:divide-slate-800/60 overflow-y-auto custom-scrollbar">
-          {calendarDays.map((day, idx) => {
-            const isToday = day.dateStr === todayStr;
-
-            // Events on this day
-            const dayEvents = displayEvents.filter((e) => {
-              const start = normalizeDateStr(e.startDate);
-              const end = normalizeDateStr(e.endDate) || start;
-              return start && day.dateStr >= start && day.dateStr <= end;
-            });
-            // Tasks deadline on this day
-            const dayTasks = displayTasks.filter((t) => {
-              const deadline = normalizeDateStr(t.deadline);
-              return deadline === day.dateStr;
-            });
-
-            return (
-              <div
-                key={idx}
-                className={`p-2 flex flex-col justify-between min-h-[95px] transition-colors ${
-                  day.isCurrentMonth
-                    ? 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-850/60'
-                    : 'bg-slate-50/50 dark:bg-slate-950/40 opacity-40'
-                }`}
-              >
-                {/* Date Header */}
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                      isToday
-                        ? 'bg-brand-600 text-white shadow-md font-black'
-                        : day.isCurrentMonth
-                        ? 'text-slate-800 dark:text-slate-200'
-                        : 'text-slate-400 dark:text-slate-600'
-                    }`}
-                  >
-                    {day.date.getDate()}
-                  </span>
-
-                  {(dayEvents.length > 0 || dayTasks.length > 0) && (
-                    <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 px-1 rounded">
-                      {dayEvents.length + dayTasks.length}
-                    </span>
-                  )}
-                </div>
-
-                {/* Items in Cell */}
-                <div className="flex-1 space-y-1 overflow-y-auto max-h-20 custom-scrollbar pr-0.5">
-                  {/* Event Blocks */}
-                  {dayEvents.map((evt) => (
-                    <div
-                      key={evt.id}
-                      onClick={() => {
-                        setSelectedEvent(evt);
-                        setIsEventDetailsOpen(true);
-                      }}
-                      className="px-1.5 py-0.5 rounded-lg bg-purple-50 dark:bg-gradient-to-r dark:from-purple-900/80 dark:to-indigo-900/80 border border-purple-200 dark:border-purple-500/40 text-purple-800 dark:text-purple-200 text-[10px] font-bold truncate cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all flex items-center gap-1 shadow-sm dark:shadow-none"
-                      title={evt.title}
-                    >
-                      <Sparkles className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400 shrink-0" />
-                      <span className="truncate">{evt.title}</span>
-                    </div>
-                  ))}
-
-                  {/* Task Pills */}
-                  {dayTasks.map((t) => {
-                    const deadlineStr = normalizeDateStr(t.deadline);
-                    const isOverdue = t.status !== 'DONE' && !!deadlineStr && deadlineStr < todayStr;
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => {
-                          setSelectedTask(t);
-                          setIsTaskModalOpen(true);
-                        }}
-                        className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium truncate cursor-pointer transition-all border flex items-center justify-between gap-1 shadow-sm dark:shadow-none ${
-                          t.status === 'DONE'
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-500/30 dark:text-emerald-300'
-                            : t.status === 'BLOCKED'
-                            ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/60 dark:border-rose-500/30 dark:text-rose-300'
-                            : isOverdue
-                            ? 'bg-rose-100 border-rose-300 text-rose-900 dark:bg-rose-950/80 dark:border-rose-500 dark:text-rose-200 animate-pulse'
-                            : 'bg-slate-100 border-slate-200 text-slate-700 hover:border-brand-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-500'
-                        }`}
-                        title={t.title}
-                      >
-                        <span className="truncate">{t.title}</span>
-                        {t.status === 'BLOCKED' && <ShieldAlert className="w-2.5 h-2.5 text-rose-500 dark:text-rose-400 shrink-0" />}
-                      </div>
-                    );
-                  })}
-                </div>
+      {/* Calendar Container */}
+      <div className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl overflow-hidden flex flex-col relative">
+        
+        {viewMode === 'GRID' && (
+          <div className="flex-1 flex flex-col overflow-x-auto custom-scrollbar">
+            <div className="flex-1 flex flex-col min-w-[560px] sm:min-w-0">
+              {/* Days of Week Header */}
+              <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-center text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider py-2.5">
+                <span>Dom</span>
+                <span>Seg</span>
+                <span>Ter</span>
+                <span>Qua</span>
+                <span>Qui</span>
+                <span>Sex</span>
+                <span>Sáb</span>
               </div>
-            );
-          })}
+
+              {/* Month Day Cells */}
+              <div className="flex-1 grid grid-cols-7 auto-rows-fr divide-x divide-y divide-slate-200 dark:divide-slate-800/60 overflow-y-auto custom-scrollbar">
+                {calendarDays.map((day, idx) => {
+                  const isToday = day.dateStr === todayStr;
+
+                  // Events on this day
+                  const dayEvents = displayEvents.filter((e) => {
+                    const start = normalizeDateStr(e.startDate);
+                    const end = normalizeDateStr(e.endDate) || start;
+                    return start && day.dateStr >= start && day.dateStr <= end;
+                  });
+                  // Tasks deadline on this day
+                  const dayTasks = displayTasks.filter((t) => {
+                    const deadline = normalizeDateStr(t.deadline);
+                    return deadline === day.dateStr;
+                  });
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-2 flex flex-col justify-between min-h-[95px] transition-colors ${
+                        day.isCurrentMonth
+                          ? 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-850/60'
+                          : 'bg-slate-50/50 dark:bg-slate-950/40 opacity-40'
+                      }`}
+                    >
+                      {/* Date Header */}
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                            isToday
+                              ? 'bg-brand-600 text-white shadow-md font-black'
+                              : day.isCurrentMonth
+                              ? 'text-slate-800 dark:text-slate-200'
+                              : 'text-slate-400 dark:text-slate-600'
+                          }`}
+                        >
+                          {day.date.getDate()}
+                        </span>
+
+                        {(dayEvents.length > 0 || dayTasks.length > 0) && (
+                          <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-850 px-1 rounded">
+                            {dayEvents.length + dayTasks.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Items in Cell */}
+                      <div className="flex-1 space-y-1 overflow-y-auto max-h-20 custom-scrollbar pr-0.5">
+                        {/* Event Blocks */}
+                        {dayEvents.map((evt) => (
+                          <div
+                            key={evt.id}
+                            onClick={() => {
+                              setSelectedEvent(evt);
+                              setIsEventDetailsOpen(true);
+                            }}
+                            className="px-1.5 py-0.5 rounded-lg bg-purple-50 dark:bg-gradient-to-r dark:from-purple-900/80 dark:to-indigo-900/80 border border-purple-200 dark:border-purple-500/40 text-purple-800 dark:text-purple-200 text-[10px] font-bold truncate cursor-pointer hover:brightness-95 dark:hover:brightness-125 transition-all flex items-center gap-1 shadow-sm dark:shadow-none"
+                            title={evt.title}
+                          >
+                            <Sparkles className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                            <span className="truncate">{evt.title}</span>
+                          </div>
+                        ))}
+
+                        {/* Task Pills */}
+                        {dayTasks.map((t) => {
+                          const deadlineStr = normalizeDateStr(t.deadline);
+                          const isOverdue = t.status !== 'DONE' && !!deadlineStr && deadlineStr < todayStr;
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => {
+                                setSelectedTask(t);
+                                setIsTaskModalOpen(true);
+                              }}
+                              className={`px-1.5 py-0.5 rounded-lg text-[10px] font-medium truncate cursor-pointer transition-all border flex items-center justify-between gap-1 shadow-sm dark:shadow-none ${
+                                t.status === 'DONE'
+                                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/60 dark:border-emerald-500/30 dark:text-emerald-300'
+                                  : t.status === 'BLOCKED'
+                                  ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/60 dark:border-rose-500/30 dark:text-rose-300'
+                                  : isOverdue
+                                  ? 'bg-rose-100 border-rose-300 text-rose-900 dark:bg-rose-950/80 dark:border-rose-500 dark:text-rose-200 animate-pulse'
+                                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:border-brand-500 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-500'
+                              }`}
+                              title={t.title}
+                            >
+                              <span className="truncate">{t.title}</span>
+                              {t.status === 'BLOCKED' && <ShieldAlert className="w-2.5 h-2.5 text-rose-500 dark:text-rose-400 shrink-0" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {viewMode === 'AGENDA' && (
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-2 sm:p-4 space-y-4">
+            {calendarDays
+              .filter(day => day.isCurrentMonth)
+              .map((day, idx) => {
+                const isToday = day.dateStr === todayStr;
+
+                const dayEvents = displayEvents.filter((e) => {
+                  const start = normalizeDateStr(e.startDate);
+                  const end = normalizeDateStr(e.endDate) || start;
+                  return start && day.dateStr >= start && day.dateStr <= end;
+                });
+                
+                const dayTasks = displayTasks.filter((t) => {
+                  const deadline = normalizeDateStr(t.deadline);
+                  return deadline === day.dateStr;
+                });
+
+                if (dayEvents.length === 0 && dayTasks.length === 0) return null;
+
+                const weekdayName = day.date.toLocaleDateString('pt-BR', { weekday: 'long' });
+
+                return (
+                  <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:gap-4 border-b border-slate-100 dark:border-slate-800/60 pb-4 last:border-0">
+                    {/* Date Sidebar */}
+                    <div className="w-full sm:w-24 shrink-0 flex sm:flex-col items-center sm:items-start gap-2">
+                      <div className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl border-2 ${isToday ? 'bg-brand-50 border-brand-500 text-brand-700 dark:bg-indigo-950/40 dark:border-indigo-500 dark:text-indigo-300 shadow-md' : 'bg-white border-slate-200 text-slate-700 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300'}`}>
+                        <span className="text-xl font-black leading-none">{day.date.getDate()}</span>
+                      </div>
+                      <span className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
+                        {weekdayName.split('-')[0]}
+                      </span>
+                    </div>
+
+                    {/* Events & Tasks List */}
+                    <div className="flex-1 space-y-2">
+                      {/* Event Cards */}
+                      {dayEvents.map(evt => (
+                        <div
+                          key={evt.id}
+                          onClick={() => {
+                            setSelectedEvent(evt);
+                            setIsEventDetailsOpen(true);
+                          }}
+                          className="p-3 rounded-2xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-500/30 cursor-pointer hover:shadow-md transition-all group"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h4 className="text-sm font-bold text-purple-900 dark:text-purple-300 group-hover:text-purple-700 dark:group-hover:text-purple-200 mb-1">
+                                {evt.title}
+                              </h4>
+                              {evt.description && (
+                                <p className="text-xs text-purple-700/80 dark:text-purple-300/70 line-clamp-2">
+                                  {evt.description}
+                                </p>
+                              )}
+                            </div>
+                            <Sparkles className="w-4 h-4 text-purple-500 shrink-0" />
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Task Cards */}
+                      {dayTasks.map(t => {
+                        const isOverdue = t.status !== 'DONE' && t.deadline < todayStr;
+                        return (
+                          <div
+                            key={t.id}
+                            onClick={() => {
+                              setSelectedTask(t);
+                              setIsTaskModalOpen(true);
+                            }}
+                            className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-brand-300 dark:hover:border-indigo-500/50 cursor-pointer hover:shadow-md transition-all flex flex-col gap-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{t.title}</span>
+                              <StatusBadge status={t.status} />
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <DemandTypeBadge type={t.demandType} size="sm" />
+                              {isOverdue && (
+                                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 dark:bg-rose-950/40 dark:border-rose-500/30 dark:text-rose-400">
+                                  ATRASADA
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            }
+            {calendarDays.filter(day => day.isCurrentMonth).every(day => {
+                const dayEvents = displayEvents.filter((e) => {
+                  const start = normalizeDateStr(e.startDate);
+                  const end = normalizeDateStr(e.endDate) || start;
+                  return start && day.dateStr >= start && day.dateStr <= end;
+                });
+                const dayTasks = displayTasks.filter((t) => normalizeDateStr(t.deadline) === day.dateStr);
+                return dayEvents.length === 0 && dayTasks.length === 0;
+            }) && (
+              <div className="flex flex-col items-center justify-center p-10 text-center space-y-3">
+                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center">
+                  <CalendarIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">Mês Livre!</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                  Não há atividades planejadas ou prazos de tarefas neste mês com os filtros atuais.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modals */}
