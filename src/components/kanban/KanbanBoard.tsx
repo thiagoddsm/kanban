@@ -504,25 +504,25 @@ export const KanbanBoard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => toggleColumnExpanded(column.id)}
-                  className={`w-full p-3.5 flex items-center justify-between text-left transition-all ${style.bg} ${
+                  className={`w-full p-4 flex items-center justify-between text-left transition-all ${style.bg} ${
                     isExpanded ? 'border-b border-slate-200/80 dark:border-slate-800/80' : ''
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
-                    <span className={`text-xs font-black uppercase tracking-wider truncate ${style.text}`}>
+                    <span className={`w-3 h-3 rounded-full shrink-0 ${style.dot}`} />
+                    <span className={`text-sm font-black uppercase tracking-wider truncate ${style.text}`}>
                       {column.title}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${style.badgeBg} ${style.badgeText}`}>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${style.badgeBg} ${style.badgeText}`}>
                       {columnTasks.length}
                     </span>
-                    <div className={`p-0.5 rounded-full text-slate-400 dark:text-slate-500 transition-transform duration-200 ${
+                    <div className={`p-1 rounded-full text-slate-400 dark:text-slate-500 transition-transform duration-200 ${
                       isExpanded ? 'rotate-180' : 'rotate-0'
                     }`}>
-                      <ChevronDown className="w-4 h-4" />
+                      <ChevronDown className="w-5 h-5" />
                     </div>
                   </div>
                 </button>

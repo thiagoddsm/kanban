@@ -26,69 +26,69 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       {/* 1. Painel */}
       <button
         onClick={() => onNavigate('dashboard')}
-        className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
+        className={`flex flex-col items-center gap-1.5 py-1 px-2.5 rounded-2xl transition-all ${
           activeTab === 'dashboard'
             ? 'text-indigo-400 font-bold scale-105'
-            : 'text-slate-400 hover:text-slate-200 text-xs'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <LayoutDashboard className="w-5 h-5" />
-        <span className="text-[10px] tracking-tight">Painel</span>
+        <LayoutDashboard className="w-6 h-6" />
+        <span className="text-[11px] font-medium tracking-tight">Painel</span>
       </button>
 
       {/* 2. Kanban */}
       <button
         onClick={() => onNavigate('tasks')}
-        className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
+        className={`flex flex-col items-center gap-1.5 py-1 px-2.5 rounded-2xl transition-all ${
           activeTab === 'tasks'
             ? 'text-indigo-400 font-bold scale-105'
-            : 'text-slate-400 hover:text-slate-200 text-xs'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Kanban className="w-5 h-5" />
-        <span className="text-[10px] tracking-tight">Kanban</span>
+        <Kanban className="w-6 h-6" />
+        <span className="text-[11px] font-medium tracking-tight">Kanban</span>
       </button>
 
       {/* 3. Central Action: + Solicitar */}
       <button
         onClick={onOpenDemandPortal}
-        className="flex flex-col items-center justify-center -mt-5 group focus:outline-none"
+        className="flex flex-col items-center justify-center -mt-6 group focus:outline-none"
         title="Solicitar Nova Demanda"
       >
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/40 group-active:scale-90 group-hover:shadow-indigo-500/60 transition-all border-2 border-slate-900">
-          <Plus className="w-6 h-6 stroke-[2.5]" />
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/40 group-active:scale-95 group-hover:shadow-indigo-500/60 transition-all border-2 border-slate-900">
+          <Plus className="w-7 h-7 stroke-[2.5]" />
         </div>
-        <span className="text-[10px] font-bold text-indigo-400 mt-0.5">Demanda</span>
+        <span className="text-[11px] font-bold text-indigo-400 mt-1">Demanda</span>
       </button>
 
       {/* 4. Eventos */}
       <button
         onClick={() => onNavigate('events')}
-        className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all ${
+        className={`flex flex-col items-center gap-1.5 py-1 px-2.5 rounded-2xl transition-all ${
           activeTab === 'events'
             ? 'text-indigo-400 font-bold scale-105'
-            : 'text-slate-400 hover:text-slate-200 text-xs'
+            : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Calendar className="w-5 h-5" />
-        <span className="text-[10px] tracking-tight">Eventos</span>
+        <Calendar className="w-6 h-6" />
+        <span className="text-[11px] font-medium tracking-tight">Eventos</span>
       </button>
 
       {/* 5. Minha Conta / Perfil */}
       <button
         onClick={onOpenMyAccount}
-        className="flex flex-col items-center gap-1 py-1 px-2.5 rounded-2xl transition-all text-slate-400 hover:text-slate-200"
+        className="flex flex-col items-center gap-1.5 py-1 px-2.5 rounded-2xl transition-all text-slate-400 hover:text-slate-200"
       >
         {currentUser?.avatar ? (
           <img
             src={currentUser.avatar}
             alt={currentUser?.name || 'Perfil'}
-            className="w-5 h-5 rounded-full object-cover border border-slate-700"
+            className="w-6 h-6 rounded-full object-cover border border-slate-700"
           />
         ) : (
-          <User className="w-5 h-5" />
+          <User className="w-6 h-6" />
         )}
-        <span className="text-[10px] tracking-tight">Conta</span>
+        <span className="text-[11px] font-medium tracking-tight">Conta</span>
       </button>
     </nav>
   );

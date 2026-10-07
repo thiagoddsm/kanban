@@ -19,7 +19,7 @@ export const PriorityBadge: React.FC<{ priority: TaskPriority; size?: 'sm' | 'md
   priority,
   size = 'md',
 }) => {
-  const sizeClasses = size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1';
+  const sizeClasses = size === 'sm' ? 'text-[11px] px-2 py-0.5' : 'text-xs px-2.5 py-1';
 
   switch (priority) {
     case 'URGENT':
@@ -100,7 +100,7 @@ export const DemandTypeBadge: React.FC<{ type: string; label?: string; size?: 's
   label,
   size = 'md',
 }) => {
-  const sizeClasses = size === 'sm' ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2 py-0.5';
+  const sizeClasses = size === 'sm' ? 'text-[11px] px-2 py-0.5' : 'text-xs px-2.5 py-1';
 
   const map: Record<string, { label: string; icon: any; color: string }> = {
     ARTE: { label: 'Arte', icon: Palette, color: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/30' },
