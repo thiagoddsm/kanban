@@ -657,6 +657,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     const primaryAssignee = assigneesList[0];
 
+    const isMovingBackwards = 
+      oldTask &&
+      (oldTask.status === 'REVIEW' || oldTask.status === 'DONE') && 
+      (task.status !== 'REVIEW' && task.status !== 'DONE');
+
     const updatedTask: Task = {
       ...task,
       campusName: campus ? campus.name : 'Toda a Organização',
@@ -669,6 +674,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       assigneeAvatar: primaryAssignee?.avatar,
       assignees: assigneesList,
       // ─────────────────────────────────────────────────────────────
+      completedAt: task.status === 'DONE' ? (task.completedAt || new Date().toISOString()) : undefined,
+      approverId: isMovingBackwards ? undefined : task.approverId,
+      approverName: isMovingBackwards ? undefined : task.approverName,
       updatedAt: new Date().toISOString(),
     };
 
@@ -735,10 +743,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
+    const isMovingBackwards = 
+      (task.status === 'REVIEW' || task.status === 'DONE') && 
+      (newStatus !== 'REVIEW' && newStatus !== 'DONE');
+
     const updatedTask: Task = {
       ...task,
       status: newStatus,
-      completedAt: newStatus === 'DONE' ? new Date().toISOString() : task.completedAt,
+      completedAt: newStatus === 'DONE' ? (task.completedAt || new Date().toISOString()) : undefined,
+      approverId: isMovingBackwards ? undefined : task.approverId,
+      approverName: isMovingBackwards ? undefined : task.approverName,
       updatedAt: new Date().toISOString(),
     };
 
@@ -885,10 +899,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updatedTask: Task = {
       ...task,
-      status: 'DONE',
       approverId: currentUser?.id || 'sys',
       approverName: currentUser?.name || 'Administrador',
-      completedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -901,11 +913,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       campusId: task.campusId,
       userId: currentUser?.id || 'sys',
       userName: currentUser?.name || 'Administrador',
-      action: 'aprovou a entrega e concluiu a tarefa',
+      action: 'aprovou a entrega da tarefa',
       securityEvent: 'APPROVED',
-      fieldChanged: 'status',
-      oldValue: task.status,
-      newValue: 'DONE',
       targetType: 'task',
       targetId: task.id,
       targetTitle: task.title,

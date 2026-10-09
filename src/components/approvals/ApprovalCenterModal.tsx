@@ -50,8 +50,8 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
   const [changeReason, setChangeReason] = useState<string>('');
   const [isRequestingChanges, setIsRequestingChanges] = useState(false);
 
-  // Demands in REVIEW status
-  const pendingApprovals = tasks.filter((t) => !t.isArchived && t.status === 'REVIEW');
+  // Demands in REVIEW status that are not yet approved
+  const pendingApprovals = tasks.filter((t) => !t.isArchived && t.status === 'REVIEW' && !t.approverId);
   const activeTask = pendingApprovals.find((t) => t.id === selectedTaskId) || pendingApprovals[0] || null;
 
   const approvalHistory = activeTask

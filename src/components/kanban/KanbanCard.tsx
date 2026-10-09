@@ -11,7 +11,8 @@ import {
   MapPin, 
   Building2,
   Lock,
-  Flame
+  Flame,
+  CheckCircle2
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
@@ -81,7 +82,15 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
             </span>
           )}
         </div>
-        <PriorityBadge priority={task.priority} size="sm" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <PriorityBadge priority={task.priority} size="sm" />
+          {task.approverId && (
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-1 uppercase tracking-wider">
+              <CheckCircle2 className="w-3 h-3" />
+              Aprovada
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Task Title */}

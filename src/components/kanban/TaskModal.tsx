@@ -363,7 +363,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   const handleApproveConfirm = () => {
     approveTask(task.id);
-    setStatus('DONE');
   };
 
   const modalContent = (
@@ -375,6 +374,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             <DemandTypeBadge type={task.demandType} />
             <StatusBadge status={status} />
             <PriorityBadge priority={priority} />
+            {task.approverId && (
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm uppercase tracking-wide">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Aprovada
+              </span>
+            )}
             {task.campusName && (
               <span className="text-xs font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-700">
                 <MapPin className="w-3 h-3 text-rose-400" />
@@ -384,7 +389,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
           </div>
 
           <div className="flex items-center gap-2">
-            {canApproveTasks && status === 'REVIEW' && (
+            {canApproveTasks && status === 'REVIEW' && !task.approverId && (
               <button
                 onClick={handleApproveConfirm}
                 className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5"
