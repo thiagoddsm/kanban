@@ -43,6 +43,7 @@ export const CalendarView: React.FC = () => {
   const [selectedCampusId, setSelectedCampusId] = useState('');
   const [selectedEventId, setSelectedEventId] = useState('');
   const [selectedAssigneeId, setSelectedAssigneeId] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const formatLocalDate = (d: Date): string => {
     const y = d.getFullYear();
@@ -307,30 +308,51 @@ export const CalendarView: React.FC = () => {
             {monthNames[month]} {year}
           </span>
           
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700 ml-auto">
+          {/* View Mode Toggle & Filters */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Filter Toggle Button */}
             <button
-              onClick={() => setViewMode('GRID')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'GRID' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-              title="Visão em Grade"
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-colors shadow-sm ${
+                isFilterOpen || activeFiltersCount > 0
+                  ? 'bg-brand-50 border-brand-200 text-brand-700 dark:bg-indigo-500/20 dark:border-indigo-500/30 dark:text-indigo-300'
+                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
             >
-              <LayoutGrid className="w-4 h-4" />
+              <Filter className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-brand-600 text-white text-[10px] flex items-center justify-center">
+                  {activeFiltersCount}
+                </span>
+              )}
             </button>
-            <button
-              onClick={() => setViewMode('AGENDA')}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === 'AGENDA' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
-              title="Visão em Lista / Agenda"
-            >
-              <List className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setViewMode('GRID')}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'GRID' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                title="Visão em Grade"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('AGENDA')}
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'AGENDA' ? 'bg-white dark:bg-slate-700 shadow-sm text-brand-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                title="Visão em Lista / Agenda"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Complete Filter & Search Toolbar */}
-      <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-2.5 shadow-sm shrink-0">
-        {/* Row 1: Search & Dropdown Selectors */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+      {isFilterOpen && (
+        <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 space-y-2.5 shadow-sm shrink-0 animate-fade-in">
+          {/* Row 1: Search & Dropdown Selectors */}
+          <div className="flex items-center gap-2.5 flex-wrap">
           {/* Search Box */}
           <div className="relative flex-1 min-w-[180px] max-w-sm">
             <input
@@ -507,7 +529,8 @@ export const CalendarView: React.FC = () => {
             <span>Demandas & Tarefas ({tasks.filter((t) => !t.isArchived && !t.isDeleted).length})</span>
           </button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Calendar Container */}
       <div className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm dark:shadow-2xl overflow-hidden flex flex-col relative">
