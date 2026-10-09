@@ -155,14 +155,15 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Right: Actions, Notifications & Profile */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Pending Approvals (Badge if pending) */}
+          {/* Pending Approvals (Badge if pending) */}
           {canApproveTasks && pendingApprovalsCount > 0 && (
             <button
               onClick={() => setIsApprovalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 transition-all flex items-center gap-1.5 text-xs font-bold animate-pulse"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-300 hover:bg-purple-500/25 transition-all flex items-center gap-1.5 text-xs font-bold animate-pulse"
               title="Aprovações Pendentes"
             >
-              <ShieldCheck className="w-4 h-4 text-purple-400" />
-              <span>Aprovações</span>
+              <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+              <span className="hidden sm:inline">Aprovações</span>
               <span className="w-5 h-5 rounded-full bg-purple-600 text-white text-[10px] flex items-center justify-center font-black">
                 {pendingApprovalsCount}
               </span>
