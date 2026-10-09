@@ -82,7 +82,7 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
         userId: task.assigneeId,
         type: 'TASK_APPROVED',
         title: 'Demanda Aprovada! 🎉',
-        message: `Sua entrega para "${task.title}" foi aprovada por ${currentUser?.name || 'um líder'} e concluída.`,
+        message: `Sua entrega para "${task.title}" foi aprovada por ${currentUser?.name || 'um líder'}. Agora você já pode realizar a execução final e concluir a tarefa.`,
         entityType: 'TASK',
         entityId: task.id,
       });
@@ -105,7 +105,7 @@ export const ApprovalCenterModal: React.FC<ApprovalCenterModalProps> = ({
         userId: task.requesterId,
         type: 'REQUEST_APPROVED',
         title: 'Sua Solicitação foi Aprovada!',
-        message: `A solicitação "${task.title}" foi concluída e está pronta para uso.`,
+        message: `A solicitação "${task.title}" foi aprovada na revisão e em breve será finalizada pela equipe.`,
         entityType: 'TASK',
         entityId: task.id,
       });

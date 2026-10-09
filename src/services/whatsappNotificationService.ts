@@ -206,7 +206,7 @@ export class WhatsAppNotificationService {
     const actorName = actorUser?.name || 'Líder';
     const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
     const taskUrl = this.resolveTaskUrl(organization);
-    const text = `🎉 *Demanda Aprovada e Concluída! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\n👉 *Acessar:* ${taskUrl}`;
+    const text = `🎉 *Demanda Aprovada na Revisão! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\nAgora você já pode realizar a ação final (postagem, envio, etc.) e mover a tarefa para *Concluído*.\n\n👉 *Acessar:* ${taskUrl}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
