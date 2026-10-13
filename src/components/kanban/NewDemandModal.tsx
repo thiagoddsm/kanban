@@ -348,7 +348,8 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
                 <option value="IN_PROGRESS">3. Em Andamento</option>
                 <option value="BLOCKED">4. Bloqueado</option>
                 <option value="REVIEW">5. Revisão</option>
-                <option value="DONE">6. Concluído</option>
+                <option value="APPROVED">6. Aprovado pela Revisão</option>
+                <option value="DONE">7. Concluído</option>
               </select>
             </div>
 

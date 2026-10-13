@@ -226,8 +226,9 @@ export class JsonTaskParser {
     if (s.includes('2') || s.includes('planeja') || s.includes('plan')) return 'PLANNING';
     if (s.includes('3') || s.includes('andamento') || s.includes('progress') || s.includes('fazendo')) return 'IN_PROGRESS';
     if (s.includes('4') || s.includes('bloque') || s.includes('block') || s.includes('travad')) return 'BLOCKED';
-    if (s.includes('5') || s.includes('revis') || s.includes('review') || s.includes('aprov')) return 'REVIEW';
-    if (s.includes('6') || s.includes('conclu') || s.includes('done') || s.includes('entreg') || s.includes('finaliz')) return 'DONE';
+    if (s.includes('5') || s.includes('revis') || s.includes('review')) return 'REVIEW';
+    if (s.includes('6') || s.includes('aprov') || s.includes('approved')) return 'APPROVED';
+    if (s.includes('7') || s.includes('conclu') || s.includes('done') || s.includes('entreg') || s.includes('finaliz')) return 'DONE';
     return 'INBOX';
   }
 

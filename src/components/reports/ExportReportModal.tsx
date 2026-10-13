@@ -64,6 +64,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, on
     const done = filteredTasks.filter((t) => t.status === 'DONE').length;
     const inProgress = filteredTasks.filter((t) => ['IN_PROGRESS', 'PLANNING', 'INBOX'].includes(t.status)).length;
     const inReview = filteredTasks.filter((t) => t.status === 'REVIEW').length;
+    const approved = filteredTasks.filter((t) => t.status === 'APPROVED').length;
     const blocked = filteredTasks.filter((t) => t.status === 'BLOCKED').length;
     const urgent = filteredTasks.filter((t) => t.priority === 'URGENT' || t.priority === 'HIGH').length;
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -94,6 +95,7 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, on
       done,
       inProgress,
       inReview,
+      approved,
       blocked,
       urgent,
       completionRate,
@@ -287,8 +289,8 @@ export const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, on
                 <span>Em Produção / Revisão</span>
                 <Clock className="w-4 h-4" />
               </div>
-              <p className="text-2xl font-black text-white print:text-black">{metrics.inProgress + metrics.inReview}</p>
-              <span className="text-[10px] text-amber-400/80 print:text-amber-700">{metrics.inReview} aguardando aprovação</span>
+              <p className="text-2xl font-black text-white print:text-black">{metrics.inProgress + metrics.inReview + metrics.approved}</p>
+              <span className="text-[10px] text-amber-400/80 print:text-amber-700">{metrics.inReview} em revisão • {metrics.approved} aprovadas</span>
             </div>
 
             <div className="p-4 rounded-2xl bg-slate-950/60 border border-rose-500/30 print:border print:border-slate-200 print:bg-slate-50">

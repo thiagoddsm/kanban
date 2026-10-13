@@ -68,11 +68,19 @@ export const KANBAN_COLUMNS: ColumnDefinition[] = [
   },
   {
     id: 'REVIEW',
-    title: 'Revisão e Aprovação',
+    title: 'Revisão',
     description: 'Controle de qualidade e validação pastoral/líder',
     color: 'border-purple-500/40 text-purple-400',
     badgeBg: 'bg-purple-950/60 text-purple-300 border-purple-800/60',
     borderHover: 'hover:border-purple-400',
+  },
+  {
+    id: 'APPROVED',
+    title: 'Aprovado pela Revisão',
+    description: 'Aprovado! Aguardando postagem, envio ou execução final',
+    color: 'border-teal-500/40 text-teal-400',
+    badgeBg: 'bg-teal-950/60 text-teal-300 border-teal-800/60',
+    borderHover: 'hover:border-teal-400',
   },
   {
     id: 'DONE',
@@ -659,8 +667,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const isMovingBackwards = 
       oldTask &&
-      (oldTask.status === 'REVIEW' || oldTask.status === 'DONE') && 
-      (task.status !== 'REVIEW' && task.status !== 'DONE');
+      (oldTask.status === 'REVIEW' || oldTask.status === 'APPROVED' || oldTask.status === 'DONE') && 
+      (task.status !== 'REVIEW' && task.status !== 'APPROVED' && task.status !== 'DONE');
 
     const updatedTask: Task = {
       ...task,
@@ -731,7 +739,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (task.status === newStatus) return { success: true };
 
-    const isAdvancing = ['IN_PROGRESS', 'REVIEW', 'DONE'].includes(newStatus);
+    const isAdvancing = ['IN_PROGRESS', 'REVIEW', 'APPROVED', 'DONE'].includes(newStatus);
     if (isAdvancing && !force) {
       const depResult = checkDependencies(task);
       if (depResult.hasPending) {
@@ -744,8 +752,8 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const isMovingBackwards = 
-      (task.status === 'REVIEW' || task.status === 'DONE') && 
-      (newStatus !== 'REVIEW' && newStatus !== 'DONE');
+      (task.status === 'REVIEW' || task.status === 'APPROVED' || task.status === 'DONE') && 
+      (newStatus !== 'REVIEW' && newStatus !== 'APPROVED' && newStatus !== 'DONE');
 
     const updatedTask: Task = {
       ...task,
@@ -899,6 +907,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const updatedTask: Task = {
       ...task,
+      status: 'APPROVED',
       approverId: currentUser?.id || 'sys',
       approverName: currentUser?.name || 'Administrador',
       updatedAt: new Date().toISOString(),
@@ -913,8 +922,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       campusId: task.campusId,
       userId: currentUser?.id || 'sys',
       userName: currentUser?.name || 'Administrador',
-      action: 'aprovou a entrega da tarefa',
+      action: 'aprovou a entrega na revisão (movida para Aprovado pela Revisão)',
       securityEvent: 'APPROVED',
+      fieldChanged: 'status',
+      oldValue: task.status,
+      newValue: 'APPROVED',
       targetType: 'task',
       targetId: task.id,
       targetTitle: task.title,
@@ -922,7 +934,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     setActivities(StorageService.addActivity(act));
     FirestoreRepository.recordActivity(act);
-    success('Demanda aprovada e concluída com sucesso! 🎉');
+    success('Demanda Aprovada!', `"${task.title}" foi aprovada e movida para "Aprovado pela Revisão".`);
   }, [rawTasks, currentOrganization, currentUser, success]);
 
   const archiveTask = useCallback((taskId: string, isArchived: boolean) => {
@@ -1177,7 +1189,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const todayStr = new Date().toISOString().split('T')[0];
 
     const completedTasks = eventTasks.filter((t) => t.status === 'DONE').length;
-    const inProgressTasks = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW').length;
+    const inProgressTasks = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW' || t.status === 'APPROVED').length;
     const blockedTasks = eventTasks.filter((t) => t.status === 'BLOCKED').length;
     const overdueTasks = eventTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr).length;
 

@@ -38,7 +38,7 @@ export const FirstAccessOnboarding: React.FC = () => {
   if (!currentOrganization || isDismissed) return null;
 
   // Critérios automáticos de conclusão
-  const hasMovedOrCreatedTasks = tasks.length > 3 || tasks.some((t) => t.status === 'IN_PROGRESS' || t.status === 'REVIEW');
+  const hasMovedOrCreatedTasks = tasks.length > 3 || tasks.some((t) => t.status === 'IN_PROGRESS' || t.status === 'REVIEW' || t.status === 'APPROVED');
   const hasInvitedMembers = memberships.filter((m) => m.organizationId === currentOrganization.id).length > 1;
 
   const [portalCopied, setPortalCopied] = useState(false);

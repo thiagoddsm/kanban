@@ -363,6 +363,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   const handleApproveConfirm = () => {
     approveTask(task.id);
+    setStatus('APPROVED');
   };
 
   const modalContent = (
@@ -375,7 +376,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             <StatusBadge status={status} />
             <PriorityBadge priority={priority} />
             {task.approverId && (
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm uppercase tracking-wide">
+              <span className="text-[11px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-500/10 border border-teal-200 dark:border-teal-500/20 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-sm uppercase tracking-wide">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Aprovada
               </span>
@@ -392,10 +393,30 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             {canApproveTasks && status === 'REVIEW' && !task.approverId && (
               <button
                 onClick={handleApproveConfirm}
-                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5"
+                className="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5 transition-colors"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Aprovar Entrega</span>
+              </button>
+            )}
+
+            {status === 'APPROVED' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus('DONE');
+                  updateTask({
+                    ...task,
+                    status: 'DONE',
+                    completedAt: new Date().toISOString(),
+                  });
+                  notifySuccess('Demanda Concluída!', `"${task.title}" foi marcada como Concluída.`);
+                  onClose();
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5 transition-colors"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Concluir Demanda</span>
               </button>
             )}
 
@@ -537,7 +558,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                 <option value="IN_PROGRESS">3. Em Andamento</option>
                 <option value="BLOCKED">4. Bloqueado</option>
                 <option value="REVIEW">5. Revisão</option>
-                <option value="DONE">6. Concluído</option>
+                <option value="APPROVED">6. Aprovado pela Revisão</option>
+                <option value="DONE">7. Concluído</option>
               </select>
             </div>
 

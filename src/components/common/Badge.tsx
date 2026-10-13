@@ -86,6 +86,12 @@ export const StatusBadge: React.FC<{ status: TaskStatus }> = ({ status }) => {
           Revisão
         </span>
       );
+    case 'APPROVED':
+      return (
+        <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-teal-100 text-teal-800 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800/60">
+          Aprovado pela Revisão
+        </span>
+      );
     case 'DONE':
       return (
         <span className="px-2 py-0.5 text-xs font-medium rounded-md bg-emerald-600 text-white border border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60">

@@ -106,7 +106,7 @@ export class AnalyticsService {
         const eventTasks = tasks.filter((t) => t.eventId === event.id && !t.isArchived);
         const total = eventTasks.length;
         const completed = eventTasks.filter((t) => t.status === 'DONE').length;
-        const inProgress = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW').length;
+        const inProgress = eventTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW' || t.status === 'APPROVED').length;
         const blocked = eventTasks.filter((t) => t.status === 'BLOCKED').length;
         const overdue = eventTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr).length;
         const urgentOverdue = eventTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr && (t.priority === 'URGENT' || t.priority === 'HIGH')).length;
@@ -226,7 +226,7 @@ export class AnalyticsService {
     return users.map((user) => {
       const userTasks = activeTasks.filter((t) => (t.assigneeIds && t.assigneeIds.includes(user.id)) || t.assigneeId === user.id);
       const completed = userTasks.filter((t) => t.status === 'DONE').length;
-      const inProgress = userTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW').length;
+      const inProgress = userTasks.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'PLANNING' || t.status === 'REVIEW' || t.status === 'APPROVED').length;
       const blocked = userTasks.filter((t) => t.status === 'BLOCKED').length;
       const overdue = userTasks.filter((t) => t.status !== 'DONE' && t.deadline < todayStr).length;
 

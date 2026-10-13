@@ -146,6 +146,14 @@ export const KanbanBoard: React.FC = () => {
       badgeText: 'text-rose-800 dark:text-rose-200',
       dot: 'bg-rose-500',
     },
+    APPROVED: {
+      bg: 'bg-teal-50/90 dark:bg-teal-950/30',
+      border: 'border-teal-200/80 dark:border-teal-800/50',
+      text: 'text-teal-900 dark:text-teal-300',
+      badgeBg: 'bg-teal-100 dark:bg-teal-900/60',
+      badgeText: 'text-teal-800 dark:text-teal-200',
+      dot: 'bg-teal-500',
+    },
     DONE: {
       bg: 'bg-emerald-50/90 dark:bg-emerald-950/30',
       border: 'border-emerald-200/80 dark:border-emerald-800/50',

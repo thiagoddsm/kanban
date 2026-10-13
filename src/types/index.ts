@@ -164,6 +164,7 @@ export type TaskStatus =
   | 'IN_PROGRESS' 
   | 'BLOCKED' 
   | 'REVIEW' 
+  | 'APPROVED'
   | 'DONE';
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';

@@ -142,6 +142,8 @@ export const GanttView: React.FC = () => {
         return 'from-rose-600 to-rose-700 border-rose-500/50 text-white';
       case 'REVIEW':
         return 'from-purple-600 to-purple-700 border-purple-500/50 text-white';
+      case 'APPROVED':
+        return 'from-teal-600 to-teal-700 border-teal-500/50 text-white';
       default:
         return 'from-blue-600 to-blue-700 border-blue-500/50 text-white';
     }

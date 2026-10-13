@@ -255,6 +255,12 @@ export const PublicProtocolTrackerPage: React.FC = () => {
       stage3Date = 'Produção finalizada';
       stage4Status = 'active';
       stage4Date = 'Validação pastoral em andamento';
+    } else if (status === 'APPROVED') {
+      stage2Status = 'done';
+      stage3Status = 'done';
+      stage3Date = 'Produção finalizada';
+      stage4Status = 'active';
+      stage4Date = 'Aprovado! Aguardando postagem e entrega final';
     } else if (status === 'DONE') {
       stage2Status = 'done';
       stage3Status = 'done';
@@ -325,6 +331,12 @@ export const PublicProtocolTrackerPage: React.FC = () => {
           label: 'Em Revisão Final',
           color: 'bg-purple-100 text-purple-800 border-purple-300',
           dot: 'bg-purple-500 animate-pulse',
+        };
+      case 'APPROVED':
+        return {
+          label: 'Aprovado pela Revisão',
+          color: 'bg-teal-100 text-teal-800 border-teal-300',
+          dot: 'bg-teal-500',
         };
       case 'DONE':
         return {
