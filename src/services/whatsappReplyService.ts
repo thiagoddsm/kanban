@@ -5,11 +5,57 @@ import { StorageService } from './storageService';
 
 const PROCESSED_MSGS_KEY = 'oiko_wa_processed_messages_v1';
 const CONTEXT_LOCAL_KEY_PREFIX = 'oiko_wa_context_';
+const LEADER_KEY_PREFIX = 'oiko_wa_poll_leader_';
+const TAB_SESSION_ID = Math.random().toString(36).substring(2, 9);
 
 export class WhatsAppReplyService {
   private static processedMessageIds = new Set<string>();
   private static pollingIntervals = new Map<string, NodeJS.Timeout>();
   private static lastCheckTimestamps = new Map<string, number>();
+  private static isPollingMap = new Map<string, boolean>();
+
+  static {
+    try {
+      const stored = localStorage.getItem(PROCESSED_MSGS_KEY);
+      if (stored) {
+        const list: string[] = JSON.parse(stored);
+        list.forEach((id) => WhatsAppReplyService.processedMessageIds.add(id));
+      }
+    } catch {}
+  }
+
+  /**
+   * Verifica de forma síncrona se a mensagem já foi processada ou está em processamento
+   */
+  public static isMessageAlreadyProcessed(messageId?: string): boolean {
+    if (!messageId) return false;
+    if (this.processedMessageIds.has(messageId)) return true;
+    try {
+      if (localStorage.getItem(`oiko_wa_proc_${messageId}`)) {
+        this.processedMessageIds.add(messageId);
+        return true;
+      }
+    } catch {}
+    return false;
+  }
+
+  /**
+   * Trava imediatamente a mensagem tanto em memória quanto no localStorage entre abas
+   */
+  public static markMessageAsProcessed(messageId?: string): void {
+    if (!messageId) return;
+    this.processedMessageIds.add(messageId);
+    try {
+      localStorage.setItem(`oiko_wa_proc_${messageId}`, Date.now().toString());
+      const stored = localStorage.getItem(PROCESSED_MSGS_KEY);
+      const list: string[] = stored ? JSON.parse(stored) : [];
+      if (!list.includes(messageId)) {
+        list.push(messageId);
+        if (list.length > 300) list.shift();
+        localStorage.setItem(PROCESSED_MSGS_KEY, JSON.stringify(list));
+      }
+    } catch {}
+  }
 
   /**
    * Limpa telefone para apenas dígitos
@@ -183,9 +229,13 @@ export class WhatsAppReplyService {
       return { success: false };
     }
 
-    if (messageId && this.processedMessageIds.has(messageId)) {
+    // 🔒 TRAVA ATÔMICA SÍNCRONA: se não tiver ID ou já foi processada (memória ou outra aba), aborta imediatamente
+    if (!messageId || this.isMessageAlreadyProcessed(messageId)) {
       return { success: false };
     }
+
+    // Trava IMEDIATAMENTE antes de qualquer operação assíncrona para eliminar qualquer race condition
+    this.markMessageAsProcessed(messageId);
 
     const cleanSender = this.cleanPhone(senderPhone);
     const trimmedText = messageText.trim();
@@ -437,6 +487,31 @@ export class WhatsAppReplyService {
     }
 
     const poll = async () => {
+      // 🔒 1. Trava anti-concorrência de abas (Multi-Tab Leader Election)
+      const leaderKey = `${LEADER_KEY_PREFIX}${orgId}`;
+      const now = Date.now();
+      try {
+        const rawLeader = localStorage.getItem(leaderKey);
+        if (rawLeader) {
+          const leader = JSON.parse(rawLeader);
+          if (leader.tabId !== TAB_SESSION_ID && now < leader.expiresAt) {
+            // Outra aba do navegador está ativa e liderando o polling
+            return;
+          }
+        }
+        // Assume / renova a liderança desta aba por 15 segundos
+        localStorage.setItem(
+          leaderKey,
+          JSON.stringify({ tabId: TAB_SESSION_ID, expiresAt: now + 15000 })
+        );
+      } catch {}
+
+      // 🔒 2. Trava anti-sobreposição na mesma aba (In-flight guard)
+      if (this.isPollingMap.get(orgId)) {
+        return;
+      }
+      this.isPollingMap.set(orgId, true);
+
       try {
         const messages = await EvolutionApiService.fetchRecentIncomingMessages(
           instanceName,
@@ -453,6 +528,9 @@ export class WhatsAppReplyService {
 
           // Se for mensagem enviada pelo próprio sistema ou sem ID, ignora
           if (Boolean(key.fromMe) || !msgId) continue;
+
+          // 🔒 Se já processada, pula imediatamente
+          if (this.isMessageAlreadyProcessed(msgId)) continue;
 
           // Extrai todos os JIDs possíveis (suporta WhatsApp Web / Multi-device com LID e @s.whatsapp.net)
           const candidateJids = [
@@ -477,7 +555,10 @@ export class WhatsAppReplyService {
             : Date.now();
 
           if (ts <= lastCheck) continue;
-          if (ts > newestTimestamp) newestTimestamp = ts;
+          if (ts > newestTimestamp) {
+            newestTimestamp = ts;
+            this.lastCheckTimestamps.set(orgId, ts);
+          }
 
           // Extrai texto da mensagem
           const msgBody =
@@ -515,6 +596,8 @@ export class WhatsAppReplyService {
         this.lastCheckTimestamps.set(orgId, newestTimestamp);
       } catch (err) {
         // Silencioso em caso de erro temporário de rede
+      } finally {
+        this.isPollingMap.set(orgId, false);
       }
     };
 

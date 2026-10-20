@@ -1363,6 +1363,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     author?: { id: string; name: string; avatar?: string }
   ) => {
     const authorUser = author || currentUser;
+
+    // Prevenção defensiva de comentários idênticos em rajada (< 5 segundos com mesmo autor/conteúdo/tarefa)
+    const existingComments = StorageService.getComments(currentOrganization.id);
+    const isRecentDuplicate = existingComments.some(
+      (c) =>
+        c.taskId === taskId &&
+        (c.content || '').trim() === content.trim() &&
+        Math.abs(Date.now() - new Date(c.createdAt).getTime()) < 5000
+    );
+    if (isRecentDuplicate) {
+      console.warn('[DataContext] Comentário duplicado ignorado:', content);
+      return;
+    }
+
     const newComment: Comment = {
       id: 'cmt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       organizationId: currentOrganization.id,
@@ -1440,9 +1454,24 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const getCommentsForTask = useCallback((taskId: string): Comment[] => {
-    return comments
+    const list = comments
       .filter((c) => c.taskId === taskId)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+    // Deduplicação defensiva de comentários idênticos criados em rajada (< 5s de intervalo)
+    const deduped: Comment[] = [];
+    for (const c of list) {
+      const isDuplicate = deduped.some(
+        (existing) =>
+          (existing.content || '').trim() === (c.content || '').trim() &&
+          existing.userId === c.userId &&
+          Math.abs(new Date(existing.createdAt).getTime() - new Date(c.createdAt).getTime()) < 5000
+      );
+      if (!isDuplicate) {
+        deduped.push(c);
+      }
+    }
+    return deduped;
   }, [comments]);
 
   // ── Sincronizador de Respostas do WhatsApp (Bidirecional) ──
