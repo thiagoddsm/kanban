@@ -172,7 +172,7 @@ interface DataContextType {
   getEventStats: (eventId: string) => EventProjectStats;
 
   // Comments
-  addComment: (taskId: string, content: string, mentionedUserIds?: string[]) => void;
+  addComment: (taskId: string, content: string, mentionedUserIds?: string[], author?: { id: string; name: string; avatar?: string }) => void;
   getCommentsForTask: (taskId: string) => Comment[];
 
   // WhatsApp Bidirectional & Deadlines
@@ -1356,14 +1356,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [currentOrganization, info]);
 
   // Comments with @mentions notification
-  const addComment = useCallback((taskId: string, content: string, mentionedUserIds?: string[]) => {
+  const addComment = useCallback((
+    taskId: string, 
+    content: string, 
+    mentionedUserIds?: string[], 
+    author?: { id: string; name: string; avatar?: string }
+  ) => {
+    const authorUser = author || currentUser;
     const newComment: Comment = {
       id: 'cmt_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       organizationId: currentOrganization.id,
       taskId,
-      userId: currentUser?.id || 'sys',
-      userName: currentUser?.name || 'Membro',
-      userAvatar: currentUser?.avatar,
+      userId: authorUser?.id || 'sys',
+      userName: authorUser?.name || 'Membro',
+      userAvatar: authorUser?.avatar,
       userRole: 'TEAM',
       content,
       createdAt: new Date().toISOString(),
@@ -1447,7 +1453,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       getUsers: () => orgUsers,
       getTasks: () => rawTasks,
       onUpdateTask: updateTask,
-      onAddComment: addComment,
+      onAddComment: (taskId, content, author) => {
+        addComment(taskId, content, undefined, author);
+      },
     });
     return cleanup;
   }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.enableWhatsAppReplies, updateTask, addComment]);

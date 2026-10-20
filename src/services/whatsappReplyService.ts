@@ -118,6 +118,11 @@ export class WhatsAppReplyService {
     return null;
   }
 
+  private static resolveTaskUrl(org: Organization): string {
+    const slug = org.slug || 'ib';
+    return `https://studio-5589719834-7481b.web.app/${slug}/tasks`;
+  }
+
   /**
    * Identifica o usuário da organização pelo número de WhatsApp
    */
@@ -137,6 +142,7 @@ export class WhatsAppReplyService {
     messageText,
     quotedText,
     messageId,
+    pushName,
     users,
     tasks,
     onUpdateTask,
@@ -147,20 +153,18 @@ export class WhatsAppReplyService {
     messageText: string;
     quotedText?: string;
     messageId?: string;
+    pushName?: string;
     users: User[];
     tasks: Task[];
     onUpdateTask: (task: Task) => void;
-    onAddComment: (taskId: string, content: string) => void;
+    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
   }): Promise<{ success: boolean; action?: string; replySent?: boolean }> {
     if (!messageText || !messageText.trim()) {
       return { success: false };
     }
 
-    if (messageId) {
-      if (this.processedMessageIds.has(messageId)) {
-        return { success: false };
-      }
-      this.processedMessageIds.add(messageId);
+    if (messageId && this.processedMessageIds.has(messageId)) {
+      return { success: false };
     }
 
     const cleanSender = this.cleanPhone(senderPhone);
@@ -178,8 +182,15 @@ export class WhatsAppReplyService {
       }
     }
 
-    // Localiza o usuário que enviou
-    const senderUser = this.findUserByPhone(users, cleanSender);
+    // Localiza o usuário que enviou (por telefone ou por pushName do WhatsApp)
+    let senderUser = this.findUserByPhone(users, cleanSender);
+    if (!senderUser && pushName) {
+      const cleanPush = pushName.trim().toLowerCase();
+      senderUser = users.find((u) => {
+        const uName = (u.name || '').trim().toLowerCase();
+        return uName === cleanPush || uName.includes(cleanPush) || cleanPush.includes(uName);
+      });
+    }
 
     // 3. Fallback inteligente: se ainda não encontrou tarefa específica mas o usuário é identificado
     let task: Task | undefined;
@@ -206,13 +217,12 @@ export class WhatsAppReplyService {
     }
 
     if (!task) {
-      console.warn(`[WhatsAppReply] Nenhuma tarefa identificada para ${cleanSender}.`);
+      console.warn(`[WhatsAppReply] Nenhuma tarefa identificada para ${cleanSender} (${pushName || 'sem nome'}).`);
       return { success: false };
     }
 
-    const senderName = senderUser?.name || 'Membro via WhatsApp';
+    const senderName = senderUser?.name || pushName || 'Membro via WhatsApp';
     const cleanLower = trimmedText.toLowerCase();
-
     const instanceName = organization.evolutionConfig?.instanceName || 'Oiko_Gestao';
 
     // ── COMANDO 1: Mover para Em Andamento (1, /andamento, andamento) ──
@@ -224,10 +234,14 @@ export class WhatsAppReplyService {
       };
       onUpdateTask(updated);
 
+      if (messageId) {
+        this.processedMessageIds.add(messageId);
+      }
+
       await EvolutionApiService.sendTextMessage({
         instanceName,
         to: senderPhone,
-        text: `🚀 *Status Atualizado com Sucesso!*\n\nA demanda *"${task.title}"* foi movida para: *Em Andamento*.\n\n👉 Acompanhe no Kanban: ${EvolutionApiService.formatPhoneNumber(senderPhone)}`,
+        text: `🚀 *Status Atualizado com Sucesso!*\n\nA demanda *"${task.title}"* foi movida para: *Em Andamento*.\n\n👉 Acompanhe no Kanban: ${this.resolveTaskUrl(organization)}`,
         configOverride: organization.evolutionConfig,
       });
 
@@ -242,6 +256,10 @@ export class WhatsAppReplyService {
         updatedAt: new Date().toISOString(),
       };
       onUpdateTask(updated);
+
+      if (messageId) {
+        this.processedMessageIds.add(messageId);
+      }
 
       await EvolutionApiService.sendTextMessage({
         instanceName,
@@ -268,6 +286,10 @@ export class WhatsAppReplyService {
         updatedAt: new Date().toISOString(),
       };
       onUpdateTask(updated);
+
+      if (messageId) {
+        this.processedMessageIds.add(messageId);
+      }
 
       await EvolutionApiService.sendTextMessage({
         instanceName,
@@ -301,6 +323,10 @@ export class WhatsAppReplyService {
         };
         onUpdateTask(updatedTask);
 
+        if (messageId) {
+          this.processedMessageIds.add(messageId);
+        }
+
         const completedCount = updatedList.filter((i) => i.completed).length;
         const totalCount = updatedList.length;
 
@@ -316,7 +342,15 @@ export class WhatsAppReplyService {
     }
 
     // ── TEXTO LIVRE: Gravar como Comentário na Tarefa ──
-    onAddComment(task.id, trimmedText);
+    const authorData = senderUser
+      ? { id: senderUser.id, name: senderUser.name, avatar: senderUser.avatar }
+      : { id: `wa_${cleanSender.slice(-8)}`, name: senderName };
+
+    onAddComment(task.id, trimmedText, authorData);
+
+    if (messageId) {
+      this.processedMessageIds.add(messageId);
+    }
 
     // Responde no WhatsApp confirmando que o comentário foi adicionado
     await EvolutionApiService.sendTextMessage({
@@ -347,7 +381,7 @@ export class WhatsAppReplyService {
     getUsers?: () => User[];
     getTasks?: () => Task[];
     onUpdateTask: (task: Task) => void;
-    onAddComment: (taskId: string, content: string) => void;
+    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
   }): () => void {
     const orgId = organization.id;
     if (this.pollingIntervals.has(orgId)) {
@@ -360,7 +394,10 @@ export class WhatsAppReplyService {
     }
 
     const instanceName = orgConfig?.instanceName || 'Oiko_Gestao';
-    this.lastCheckTimestamps.set(orgId, Date.now() - 30000); // 30s atrás
+    // Ouve mensagens recebidas nos últimos 20 minutos para capturar respostas recém enviadas
+    if (!this.lastCheckTimestamps.has(orgId)) {
+      this.lastCheckTimestamps.set(orgId, Date.now() - 20 * 60 * 1000);
+    }
 
     const poll = async () => {
       try {
@@ -376,8 +413,24 @@ export class WhatsAppReplyService {
         for (const msg of messages) {
           const key = msg.key || {};
           const msgId = key.id;
-          const remoteJid = key.remoteJid || '';
-          if (key.fromMe || !msgId || remoteJid.includes('@g.us')) continue;
+
+          // Se for mensagem enviada pelo próprio sistema ou sem ID, ignora
+          if (Boolean(key.fromMe) || !msgId) continue;
+
+          // Extrai todos os JIDs possíveis (suporta WhatsApp Web / Multi-device com LID e @s.whatsapp.net)
+          const candidateJids = [
+            key.remoteJidAlt,
+            key.remoteJid,
+            key.participant,
+          ].filter(Boolean) as string[];
+
+          // Ignora mensagens originadas em grupos (@g.us)
+          if (candidateJids.some((j) => j.includes('@g.us'))) continue;
+
+          // Encontra o JID com número real de telefone (@s.whatsapp.net)
+          const phoneJid = candidateJids.find((j) => j.includes('@s.whatsapp.net')) || candidateJids[0] || '';
+          const senderPhone = phoneJid.replace(/@.+$/, '');
+          if (!senderPhone) continue;
 
           // Extrai timestamp (segundos ou milissegundos)
           const ts = msg.messageTimestamp
@@ -396,13 +449,12 @@ export class WhatsAppReplyService {
             msg.message?.imageMessage?.caption ||
             '';
 
+          if (!msgBody.trim()) continue;
+
           const quoted =
             msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation ||
             msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text ||
             '';
-
-          const senderPhone = remoteJid.replace(/@.+$/, '');
-          if (!senderPhone || !msgBody.trim()) continue;
 
           const currentUsers = getUsers ? getUsers() : users || [];
           const currentTasks = getTasks ? getTasks() : tasks || [];
@@ -413,6 +465,7 @@ export class WhatsAppReplyService {
             messageText: msgBody,
             quotedText: quoted,
             messageId: msgId,
+            pushName: msg.pushName,
             users: currentUsers,
             tasks: currentTasks,
             onUpdateTask,
@@ -426,9 +479,9 @@ export class WhatsAppReplyService {
       }
     };
 
-    // Executa a primeira verificação após 1.5s e depois a cada 8 segundos
-    const timer = setInterval(poll, 8000);
-    setTimeout(poll, 1500);
+    // Executa a primeira verificação após 1s e depois a cada 6 segundos
+    const timer = setInterval(poll, 6000);
+    setTimeout(poll, 1000);
     this.pollingIntervals.set(orgId, timer);
 
     return () => this.stopListening(orgId);
