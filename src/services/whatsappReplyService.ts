@@ -57,10 +57,16 @@ export class WhatsAppReplyService {
 
     try {
       localStorage.setItem(`${CONTEXT_LOCAL_KEY_PREFIX}${clean}`, JSON.stringify(ctx));
+      if (clean.length > 8) {
+        localStorage.setItem(`${CONTEXT_LOCAL_KEY_PREFIX}${clean.slice(-8)}`, JSON.stringify(ctx));
+      }
     } catch {}
 
     // Salva no Firestore
     FirestoreRepository.saveWhatsAppContext(organizationId, clean, ctx);
+    if (clean.length > 8) {
+      FirestoreRepository.saveWhatsAppContext(organizationId, clean.slice(-8), ctx);
+    }
   }
 
   /**
@@ -73,17 +79,20 @@ export class WhatsAppReplyService {
     const clean = this.cleanPhone(phone);
     if (!clean) return null;
 
-    // Tenta primeiro do Firestore
-    try {
-      const remote = await FirestoreRepository.fetchWhatsAppContext(organizationId, clean);
-      if (remote) return remote;
-    } catch {}
+    const keysToTry = [clean];
+    if (clean.length > 8) keysToTry.push(clean.slice(-8));
 
-    // Fallback para localStorage
-    try {
-      const raw = localStorage.getItem(`${CONTEXT_LOCAL_KEY_PREFIX}${clean}`);
-      if (raw) return JSON.parse(raw);
-    } catch {}
+    for (const key of keysToTry) {
+      try {
+        const remote = await FirestoreRepository.fetchWhatsAppContext(organizationId, key);
+        if (remote) return remote;
+      } catch {}
+
+      try {
+        const raw = localStorage.getItem(`${CONTEXT_LOCAL_KEY_PREFIX}${key}`);
+        if (raw) return JSON.parse(raw);
+      } catch {}
+    }
 
     return null;
   }
@@ -169,24 +178,38 @@ export class WhatsAppReplyService {
       }
     }
 
-    if (!targetTaskId) {
-      console.log(`[WhatsAppReply] Nenhuma tarefa associada encontrada para ${cleanSender}.`);
-      return { success: false };
-    }
-
-    // Localiza a tarefa correspondente
-    // Suporta match exato ou match parcial do prefixo do ID gerado em #T-xxxxx
-    const task = tasks.find(
-      (t) => t.id === targetTaskId || t.id.endsWith(targetTaskId!) || t.id.includes(targetTaskId!)
-    );
-
-    if (!task) {
-      console.warn(`[WhatsAppReply] Tarefa ${targetTaskId} não encontrada na organização.`);
-      return { success: false };
-    }
-
     // Localiza o usuário que enviou
     const senderUser = this.findUserByPhone(users, cleanSender);
+
+    // 3. Fallback inteligente: se ainda não encontrou tarefa específica mas o usuário é identificado
+    let task: Task | undefined;
+    if (targetTaskId) {
+      task = tasks.find(
+        (t) => t.id === targetTaskId || t.id.endsWith(targetTaskId!) || t.id.includes(targetTaskId!)
+      );
+    }
+
+    if (!task && senderUser) {
+      // Pega tarefas ativas atribuídas a este usuário
+      const userActiveTasks = tasks.filter(
+        (t) =>
+          !t.isArchived &&
+          t.status !== 'DONE' &&
+          ((t.assigneeIds || []).includes(senderUser.id) || t.assigneeId === senderUser.id)
+      );
+
+      // Prioriza a que vence hoje ou a mais urgente
+      if (userActiveTasks.length > 0) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        task = userActiveTasks.find((t) => t.deadline === todayStr) || userActiveTasks[0];
+      }
+    }
+
+    if (!task) {
+      console.warn(`[WhatsAppReply] Nenhuma tarefa identificada para ${cleanSender}.`);
+      return { success: false };
+    }
+
     const senderName = senderUser?.name || 'Membro via WhatsApp';
     const cleanLower = trimmedText.toLowerCase();
 
@@ -313,12 +336,16 @@ export class WhatsAppReplyService {
     organization,
     users,
     tasks,
+    getUsers,
+    getTasks,
     onUpdateTask,
     onAddComment,
   }: {
     organization: Organization;
-    users: User[];
-    tasks: Task[];
+    users?: User[];
+    tasks?: Task[];
+    getUsers?: () => User[];
+    getTasks?: () => Task[];
     onUpdateTask: (task: Task) => void;
     onAddComment: (taskId: string, content: string) => void;
   }): () => void {
@@ -340,7 +367,7 @@ export class WhatsAppReplyService {
         const messages = await EvolutionApiService.fetchRecentIncomingMessages(
           instanceName,
           orgConfig,
-          20
+          30
         );
 
         const lastCheck = this.lastCheckTimestamps.get(orgId) || 0;
@@ -349,7 +376,8 @@ export class WhatsAppReplyService {
         for (const msg of messages) {
           const key = msg.key || {};
           const msgId = key.id;
-          if (key.fromMe || !msgId) continue;
+          const remoteJid = key.remoteJid || '';
+          if (key.fromMe || !msgId || remoteJid.includes('@g.us')) continue;
 
           // Extrai timestamp (segundos ou milissegundos)
           const ts = msg.messageTimestamp
@@ -373,8 +401,11 @@ export class WhatsAppReplyService {
             msg.message?.extendedTextMessage?.contextInfo?.quotedMessage?.extendedTextMessage?.text ||
             '';
 
-          const senderPhone = (key.remoteJid || '').replace(/@.+$/, '');
+          const senderPhone = remoteJid.replace(/@.+$/, '');
           if (!senderPhone || !msgBody.trim()) continue;
+
+          const currentUsers = getUsers ? getUsers() : users || [];
+          const currentTasks = getTasks ? getTasks() : tasks || [];
 
           await this.processIncomingMessage({
             organization,
@@ -382,8 +413,8 @@ export class WhatsAppReplyService {
             messageText: msgBody,
             quotedText: quoted,
             messageId: msgId,
-            users,
-            tasks,
+            users: currentUsers,
+            tasks: currentTasks,
             onUpdateTask,
             onAddComment,
           });
@@ -395,9 +426,9 @@ export class WhatsAppReplyService {
       }
     };
 
-    // Executa a primeira verificação após 5s e depois a cada 15 segundos
-    const timer = setInterval(poll, 15000);
-    setTimeout(poll, 5000);
+    // Executa a primeira verificação após 1.5s e depois a cada 8 segundos
+    const timer = setInterval(poll, 8000);
+    setTimeout(poll, 1500);
     this.pollingIntervals.set(orgId, timer);
 
     return () => this.stopListening(orgId);

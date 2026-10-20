@@ -432,11 +432,6 @@ export class EvolutionApiService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          where: {
-            key: {
-              fromMe: false,
-            },
-          },
           limit,
         }),
       });
@@ -444,6 +439,7 @@ export class EvolutionApiService {
       if (!res.ok) return [];
       const data = await res.json().catch(() => []);
       if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.messages?.records)) return data.messages.records;
       if (data && Array.isArray(data.records)) return data.records;
       if (data && Array.isArray(data.messages)) return data.messages;
       return [];

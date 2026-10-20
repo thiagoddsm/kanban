@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useMemo, useCallback } from 'react';
 import { 
   Task, 
   ChurchEvent, 
@@ -1444,53 +1444,84 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!currentOrganization?.id) return;
     const cleanup = WhatsAppReplyService.startListening({
       organization: currentOrganization,
-      users: orgUsers,
-      tasks: rawTasks,
+      getUsers: () => orgUsers,
+      getTasks: () => rawTasks,
       onUpdateTask: updateTask,
       onAddComment: addComment,
     });
     return cleanup;
-  }, [currentOrganization, orgUsers, rawTasks, updateTask, addComment]);
+  }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.enableWhatsAppReplies, updateTask, addComment]);
 
-  // ── Verificador Matinal de Prazos (08:30) ──
+  // ── Verificador Matinal de Prazos (Execução Única por Dia com Lock Síncrono) ──
+  const isCheckingDeadlinesRef = useRef(false);
+
   useEffect(() => {
     if (!currentOrganization?.id) return;
-    const orgConfig = currentOrganization.evolutionConfig;
-    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) return;
 
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
-    if (orgConfig?.lastDeadlineReminderDate === todayStr) return;
+    const checkAndDispatch = async () => {
+      const orgConfig = currentOrganization.evolutionConfig;
+      if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) return;
 
-    const [targetHour, targetMinute] = (orgConfig?.deadlineNotificationTime || '08:30')
-      .split(':')
-      .map((n) => parseInt(n, 10));
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const lockKey = `oiko_deadline_dispatched_${currentOrganization.id}_${todayStr}`;
 
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+      // Já foi disparado hoje para esta organização
+      if (orgConfig?.lastDeadlineReminderDate === todayStr || localStorage.getItem(lockKey) === todayStr) {
+        return;
+      }
 
-    if (
-      currentHour > targetHour ||
-      (currentHour === targetHour && currentMinute >= (targetMinute || 0))
-    ) {
-      WhatsAppNotificationService.notifyDeadlineReminders({
-        organization: currentOrganization,
-        tasks: rawTasks,
-        users: orgUsers,
-        actorUser: currentUser,
-      }).then((res) => {
-        if (res.sentCount > 0) {
-          console.log(`[DeadlineReminder] Enviados ${res.sentCount} resumos matinais de prazo.`);
+      if (isCheckingDeadlinesRef.current) return;
+
+      const [targetHour, targetMinute] = (orgConfig?.deadlineNotificationTime || '08:30')
+        .split(':')
+        .map((n) => parseInt(n, 10));
+
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+
+      if (
+        currentHour > targetHour ||
+        (currentHour === targetHour && currentMinute >= (targetMinute || 0))
+      ) {
+        // Bloqueio imediato síncrono para anular qualquer execução concorrente
+        isCheckingDeadlinesRef.current = true;
+        localStorage.setItem(lockKey, todayStr);
+
+        try {
+          const res = await WhatsAppNotificationService.notifyDeadlineReminders({
+            organization: currentOrganization,
+            tasks: rawTasks,
+            users: orgUsers,
+            actorUser: currentUser,
+          });
+
+          if (res.sentCount > 0) {
+            console.log(`[DeadlineReminder] Enviados ${res.sentCount} resumos matinais de prazo.`);
+          }
+
+          updateOrganization(currentOrganization.id, {
+            evolutionConfig: {
+              ...orgConfig,
+              lastDeadlineReminderDate: todayStr,
+            },
+          });
+        } catch (err) {
+          console.warn('[DeadlineReminder] Erro ao enviar lembretes:', err);
+        } finally {
+          isCheckingDeadlinesRef.current = false;
         }
-        updateOrganization(currentOrganization.id, {
-          evolutionConfig: {
-            ...orgConfig,
-            lastDeadlineReminderDate: todayStr,
-          },
-        });
-      });
-    }
-  }, [currentOrganization, rawTasks, orgUsers, currentUser, updateOrganization]);
+      }
+    };
+
+    const timeout = setTimeout(checkAndDispatch, 3000);
+    const interval = setInterval(checkAndDispatch, 60000);
+
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.notifyOnDeadlineApproaching, currentOrganization.evolutionConfig?.deadlineNotificationTime, currentOrganization.evolutionConfig?.lastDeadlineReminderDate, updateOrganization]);
 
   // Demand Types Management
   const addDemandType = useCallback((newType: DemandTypeDefinition) => {

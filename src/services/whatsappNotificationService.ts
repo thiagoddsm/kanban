@@ -7,7 +7,14 @@ const checklistDebounceTimers = new Map<string, NodeJS.Timeout>();
 
 export class WhatsAppNotificationService {
   private static resolveBaseUrl(): string {
-    return typeof window !== 'undefined' ? window.location.origin : 'https://studio-5589719834-7481b.web.app';
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        return 'https://studio-5589719834-7481b.web.app';
+      }
+      return origin;
+    }
+    return 'https://studio-5589719834-7481b.web.app';
   }
 
   private static resolveTaskUrl(org: Organization): string {
@@ -488,7 +495,20 @@ export class WhatsAppNotificationService {
       }
 
       const kanbanUrl = this.resolveTaskUrl(organization);
-      const text = `⏰ *Resumo Matinal de Prazos - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o status das suas entregas:\n\n${sections.join('\n\n')}\n\n📋 *Acessar Kanban Completo:* ${kanbanUrl}`;
+      const primeTask = group.today[0] || group.soon[0];
+      const shortRef = primeTask?.id ? (primeTask.id.length > 8 ? primeTask.id.slice(-6) : primeTask.id) : '';
+
+      let footerGuide = '';
+      if (primeTask) {
+        footerGuide =
+          `\n\n💬 *Como responder ou alterar via WhatsApp:*\n` +
+          `• Responda esta mensagem com seu comentário (ex: "Gravando hoje!")\n` +
+          `• Ou digite: *1* (Em Andamento) | *2* (Revisão) | *3* (Concluir)\n` +
+          `• Digite: *C1*, *C2*... para marcar subtarefa\n` +
+          `🔖 _Demanda ativa: #T-${shortRef} - ${primeTask.title}_`;
+      }
+
+      const text = `⏰ *Resumo Matinal de Prazos - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o status das suas entregas:\n\n${sections.join('\n\n')}${footerGuide}\n\n📋 *Acessar Kanban Completo:* ${kanbanUrl}`;
 
       try {
         const res = await EvolutionApiService.sendTextMessage({
