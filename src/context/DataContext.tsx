@@ -1452,6 +1452,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       organization: currentOrganization,
       getUsers: () => orgUsers,
       getTasks: () => rawTasks,
+      getComments: () => comments,
       onUpdateTask: updateTask,
       onAddComment: (taskId, content, author) => {
         addComment(taskId, content, undefined, author);

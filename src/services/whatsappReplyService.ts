@@ -55,17 +55,23 @@ export class WhatsAppReplyService {
       updatedAt: new Date().toISOString(),
     };
 
-    try {
-      localStorage.setItem(`${CONTEXT_LOCAL_KEY_PREFIX}${clean}`, JSON.stringify(ctx));
-      if (clean.length > 8) {
-        localStorage.setItem(`${CONTEXT_LOCAL_KEY_PREFIX}${clean.slice(-8)}`, JSON.stringify(ctx));
-      }
-    } catch {}
+    const keysToSave = new Set<string>();
+    keysToSave.add(clean);
+    if (clean.startsWith('55')) {
+      keysToSave.add(clean.slice(2)); // ex: 21989001302
+    } else {
+      keysToSave.add(`55${clean}`);
+    }
+    if (clean.length >= 8) {
+      keysToSave.add(clean.slice(-8)); // ex: 89001302
+      keysToSave.add(clean.slice(-9)); // ex: 989001302
+    }
 
-    // Salva no Firestore
-    FirestoreRepository.saveWhatsAppContext(organizationId, clean, ctx);
-    if (clean.length > 8) {
-      FirestoreRepository.saveWhatsAppContext(organizationId, clean.slice(-8), ctx);
+    for (const k of keysToSave) {
+      try {
+        localStorage.setItem(`${CONTEXT_LOCAL_KEY_PREFIX}${k}`, JSON.stringify(ctx));
+      } catch {}
+      FirestoreRepository.saveWhatsAppContext(organizationId, k, ctx);
     }
   }
 
@@ -79,18 +85,30 @@ export class WhatsAppReplyService {
     const clean = this.cleanPhone(phone);
     if (!clean) return null;
 
-    const keysToTry = [clean];
-    if (clean.length > 8) keysToTry.push(clean.slice(-8));
+    const keysToTry = new Set<string>();
+    keysToTry.add(clean);
+    if (clean.startsWith('55')) {
+      keysToTry.add(clean.slice(2));
+    } else {
+      keysToTry.add(`55${clean}`);
+    }
+    if (clean.length >= 8) {
+      keysToTry.add(clean.slice(-8));
+      keysToTry.add(clean.slice(-9));
+    }
 
     for (const key of keysToTry) {
       try {
         const remote = await FirestoreRepository.fetchWhatsAppContext(organizationId, key);
-        if (remote) return remote;
+        if (remote && remote.taskId) return remote;
       } catch {}
 
       try {
         const raw = localStorage.getItem(`${CONTEXT_LOCAL_KEY_PREFIX}${key}`);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.taskId) return parsed;
+        }
       } catch {}
     }
 
@@ -145,6 +163,7 @@ export class WhatsAppReplyService {
     pushName,
     users,
     tasks,
+    comments,
     onUpdateTask,
     onAddComment,
   }: {
@@ -156,6 +175,7 @@ export class WhatsAppReplyService {
     pushName?: string;
     users: User[];
     tasks: Task[];
+    comments?: Comment[];
     onUpdateTask: (task: Task) => void;
     onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
   }): Promise<{ success: boolean; action?: string; replySent?: boolean }> {
@@ -201,18 +221,31 @@ export class WhatsAppReplyService {
     }
 
     if (!task && senderUser) {
-      // Pega tarefas ativas atribuídas a este usuário
+      const userFirstName = senderUser.name ? senderUser.name.toLowerCase().split(' ')[0] : '';
+
+      // Tarefas onde o usuário foi mencionado recentemente em comentários
+      const tasksWithMentions = tasks.filter((t) => {
+        if (t.isArchived) return false;
+        const taskComments = (comments || []).filter((c) => c.taskId === t.id);
+        return taskComments.some(
+          (c) =>
+            (userFirstName && c.content?.toLowerCase().includes(`@${userFirstName}`)) ||
+            c.userId === senderUser!.id
+        );
+      });
+
+      // Tarefas ativas atribuídas a este usuário
       const userActiveTasks = tasks.filter(
         (t) =>
           !t.isArchived &&
           t.status !== 'DONE' &&
-          ((t.assigneeIds || []).includes(senderUser.id) || t.assigneeId === senderUser.id)
+          ((t.assigneeIds || []).includes(senderUser!.id) || t.assigneeId === senderUser!.id)
       );
 
-      // Prioriza a que vence hoje ou a mais urgente
-      if (userActiveTasks.length > 0) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        task = userActiveTasks.find((t) => t.deadline === todayStr) || userActiveTasks[0];
+      const candidateTasks = [...tasksWithMentions, ...userActiveTasks];
+      if (candidateTasks.length > 0) {
+        candidateTasks.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+        task = candidateTasks[0];
       }
     }
 
@@ -370,16 +403,20 @@ export class WhatsAppReplyService {
     organization,
     users,
     tasks,
+    comments,
     getUsers,
     getTasks,
+    getComments,
     onUpdateTask,
     onAddComment,
   }: {
     organization: Organization;
     users?: User[];
     tasks?: Task[];
+    comments?: Comment[];
     getUsers?: () => User[];
     getTasks?: () => Task[];
+    getComments?: () => Comment[];
     onUpdateTask: (task: Task) => void;
     onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
   }): () => void {
@@ -394,9 +431,9 @@ export class WhatsAppReplyService {
     }
 
     const instanceName = orgConfig?.instanceName || 'Oiko_Gestao';
-    // Ouve mensagens recebidas nos últimos 20 minutos para capturar respostas recém enviadas
+    // Ouve mensagens recebidas nos últimos 45 minutos para capturar respostas recém enviadas
     if (!this.lastCheckTimestamps.has(orgId)) {
-      this.lastCheckTimestamps.set(orgId, Date.now() - 20 * 60 * 1000);
+      this.lastCheckTimestamps.set(orgId, Date.now() - 45 * 60 * 1000);
     }
 
     const poll = async () => {
@@ -458,6 +495,7 @@ export class WhatsAppReplyService {
 
           const currentUsers = getUsers ? getUsers() : users || [];
           const currentTasks = getTasks ? getTasks() : tasks || [];
+          const currentComments = getComments ? getComments() : comments || [];
 
           await this.processIncomingMessage({
             organization,
@@ -468,6 +506,7 @@ export class WhatsAppReplyService {
             pushName: msg.pushName,
             users: currentUsers,
             tasks: currentTasks,
+            comments: currentComments,
             onUpdateTask,
             onAddComment,
           });
