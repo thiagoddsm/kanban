@@ -441,7 +441,7 @@ export class WhatsAppReplyService {
         const messages = await EvolutionApiService.fetchRecentIncomingMessages(
           instanceName,
           orgConfig,
-          30
+          50
         );
 
         const lastCheck = this.lastCheckTimestamps.get(orgId) || 0;
