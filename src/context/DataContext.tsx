@@ -1364,17 +1364,17 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ) => {
     const authorUser = author || currentUser;
 
-    // Prevenção defensiva de comentários idênticos em rajada (< 5 segundos com mesmo autor/conteúdo/tarefa)
-    const existingComments = StorageService.getComments(currentOrganization.id);
+    // Prevenção defensiva de comentários idênticos em rajada (< 15 segundos com mesmo autor/conteúdo/tarefa)
+    const existingComments = [...StorageService.getComments(currentOrganization.id), ...(commentsRef?.current || [])];
     const isRecentDuplicate = existingComments.some(
       (c) =>
         c.taskId === taskId &&
         (c.content || '').trim() === content.trim() &&
-        Math.abs(Date.now() - new Date(c.createdAt).getTime()) < 5000
+        Math.abs(Date.now() - new Date(c.createdAt).getTime()) < 15000
     );
     if (isRecentDuplicate) {
       console.warn('[DataContext] Comentário duplicado ignorado:', content);
-      return;
+      return false;
     }
 
     const newComment: Comment = {
@@ -1450,6 +1450,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (targetUsersToNotify.length > 0) {
       info('Notificação de Menção', `${targetUsersToNotify.length} membro(s) notificado(s) com sucesso.`);
     }
+    return true;
   }, [currentOrganization, currentCampus, currentUser, info]);
 
 
@@ -1458,14 +1459,14 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .filter((c) => c.taskId === taskId)
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-    // Deduplicação defensiva de comentários idênticos criados em rajada (< 5s de intervalo)
+    // Deduplicação defensiva de comentários idênticos criados em rajada (< 15s de intervalo)
     const deduped: Comment[] = [];
     for (const c of list) {
       const isDuplicate = deduped.some(
         (existing) =>
           (existing.content || '').trim() === (c.content || '').trim() &&
           existing.userId === c.userId &&
-          Math.abs(new Date(existing.createdAt).getTime() - new Date(c.createdAt).getTime()) < 5000
+          Math.abs(new Date(existing.createdAt).getTime() - new Date(c.createdAt).getTime()) < 15000
       );
       if (!isDuplicate) {
         deduped.push(c);
@@ -1495,7 +1496,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       getComments: () => commentsRef.current,
       onUpdateTask: (task) => updateTaskRef.current(task),
       onAddComment: (taskId, content, author) => {
-        addCommentRef.current(taskId, content, undefined, author);
+        return addCommentRef.current(taskId, content, undefined, author);
       },
     });
     return cleanup;

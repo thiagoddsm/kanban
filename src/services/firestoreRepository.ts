@@ -13,7 +13,8 @@ import {
   startAfter,
   onSnapshot,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  runTransaction
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { StorageService } from './storageService';
@@ -1594,6 +1595,39 @@ export class FirestoreRepository {
     } catch (e) {
       console.warn('Erro ao buscar whatsapp_context:', e);
       return null;
+    }
+  }
+
+  /**
+   * Trava distribuída atômica via Transaction no Firestore para garantir que
+   * apenas 1 único cliente/aba/dispositivo/origem processe e responda cada mensagem do WhatsApp.
+   */
+  public static async claimWhatsAppMessage(
+    orgId: string,
+    messageId: string,
+    clientId?: string
+  ): Promise<boolean> {
+    if (!isFirebaseConfigured || !db || !orgId || !messageId) return false;
+    const safeId = messageId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    try {
+      const lockRef = doc(db, 'organizations', orgId, 'whatsapp_locks', safeId);
+      const claimed = await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(lockRef);
+        if (snap.exists()) {
+          return false;
+        }
+        transaction.set(lockRef, {
+          messageId,
+          clientId: clientId || 'unknown',
+          claimedAt: new Date().toISOString(),
+          timestamp: Date.now(),
+        });
+        return true;
+      });
+      return claimed;
+    } catch (e) {
+      console.warn('[FirestoreRepository] Mensagem já reivindicada ou sem permissão:', e);
+      return false;
     }
   }
 }

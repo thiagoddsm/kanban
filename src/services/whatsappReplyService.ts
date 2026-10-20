@@ -225,7 +225,7 @@ export class WhatsAppReplyService {
     tasks: Task[];
     comments?: Comment[];
     onUpdateTask: (task: Task) => void;
-    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
+    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => boolean | void;
   }): Promise<{ success: boolean; action?: string; replySent?: boolean }> {
     if (!messageText || !messageText.trim()) {
       return { success: false };
@@ -238,6 +238,18 @@ export class WhatsAppReplyService {
 
     // Trava IMEDIATAMENTE antes de qualquer operação assíncrona para eliminar qualquer race condition
     this.markMessageAsProcessed(messageId);
+
+    // 🔒 TRAVA DISTRIBUÍDA GLOBAL NO FIRESTORE (ACID Transaction):
+    // Impede que múltiplos navegadores/origens (localhost + web.app + celular + outros membros da equipe)
+    // processem ou enviem resposta duplicada no WhatsApp para o mesmo messageId.
+    const claimed = await FirestoreRepository.claimWhatsAppMessage(
+      organization.id,
+      messageId,
+      TAB_SESSION_ID
+    );
+    if (!claimed) {
+      return { success: false };
+    }
 
     const cleanSender = this.cleanPhone(senderPhone);
     const trimmedText = messageText.trim();
@@ -427,11 +439,24 @@ export class WhatsAppReplyService {
     }
 
     // ── TEXTO LIVRE: Gravar como Comentário na Tarefa ──
+    const alreadyExistsInComments = (comments || []).some(
+      (c) =>
+        c.taskId === task!.id &&
+        (c.content || '').trim() === trimmedText &&
+        Math.abs(Date.now() - new Date(c.createdAt).getTime()) < 60000
+    );
+    if (alreadyExistsInComments) {
+      return { success: false };
+    }
+
     const authorData = senderUser
       ? { id: senderUser.id, name: senderUser.name, avatar: senderUser.avatar }
       : { id: `wa_${cleanSender.slice(-8)}`, name: senderName };
 
-    onAddComment(task.id, trimmedText, authorData);
+    const commentAdded = onAddComment(task.id, trimmedText, authorData);
+    if (commentAdded === false) {
+      return { success: false };
+    }
 
     if (messageId) {
       this.processedMessageIds.add(messageId);
@@ -470,7 +495,7 @@ export class WhatsAppReplyService {
     getTasks?: () => Task[];
     getComments?: () => Comment[];
     onUpdateTask: (task: Task) => void;
-    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => void;
+    onAddComment: (taskId: string, content: string, author?: { id: string; name: string; avatar?: string }) => boolean | void;
   }): () => void {
     const orgId = organization.id;
     if (this.pollingIntervals.has(orgId)) {
@@ -585,6 +610,25 @@ export class WhatsAppReplyService {
           if (ts > newestTimestamp) {
             newestTimestamp = ts;
             this.lastCheckTimestamps.set(orgId, ts);
+          }
+
+          // 🔒 Verifica se o histórico da Evolution API já possui uma resposta enviada (fromMe: true)
+          // para este remetente após o timestamp desta mensagem (por outro dispositivo/aba)
+          const alreadyRepliedInEvolution = messages.some((m) => {
+            if (!Boolean(m.key?.fromMe)) return false;
+            const mJid = m.key?.remoteJidAlt || m.key?.remoteJid || '';
+            const mPhone = mJid.replace(/@.+$/, '');
+            if (!this.matchPhone(mPhone, senderPhone)) return false;
+            const mTs = m.messageTimestamp
+              ? typeof m.messageTimestamp === 'number' && m.messageTimestamp < 10000000000
+                ? m.messageTimestamp * 1000
+                : Number(m.messageTimestamp)
+              : 0;
+            return mTs >= ts;
+          });
+          if (alreadyRepliedInEvolution) {
+            this.markMessageAsProcessed(msgId);
+            continue;
           }
 
           // Extrai texto da mensagem
