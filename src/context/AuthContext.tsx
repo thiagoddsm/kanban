@@ -234,9 +234,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const updateUserProfile = async (data: Partial<User>) => {
     if (!currentUser) return;
+    const cleanPhone = data.whatsapp !== undefined ? data.whatsapp : data.phone !== undefined ? data.phone : currentUser.whatsapp || currentUser.phone;
     const updatedUser: User = {
       ...currentUser,
       ...data,
+      phone: data.phone !== undefined ? data.phone : cleanPhone,
+      whatsapp: data.whatsapp !== undefined ? data.whatsapp : cleanPhone,
     };
 
     if (auth && auth.currentUser) {
@@ -254,6 +257,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUsers(updated);
     setCurrentUserState(updatedUser);
     await FirestoreRepository.syncUser(updatedUser);
+
+    // Se existir algum documento legado/convite com o mesmo e-mail (ex: usr_...), reconcilia ou propaga o telefone/whatsapp imediatamente
+    if (updatedUser.email && !updatedUser.id.startsWith('usr_')) {
+      try {
+        const duplicates = await FirestoreRepository.getUsersByEmail(updatedUser.email);
+        for (const dup of duplicates) {
+          if (dup.id !== updatedUser.id) {
+            await FirestoreRepository.reconcileUserOnLogin(
+              updatedUser.id,
+              updatedUser.email,
+              updatedUser.name,
+              updatedUser.avatar,
+              updatedUser.activeOrganizationId || updatedUser.tenantId
+            );
+            break;
+          }
+        }
+      } catch (e) {
+        console.warn('Aviso ao reconciliar duplicatas após salvar perfil:', e);
+      }
+    }
   };
 
   const logout = async () => {

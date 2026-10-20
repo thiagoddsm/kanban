@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useData } from '../../context/DataContext';
@@ -26,7 +26,10 @@ import {
   UserX,
   UserCheck,
   Send,
-  RefreshCw
+  RefreshCw,
+  Phone,
+  MessageSquare,
+  AlertCircle
 } from 'lucide-react';
 
 export const UsersView: React.FC = () => {
@@ -46,6 +49,7 @@ export const UsersView: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('TEAM');
   const [newDepartment, setNewDepartment] = useState('Comunicação');
   const [newHasOrgWide, setNewHasOrgWide] = useState(true);
@@ -54,32 +58,97 @@ export const UsersView: React.FC = () => {
   // Editing state
   const [editingMemId, setEditingMemId] = useState<string | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('TEAM');
+  const [editPhone, setEditPhone] = useState<string>('');
   const [editHasOrgWide, setEditHasOrgWide] = useState(true);
   const [editCampusIds, setEditCampusIds] = useState<string[]>([]);
 
   const orgMemberships = React.useMemo(() => {
-    const seen = new Set<string>();
+    const seenUsers = new Set<string>();
+    const seenEmails = new Set<string>();
     const list: Membership[] = [];
+    const allLocalUsers = StorageService.getUsers();
+
+    // Ordena para que contas com UID real (não começando com usr_) tenham prioridade visual sobre convites pendentes duplicados
+    const orgMems = memberships
+      .filter((m) => m.organizationId === currentOrganization.id)
+      .sort((a, b) => {
+        const aIsTemp = a.userId.startsWith('usr_') ? 1 : 0;
+        const bIsTemp = b.userId.startsWith('usr_') ? 1 : 0;
+        return aIsTemp - bIsTemp;
+      });
     
-    // Apenas membros que possuem membership ativa na organização
-    for (const m of memberships) {
-      if (m.organizationId === currentOrganization.id && !seen.has(m.userId)) {
-        seen.add(m.userId);
-        list.push(m);
-      }
+    for (const m of orgMems) {
+      if (seenUsers.has(m.userId)) continue;
+      const u = users.find((usr) => usr.id === m.userId) || allLocalUsers.find((usr) => usr.id === m.userId);
+      const emailKey = (u?.email || '').trim().toLowerCase();
+      if (emailKey && seenEmails.has(emailKey)) continue;
+
+      seenUsers.add(m.userId);
+      if (emailKey) seenEmails.add(emailKey);
+      list.push(m);
     }
 
     return list;
-  }, [memberships, currentOrganization.id]);
+  }, [memberships, users, currentOrganization.id]);
 
-  const handleSyncMembers = async () => {
-    setIsSyncing(true);
+  // Reconciliação e unificação de membros duplicados (ex: usr_... convidado vs conta Firebase Auth real do Hugo)
+  const runMembersAuditAndSync = async (silent = false) => {
+    if (!silent) setIsSyncing(true);
     try {
       const remoteUsers = await FirestoreRepository.fetchUsers();
       const remoteMems = await FirestoreRepository.fetchMemberships(currentOrganization.id);
       let recovered = 0;
+      let mergedCount = 0;
 
+      // 1. Agrupa usuários por e-mail para detectar duplicatas (usr_... vs UID real do Firebase Auth)
+      const byEmail = new Map<string, typeof remoteUsers>();
       for (const u of remoteUsers) {
+        if (!u || !u.id) continue;
+        const cleanEmail = (u.email || '').trim().toLowerCase();
+        if (!cleanEmail) continue;
+        const group = byEmail.get(cleanEmail) || [];
+        group.push(u);
+        byEmail.set(cleanEmail, group);
+      }
+
+      // Se houver um usuário com UID real e outro(s) usr_... com o mesmo e-mail, reconcilia tudo para o UID real!
+      for (const [email, group] of byEmail.entries()) {
+        const realUser = group.find((u) => !u.id.startsWith('usr_'));
+        const tempUsers = group.filter((u) => u.id.startsWith('usr_'));
+        if (realUser && tempUsers.length > 0) {
+          await FirestoreRepository.reconcileUserOnLogin(
+            realUser.id,
+            email,
+            realUser.name,
+            realUser.avatar,
+            currentOrganization.id
+          );
+          mergedCount++;
+        } else if (realUser) {
+          // Mesmo que o tempUser já tenha sido apagado de /users, verifica se sobrou uma membership órfã com usr_... na organização
+          for (const m of remoteMems) {
+            if (m.userId.startsWith('usr_')) {
+              const orphanUser = StorageService.getUsers().find((lu) => lu.id === m.userId);
+              if (orphanUser && (orphanUser.email || '').trim().toLowerCase() === email) {
+                await FirestoreRepository.reconcileUserOnLogin(
+                  realUser.id,
+                  email,
+                  realUser.name,
+                  realUser.avatar,
+                  currentOrganization.id
+                );
+                mergedCount++;
+              }
+            }
+          }
+        }
+      }
+
+      // Recarrega lista após possíveis reconciliações
+      const updatedUsers = mergedCount > 0 ? await FirestoreRepository.fetchUsers() : remoteUsers;
+      const updatedMems = mergedCount > 0 ? await FirestoreRepository.fetchMemberships(currentOrganization.id) : remoteMems;
+
+      for (const u of updatedUsers) {
         if (!u || !u.id || !currentOrganization?.id) continue;
 
         // Pula ghost users (sem nome E sem email)
@@ -94,21 +163,32 @@ export const UsersView: React.FC = () => {
           (u.tenantId === currentOrganization.id && (!u.organizationIds || u.organizationIds.length === 0));
 
         if (belongs) {
-          const hasMem = remoteMems.some((m) => m.userId === u.id);
+          const hasMem = updatedMems.some((m) => m.userId === u.id);
           if (!hasMem) {
+            // Verifica se existe alguma membership antiga pelo mesmo e-mail para herdar o role (ex: TEAM)
+            const sameEmailUserIds = updatedUsers
+              .filter((other) => (other.email || '').toLowerCase() === uEmail)
+              .map((other) => other.id);
+            const existingMemByEmail = updatedMems.find((m) => sameEmailUserIds.includes(m.userId));
+
             const newMem: Membership = {
               id: 'mem_' + u.id + '_' + currentOrganization.id,
               userId: u.id,
               organizationId: currentOrganization.id,
-              hasOrgWideAccess: true,
-              campusIds: [],
-              role: (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin'))) ? 'ADMIN' : 'TEAM',
-              department: 'Comunicação',
+              hasOrgWideAccess: existingMemByEmail ? existingMemByEmail.hasOrgWideAccess : true,
+              campusIds: existingMemByEmail ? existingMemByEmail.campusIds : [],
+              role: existingMemByEmail
+                ? existingMemByEmail.role
+                : (uEmail && (uEmail.includes('thiagoddsm') || uEmail.includes('admin')))
+                ? 'ADMIN'
+                : 'TEAM',
+              department: existingMemByEmail?.department || 'Comunicação',
               status: 'ACTIVE',
               createdAt: u.createdAt || new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
             await FirestoreRepository.saveMembership(newMem);
+            StorageService.addMembership(newMem);
             recovered++;
           }
 
@@ -122,18 +202,29 @@ export const UsersView: React.FC = () => {
         }
       }
 
-      success(
-        'Sincronização Concluída!',
-        recovered > 0 
-          ? `${recovered} membro(s) foram recuperados e vinculados à igreja.`
-          : `Todos os ${orgMemberships.length} membros estão sincronizados e ativos.`
-      );
+      if (!silent) {
+        success(
+          'Sincronização & Auditoria Concluída!',
+          recovered > 0 || mergedCount > 0
+            ? `${recovered + mergedCount} perfil(is) reconciliado(s) e sincronizado(s) com sucesso.`
+            : `Todos os ${orgMemberships.length} membros estão sincronizados e ativos.`
+        );
+      }
     } catch (err) {
       console.error('Erro na sincronização:', err);
     } finally {
-      setIsSyncing(false);
+      if (!silent) setIsSyncing(false);
     }
   };
+
+  // Executa auditoria silenciosa automática ao abrir a tela de membros para corrigir contas divididas (ex: Hugo)
+  useEffect(() => {
+    if (currentOrganization?.id) {
+      runMembersAuditAndSync(true);
+    }
+  }, [currentOrganization?.id]);
+
+  const handleSyncMembers = () => runMembersAuditAndSync(false);
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,12 +236,14 @@ export const UsersView: React.FC = () => {
       newRole, 
       newCampusIds, 
       newHasOrgWide, 
-      newDepartment.trim()
+      newDepartment.trim(),
+      newPhone.trim() || undefined
     );
     if (ok) {
       setIsAddModalOpen(false);
       setNewEmail('');
       setNewName('');
+      setNewPhone('');
       setNewRole('TEAM');
       setNewHasOrgWide(true);
       setNewCampusIds([]);
@@ -171,15 +264,52 @@ export const UsersView: React.FC = () => {
     updateMemberStatus(memId, newStatus);
   };
 
-  const handleStartEdit = (memId: string, role: UserRole, campusList: string[], hasOrgWide: boolean) => {
+  const handleStartEdit = (memId: string, role: UserRole, campusList: string[], hasOrgWide: boolean, currentPhone?: string) => {
     setEditingMemId(memId);
     setEditRole(role);
+    setEditPhone(currentPhone || '');
     setEditHasOrgWide(hasOrgWide);
     setEditCampusIds(campusList || []);
   };
 
-  const handleSaveEdit = (memId: string) => {
+  const handleSaveEdit = async (memId: string) => {
     updateMemberRole(memId, editRole, editCampusIds, editHasOrgWide);
+
+    // Salva também o número de WhatsApp/telefone no perfil do usuário (e em eventuais contas de mesmo e-mail)
+    const mem = memberships.find((m) => m.id === memId);
+    if (mem) {
+      const allLocal = StorageService.getUsers();
+      const targetUser = users.find((u) => u.id === mem.userId) || allLocal.find((u) => u.id === mem.userId);
+      if (targetUser) {
+        const cleanPhone = editPhone.trim() || undefined;
+        const updatedUser = {
+          ...targetUser,
+          phone: cleanPhone,
+          whatsapp: cleanPhone,
+          notifyWhatsApp: true,
+        };
+        StorageService.updateUser(updatedUser);
+        await FirestoreRepository.syncUser(updatedUser);
+
+        // Se houver outra conta com o mesmo e-mail (ex: UID real do Firebase Auth), propaga o telefone para ela também
+        if (targetUser.email) {
+          const sameEmailUsers = await FirestoreRepository.getUsersByEmail(targetUser.email);
+          for (const other of sameEmailUsers) {
+            if (other.id !== targetUser.id) {
+              const updatedOther = {
+                ...other,
+                phone: cleanPhone,
+                whatsapp: cleanPhone,
+                notifyWhatsApp: true,
+              };
+              StorageService.updateUser(updatedOther);
+              await FirestoreRepository.syncUser(updatedOther);
+            }
+          }
+        }
+      }
+    }
+
     setEditingMemId(null);
   };
 
@@ -197,7 +327,7 @@ export const UsersView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Controle de convites, papéis (RBAC), restrição por campus e suspensão de acessos.
+            Controle de convites, papéis (RBAC), WhatsApp para notificações e restrição por campus.
           </p>
         </div>
 
@@ -246,7 +376,17 @@ export const UsersView: React.FC = () => {
 
         <div className="divide-y divide-slate-200 dark:divide-slate-800/80">
           {orgMemberships.map((mem) => {
-            const user = users.find((u) => u.id === mem.userId) || StorageService.getUsers().find((u) => u.id === mem.userId);
+            const allLocalUsers = StorageService.getUsers();
+            const directUser = users.find((u) => u.id === mem.userId) || allLocalUsers.find((u) => u.id === mem.userId);
+            const cleanEmail = (directUser?.email || '').trim().toLowerCase();
+            // Busca qualquer registro com o mesmo e-mail para garantir que o WhatsApp salvo pelo usuário apareça mesmo antes da reconciliação
+            const sameEmailUser = cleanEmail
+              ? users.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail && (u.whatsapp || u.phone)) ||
+                allLocalUsers.find((u) => (u.email || '').trim().toLowerCase() === cleanEmail && (u.whatsapp || u.phone))
+              : undefined;
+
+            const user = directUser;
+            const resolvedPhone = directUser?.whatsapp || directUser?.phone || sameEmailUser?.whatsapp || sameEmailUser?.phone || '';
             const isEditing = editingMemId === mem.id;
 
             const campusNames = mem.hasOrgWideAccess
@@ -289,11 +429,27 @@ export const UsersView: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
                       <span className="flex items-center gap-1 truncate">
                         <Mail className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                         {user?.email}
                       </span>
+                      {resolvedPhone ? (
+                        <span className="flex items-center gap-1 truncate text-emerald-600 dark:text-emerald-400 font-medium">
+                          <Phone className="w-3 h-3 text-emerald-500" />
+                          {resolvedPhone}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => isAdmin && handleStartEdit(mem.id, mem.role, mem.campusIds, mem.hasOrgWideAccess, '')}
+                          className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 hover:underline"
+                          title="Clique para cadastrar o WhatsApp deste membro"
+                        >
+                          <AlertCircle className="w-3 h-3 text-amber-500" />
+                          <span>Sem WhatsApp (clique p/ adicionar)</span>
+                        </button>
+                      )}
                       <span className="flex items-center gap-1 truncate text-brand-600 dark:text-indigo-300">
                         <MapPin className="w-3 h-3 text-rose-400" />
                         {campusNames}
@@ -306,6 +462,16 @@ export const UsersView: React.FC = () => {
                 <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 flex-wrap justify-end">
                   {isEditing ? (
                     <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="relative">
+                        <Phone className="w-3 h-3 text-emerald-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="WhatsApp (DDD + Número)"
+                          className="pl-7 pr-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white shadow-sm w-44 focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
                       <select
                         value={editRole}
                         onChange={(e) => setEditRole(e.target.value as UserRole)}
@@ -367,13 +533,13 @@ export const UsersView: React.FC = () => {
                         </button>
                       )}
 
-                      {/* Edit Role & Suspend/Reactivate */}
+                      {/* Edit Role, WhatsApp & Suspend/Reactivate */}
                       {isAdmin && (
                         <>
                           <button
-                            onClick={() => handleStartEdit(mem.id, mem.role, mem.campusIds, mem.hasOrgWideAccess)}
+                            onClick={() => handleStartEdit(mem.id, mem.role, mem.campusIds, mem.hasOrgWideAccess, resolvedPhone)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            title="Editar Papel e Campi"
+                            title="Editar Papel, WhatsApp e Campi"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
@@ -461,6 +627,22 @@ export const UsersView: React.FC = () => {
                   placeholder="daniel@marketingibm.com"
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  WhatsApp (com DDD) — Para Notificações
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                    placeholder="(11) 98765-4321"
+                    className="w-full pl-10 pr-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

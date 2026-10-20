@@ -1,11 +1,55 @@
 import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from './evolutionApiService';
 import { Organization, Task, User, ChecklistItem } from '../types';
 import { WhatsAppReplyService } from './whatsappReplyService';
+import { StorageService } from './storageService';
+import { FirestoreRepository } from './firestoreRepository';
 
 // Debounce map para notificações de checklist por tarefa
 const checklistDebounceTimers = new Map<string, NodeJS.Timeout>();
 
 export class WhatsAppNotificationService {
+  /**
+   * Resolve de forma resiliente o número de WhatsApp/telefone de um usuário,
+   * buscando inclusive em registros duplicados com o mesmo e-mail ou no Firestore caso o user passado seja um placeholder usr_...
+   */
+  public static async resolveUserPhone(user?: User | null): Promise<string | undefined> {
+    if (!user) return undefined;
+    const direct = (user.whatsapp || user.phone || '').trim();
+    if (direct) return direct;
+
+    const cleanEmail = (user.email || '').trim().toLowerCase();
+    const cleanName = (user.name || '').trim().toLowerCase();
+
+    // 1. Procura no cache local (StorageService) por qualquer conta com mesmo ID, e-mail ou nome exato
+    const localUsers = StorageService.getUsers();
+    for (const lu of localUsers) {
+      const luPhone = (lu.whatsapp || lu.phone || '').trim();
+      if (!luPhone) continue;
+      if (lu.id === user.id) return luPhone;
+      if (cleanEmail && (lu.email || '').trim().toLowerCase() === cleanEmail) return luPhone;
+      if (cleanName && cleanName.length > 2 && (lu.name || '').trim().toLowerCase() === cleanName) return luPhone;
+    }
+
+    // 2. Fallback assíncrono direto no Firestore (caso o membro tenha acabado de salvar o número em outro dispositivo)
+    try {
+      const freshById = await FirestoreRepository.getUser(user.id);
+      const byIdPhone = (freshById?.whatsapp || freshById?.phone || '').trim();
+      if (byIdPhone) return byIdPhone;
+
+      if (cleanEmail) {
+        const matches = await FirestoreRepository.getUsersByEmail(cleanEmail);
+        for (const m of matches) {
+          const mPhone = (m.whatsapp || m.phone || '').trim();
+          if (mPhone) return mPhone;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return undefined;
+  }
+
   private static resolveBaseUrl(): string {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
@@ -102,7 +146,7 @@ export class WhatsAppNotificationService {
     // Verifica se o usuário destinatário aceita receber WhatsApp
     if (assigneeUser.notifyWhatsApp === false) return false;
 
-    const phone = assigneeUser.whatsapp || assigneeUser.phone;
+    const phone = await this.resolveUserPhone(assigneeUser);
     if (!phone) {
       console.warn(`[WhatsAppNotify] Usuário ${assigneeUser.name} não possui telefone/WhatsApp cadastrado.`);
       return false;
@@ -169,7 +213,7 @@ export class WhatsAppNotificationService {
 
     if (mentionedUser.notifyWhatsApp === false) return false;
 
-    const phone = mentionedUser.whatsapp || mentionedUser.phone;
+    const phone = await this.resolveUserPhone(mentionedUser);
     if (!phone) {
       console.warn(`[WhatsAppNotify] Usuário ${mentionedUser.name} não possui telefone cadastrado.`);
       return false;
@@ -230,7 +274,7 @@ export class WhatsAppNotificationService {
 
     if (targetUser.notifyWhatsApp === false) return false;
 
-    const phone = targetUser.whatsapp || targetUser.phone;
+    const phone = await this.resolveUserPhone(targetUser);
     if (!phone) return false;
 
     const actorName = actorUser?.name || 'Um membro';
@@ -285,7 +329,7 @@ export class WhatsAppNotificationService {
 
     if (targetUser.notifyWhatsApp === false) return false;
 
-    const phone = targetUser.whatsapp || targetUser.phone;
+    const phone = await this.resolveUserPhone(targetUser);
     if (!phone) return false;
 
     const actorName = actorUser?.name || 'Líder';
@@ -363,7 +407,7 @@ export class WhatsAppNotificationService {
 
       for (const targetUser of targetUsers) {
         if (targetUser.notifyWhatsApp === false) continue;
-        const phone = targetUser.whatsapp || targetUser.phone;
+        const phone = await this.resolveUserPhone(targetUser);
         if (!phone) continue;
 
         const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
@@ -460,9 +504,9 @@ export class WhatsAppNotificationService {
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
     for (const [userId, group] of userGroups.entries()) {
-      const user = users.find((u) => u.id === userId);
+      const user = users.find((u) => u.id === userId) || StorageService.getUsers().find((u) => u.id === userId);
       if (!user || user.notifyWhatsApp === false) continue;
-      const phone = user.whatsapp || user.phone;
+      const phone = await this.resolveUserPhone(user);
       if (!phone) continue;
 
       const firstName = (user.name || (user.email ? user.email.split('@')[0] : 'Membro')).split(' ')[0];

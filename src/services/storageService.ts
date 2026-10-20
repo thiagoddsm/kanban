@@ -169,7 +169,25 @@ export class StorageService {
     let updated: User[];
     if (existingIndex >= 0) {
       updated = [...users];
-      updated[existingIndex] = { ...updated[existingIndex], ...user };
+      const existing = updated[existingIndex];
+      // Prefer real Firebase UID over temporary usr_ placeholder ID
+      const canonicalId =
+        !user.id.startsWith('usr_')
+          ? user.id
+          : !existing.id.startsWith('usr_')
+          ? existing.id
+          : user.id;
+      const mergedOrgIds = Array.from(
+        new Set([...(existing.organizationIds || []), ...(user.organizationIds || [])])
+      );
+      updated[existingIndex] = {
+        ...existing,
+        ...user,
+        id: canonicalId,
+        phone: user.phone ?? existing.phone,
+        whatsapp: user.whatsapp ?? existing.whatsapp,
+        organizationIds: mergedOrgIds.length > 0 ? mergedOrgIds : user.organizationIds || existing.organizationIds,
+      };
     } else {
       updated = [...users, user];
     }

@@ -27,7 +27,7 @@ interface AccessContextType {
   hasCampusAccess: (campusId?: string | null) => boolean;
   hasPermission: (permission: Permission) => boolean;
   switchRoleInCurrentOrg: (newRole: UserRole) => void;
-  addMemberToOrg: (userEmail: string, userName: string, role: UserRole, campusIds: string[], hasOrgWideAccess?: boolean, department?: string) => boolean;
+  addMemberToOrg: (userEmail: string, userName: string, role: UserRole, campusIds: string[], hasOrgWideAccess?: boolean, department?: string, phone?: string) => boolean;
   updateMemberRole: (membershipId: string, newRole: UserRole, campusIds: string[], hasOrgWideAccess: boolean) => void;
   updateMemberStatus: (membershipId: string, status: MembershipStatus) => void;
   removeMemberFromOrg: (membershipId: string) => void;
@@ -125,14 +125,61 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [currentOrganization.id, currentUser?.id]);
 
   // Current active membership in the selected organization
+  // Suporta tanto match direto por currentUser.id quanto fallback por e-mail (para contas usr_ convidadas antes do cadastro Auth)
   const currentMembership = useMemo(() => {
     if (!currentUser) return null;
-    return (
-      memberships.find(
-        (m) => m.userId === currentUser.id && m.organizationId === currentOrganization.id && m.status === 'ACTIVE'
-      ) || null
+    const directMatch = memberships.find(
+      (m) => m.userId === currentUser.id && m.organizationId === currentOrganization.id && m.status === 'ACTIVE'
     );
-  }, [memberships, currentUser?.id, currentOrganization.id]);
+
+    const cleanMyEmail = (currentUser.email || '').trim().toLowerCase();
+    if (!cleanMyEmail) return directMatch || null;
+
+    const allStoredUsers = StorageService.getUsers();
+    const matchingUserIds = new Set<string>(
+      allStoredUsers
+        .filter((u) => (u.email || '').trim().toLowerCase() === cleanMyEmail)
+        .map((u) => u.id)
+    );
+    matchingUserIds.add(currentUser.id);
+
+    const candidates = memberships.filter(
+      (m) => matchingUserIds.has(m.userId) && m.organizationId === currentOrganization.id && m.status === 'ACTIVE'
+    );
+
+    if (candidates.length === 0) return directMatch || null;
+
+    // Se houver mais de uma membership (ex: uma usr_... com TEAM e outra fbUid com REQUESTER), escolhe a de maior privilégio
+    const rolePriority: Record<string, number> = { ADMIN: 4, LEADER: 3, TEAM: 2, REQUESTER: 1 };
+    candidates.sort((a, b) => (rolePriority[b.role] || 0) - (rolePriority[a.role] || 0));
+    return candidates[0];
+  }, [memberships, currentUser?.id, currentUser?.email, currentOrganization.id]);
+
+  // Auto-heal: se a membership encontrada ainda estiver vinculada a um ID temporário (usr_...), migra automaticamente para o UID real
+  useEffect(() => {
+    if (!currentUser || !currentMembership) return;
+    if (currentMembership.userId !== currentUser.id && !currentUser.id.startsWith('usr_')) {
+      const oldUserId = currentMembership.userId;
+      const healedMem: Membership = {
+        ...currentMembership,
+        id: 'mem_' + currentUser.id + '_' + currentOrganization.id,
+        userId: currentUser.id,
+        status: 'ACTIVE',
+        updatedAt: new Date().toISOString(),
+      };
+      FirestoreRepository.saveMembership(healedMem);
+      if (oldUserId.startsWith('usr_')) {
+        FirestoreRepository.deleteMembership(currentOrganization.id, oldUserId, currentMembership.id);
+      }
+      setMemberships((prev) => {
+        const filtered = prev.filter(
+          (m) => !(m.userId === oldUserId && m.organizationId === currentOrganization.id)
+        );
+        const updated = StorageService.addMembership(healedMem);
+        return updated.length > 0 ? updated : [...filtered, healedMem];
+      });
+    }
+  }, [currentUser?.id, currentMembership?.id, currentMembership?.userId, currentOrganization.id]);
 
   // O papel do usuário vem da membership ativa no Firestore, mas SuperAdmin sempre possui papel ADMIN.
   const currentRole: UserRole = isSuperAdmin ? 'ADMIN' : (currentMembership?.role || 'REQUESTER');
@@ -152,8 +199,18 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const accessibleOrganizations = useMemo(() => {
     if (!currentUser) return [];
     const userOrgIds = new Set(currentUser.organizationIds || []);
+    const cleanMyEmail = (currentUser.email || '').trim().toLowerCase();
+    const matchingUserIds = new Set<string>([currentUser.id]);
+    if (cleanMyEmail) {
+      for (const u of StorageService.getUsers()) {
+        if ((u.email || '').trim().toLowerCase() === cleanMyEmail) {
+          matchingUserIds.add(u.id);
+        }
+      }
+    }
+
     const membershipOrgIds = memberships
-      .filter((m) => m.userId === currentUser.id && m.status === 'ACTIVE' && (userOrgIds.size === 0 || userOrgIds.has(m.organizationId)))
+      .filter((m) => matchingUserIds.has(m.userId) && m.status === 'ACTIVE' && (userOrgIds.size === 0 || userOrgIds.has(m.organizationId)))
       .map((m) => m.organizationId);
 
     const allowedOrgIds = new Set<string>([
@@ -239,7 +296,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     role: UserRole,
     campusIds: string[],
     hasOrgWideAccess = false,
-    department = 'Comunicação'
+    department = 'Comunicação',
+    phone?: string
   ): boolean => {
     // Validação centralizada de limites de membros via EntitlementsService
     const currentMembersCount = memberships.filter((m) => m.organizationId === currentOrganization.id).length;
@@ -251,13 +309,20 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
     const cleanEmail = userEmail.trim().toLowerCase();
     const cleanName = userName.trim();
+    const cleanPhone = phone ? phone.trim() : undefined;
 
-    let user = StorageService.getUsers().find((u) => u.email.toLowerCase() === cleanEmail);
+    // Prefere usuário com UID real do Firebase Auth caso existam múltiplos com o mesmo e-mail
+    const emailMatches = StorageService.getUsers().filter((u) => (u.email || '').toLowerCase() === cleanEmail);
+    let user = emailMatches.find((u) => !u.id.startsWith('usr_')) || emailMatches[0];
+
     if (!user) {
       user = {
         id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
         name: cleanName,
         email: cleanEmail,
+        phone: cleanPhone,
+        whatsapp: cleanPhone,
+        notifyWhatsApp: true,
         tenantId: currentOrganization.id,
         activeOrganizationId: currentOrganization.id,
         organizationIds: [currentOrganization.id],
@@ -269,6 +334,8 @@ export const AccessProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         ...user,
         name: cleanName || user.name,
         email: cleanEmail || user.email,
+        phone: cleanPhone || user.phone,
+        whatsapp: cleanPhone || user.whatsapp || user.phone,
         tenantId: user.tenantId || currentOrganization.id,
         activeOrganizationId: user.activeOrganizationId || currentOrganization.id,
         organizationIds: Array.from(new Set([...(user.organizationIds || []), currentOrganization.id])),

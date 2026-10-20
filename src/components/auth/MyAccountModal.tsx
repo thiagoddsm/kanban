@@ -61,14 +61,45 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({ isOpen, onClose 
     if (currentUser && isOpen) {
       setName(currentUser.name || '');
       setAvatar(currentUser.avatar || '');
-      setPhone(currentUser.phone || '');
+      setPhone(currentUser.phone || currentUser.whatsapp || '');
       setWhatsapp(currentUser.whatsapp || currentUser.phone || '');
       setNotifyWhatsApp(currentUser.notifyWhatsApp ?? true);
       setNotifyEmail(currentUser.notifyEmail ?? true);
+
+      // Sincroniza dados mais recentes do Firestore (caso o Admin tenha atualizado o WhatsApp do membro)
+      import('../../services/firestoreRepository').then(({ FirestoreRepository }) => {
+        FirestoreRepository.getUser(currentUser.id).then((freshUser) => {
+          if (freshUser) {
+            const freshPhone = freshUser.whatsapp || freshUser.phone;
+            if (freshPhone) {
+              setPhone((prev) => prev || freshPhone);
+              setWhatsapp((prev) => prev || freshPhone);
+            }
+          }
+        });
+      });
     }
-  }, [currentUser, isOpen]);
+  }, [currentUser?.id, isOpen]);
 
   if (!isOpen || !currentUser) return null;
+
+  const handleSaveWhatsAppNumber = async () => {
+    setIsSaving(true);
+    try {
+      const cleanVal = whatsapp.trim();
+      await updateUserProfile({
+        name: name.trim() || currentUser.name,
+        phone: cleanVal || undefined,
+        whatsapp: cleanVal || undefined,
+        notifyWhatsApp,
+      });
+      success('Número de WhatsApp salvo!', cleanVal ? `Notificações ativadas para ${cleanVal}.` : 'Número atualizado.');
+    } catch (err: any) {
+      notifyError('Erro ao salvar número', err?.message || 'Tente novamente em instantes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,11 +110,12 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({ isOpen, onClose 
 
     setIsSaving(true);
     try {
+      const cleanPhone = (whatsapp || phone).trim();
       await updateUserProfile({
         name: name.trim(),
         avatar: avatar.trim() || undefined,
-        phone: phone.trim() || undefined,
-        whatsapp: whatsapp.trim() || undefined,
+        phone: cleanPhone || undefined,
+        whatsapp: cleanPhone || undefined,
         notifyWhatsApp,
         notifyEmail,
       });
@@ -264,6 +296,29 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({ isOpen, onClose 
                 </span>
               </div>
 
+              {/* WhatsApp / Phone Number on Main Profile Tab */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  WhatsApp (com DDD) — Para Notificações de Tarefas
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-emerald-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    value={whatsapp}
+                    onChange={(e) => {
+                      setWhatsapp(e.target.value);
+                      setPhone(e.target.value);
+                    }}
+                    placeholder="(11) 98765-4321"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-1">
+                  Informe seu número para receber alertas de prazos, menções (@) e responder pelo WhatsApp.
+                </span>
+              </div>
+
               {/* Organization & Role Badge */}
               <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
@@ -296,10 +351,11 @@ export const MyAccountModal: React.FC<MyAccountModalProps> = ({ isOpen, onClose 
                   </div>
                   <button
                     type="button"
-                    onClick={handleSubmit}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20"
+                    disabled={isSaving}
+                    onClick={handleSaveWhatsAppNumber}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
                   >
-                    Salvar Número
+                    {isSaving ? 'Salvando...' : 'Salvar Número'}
                   </button>
                 </div>
                 <div className="relative">

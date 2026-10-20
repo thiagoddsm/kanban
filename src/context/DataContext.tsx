@@ -357,17 +357,63 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
   }, [rawEvents, currentCampus]);
 
-  // Organization Users (Isolamento Estrito Multi-Tenant)
+  // Organization Users (Isolamento Estrito Multi-Tenant + Mesclagem de Contas Duplicadas por E-mail)
   const orgUsers = useMemo(() => {
     const orgMemberships = memberships.filter((m) => m.organizationId === currentOrganization.id && m.status === 'ACTIVE');
     const userIds = new Set(orgMemberships.map((m) => m.userId));
-    return allUsers.filter((u) => {
+    const filtered = allUsers.filter((u) => {
       // Usuário precisa ter membership ativa na organização OU estar explicitamente vinculado no array de organizationIds
       if (userIds.has(u.id)) return true;
       if (u.organizationIds?.includes(currentOrganization.id)) return true;
       if (u.tenantId === currentOrganization.id && (!u.organizationIds || u.organizationIds.includes(currentOrganization.id))) return true;
       return false;
     });
+
+    // Agrupa e mescla registros duplicados pelo mesmo e-mail (ex: convite usr_... + conta real Firebase Auth)
+    // garantindo que o telefone/WhatsApp salvo em qualquer um dos dois esteja sempre presente!
+    const byEmail = new Map<string, User>();
+    const withoutEmail: User[] = [];
+
+    for (const u of filtered) {
+      const cleanEmail = (u.email || '').trim().toLowerCase();
+      if (!cleanEmail) {
+        withoutEmail.push(u);
+        continue;
+      }
+
+      // Procura também em todo o allUsers caso o telefone tenha sido salvo no doc com UID real mas a membership estivesse no usr_...
+      const allSameEmail = allUsers.filter((au) => (au.email || '').trim().toLowerCase() === cleanEmail);
+      const realAuthUser = allSameEmail.find((au) => !au.id.startsWith('usr_')) || u;
+      const bestPhone = allSameEmail.find((au) => au.whatsapp || au.phone)?.whatsapp || allSameEmail.find((au) => au.phone)?.phone || u.whatsapp || u.phone;
+      const bestName =
+        allSameEmail.find((au) => au.name && au.name !== 'Membro' && au.name !== 'Usuário' && !au.id.startsWith('usr_'))?.name ||
+        allSameEmail.find((au) => au.name && au.name !== 'Membro' && au.name !== 'Usuário')?.name ||
+        u.name;
+      const bestAvatar = allSameEmail.find((au) => au.avatar)?.avatar || u.avatar;
+
+      const existing = byEmail.get(cleanEmail);
+      // Mantém o ID que possui membership ativa para não quebrar referências, ou prefere o UID real
+      const preferredId = userIds.has(realAuthUser.id)
+        ? realAuthUser.id
+        : userIds.has(u.id)
+        ? u.id
+        : realAuthUser.id;
+
+      const merged: User = {
+        ...(existing || {}),
+        ...u,
+        ...realAuthUser,
+        id: preferredId,
+        name: bestName,
+        email: cleanEmail,
+        avatar: bestAvatar,
+        phone: bestPhone,
+        whatsapp: bestPhone,
+      };
+      byEmail.set(cleanEmail, merged);
+    }
+
+    return [...Array.from(byEmail.values()), ...withoutEmail];
   }, [allUsers, memberships, currentOrganization.id]);
 
   const leaderUserIds = useMemo(() => {
