@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
+import { useData } from '../../context/DataContext';
 import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from '../../services/evolutionApiService';
 import { WhatsAppConnectCard } from './WhatsAppConnectCard';
 import { EvolutionIntegrationConfig } from '../../types';
@@ -29,6 +30,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
 }) => {
   const { currentOrganization, updateOrganization } = useTenant();
   const { success, error: notifyError } = useNotification();
+  const { triggerDeadlineRemindersNow } = useData();
 
   const [activeTab, setActiveTab] = useState<'connect' | 'config'>('connect');
 
@@ -46,6 +48,11 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
   const [notifyOnTaskBlocked, setNotifyOnTaskBlocked] = useState(orgConfig.notifyOnTaskBlocked !== false);
   const [notifyOnTaskApproved, setNotifyOnTaskApproved] = useState(orgConfig.notifyOnTaskApproved !== false);
   const [notifyOnMention, setNotifyOnMention] = useState(orgConfig.notifyOnMention !== false);
+  const [notifyOnChecklistUpdate, setNotifyOnChecklistUpdate] = useState(orgConfig.notifyOnChecklistUpdate !== false);
+  const [notifyOnDeadlineApproaching, setNotifyOnDeadlineApproaching] = useState(orgConfig.notifyOnDeadlineApproaching !== false);
+  const [deadlineNotificationTime, setDeadlineNotificationTime] = useState(orgConfig.deadlineNotificationTime || '08:30');
+  const [enableWhatsAppReplies, setEnableWhatsAppReplies] = useState(orgConfig.enableWhatsAppReplies !== false);
+  const [isTriggeringDeadlines, setIsTriggeringDeadlines] = useState(false);
 
   React.useEffect(() => {
     const config = currentOrganization?.evolutionConfig || {};
@@ -60,9 +67,29 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
     setNotifyOnTaskBlocked(config.notifyOnTaskBlocked !== false);
     setNotifyOnTaskApproved(config.notifyOnTaskApproved !== false);
     setNotifyOnMention(config.notifyOnMention !== false);
+    setNotifyOnChecklistUpdate(config.notifyOnChecklistUpdate !== false);
+    setNotifyOnDeadlineApproaching(config.notifyOnDeadlineApproaching !== false);
+    setDeadlineNotificationTime(config.deadlineNotificationTime || '08:30');
+    setEnableWhatsAppReplies(config.enableWhatsAppReplies !== false);
   }, [currentOrganization]);
 
   if (!isOpen) return null;
+
+  const handleTriggerDeadlinesNow = async () => {
+    try {
+      setIsTriggeringDeadlines(true);
+      const count = await triggerDeadlineRemindersNow();
+      if (count > 0) {
+        success('Resumos de Prazo Enviados!', `Foram disparadas mensagens consolidadas para ${count} responsável(eis).`);
+      } else {
+        notifyError('Nenhum lembrete pendente', 'Não há demandas com prazo vencendo hoje ou em 2 dias com responsáveis cadastrados.');
+      }
+    } catch (err: any) {
+      notifyError('Erro ao disparar', err?.message || 'Falha ao processar lembretes.');
+    } finally {
+      setIsTriggeringDeadlines(false);
+    }
+  };
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +107,10 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
       notifyOnTaskBlocked,
       notifyOnTaskApproved,
       notifyOnMention,
+      notifyOnChecklistUpdate,
+      notifyOnDeadlineApproaching,
+      deadlineNotificationTime,
+      enableWhatsAppReplies,
       updatedAt: new Date().toISOString(),
     };
 
@@ -294,6 +325,81 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                       <span className="text-[11px] text-slate-400">Dispara via WhatsApp da igreja caso o membro autor do comentário ainda não tenha pareado seu próprio WhatsApp</span>
                     </div>
                   </label>
+
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
+                    <input
+                      type="checkbox"
+                      checked={enableWhatsAppReplies}
+                      onChange={(e) => setEnableWhatsAppReplies(e.target.checked)}
+                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                    />
+                    <div>
+                      <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Respostas & Comandos pelo WhatsApp (Bidirecional)</span>
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Permite responder no WhatsApp para comentar na tarefa, mudar status (1, 2, 3) ou marcar checklist (C1, C2)
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
+                    <input
+                      type="checkbox"
+                      checked={notifyOnChecklistUpdate}
+                      onChange={(e) => setNotifyOnChecklistUpdate(e.target.checked)}
+                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-200 block">Avanço de Checklist / Subtarefas (2/3)</span>
+                      <span className="text-[11px] text-slate-400">
+                        Dispara notificação com o progresso atualizado quando itens forem concluídos
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Deadline Alerts */}
+                  <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-3">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notifyOnDeadlineApproaching}
+                        onChange={(e) => setNotifyOnDeadlineApproaching(e.target.checked)}
+                        className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                      />
+                      <div>
+                        <span className="font-semibold text-slate-200 block">Lembretes de Prazos (Hoje e em 2 dias)</span>
+                        <span className="text-[11px] text-slate-400">
+                          Envia resumo consolidado matinal para cada responsável com suas demandas pendentes
+                        </span>
+                      </div>
+                    </label>
+
+                    {notifyOnDeadlineApproaching && (
+                      <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 pl-6">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-slate-400">Horário matinal:</span>
+                          <input
+                            type="time"
+                            value={deadlineNotificationTime}
+                            onChange={(e) => setDeadlineNotificationTime(e.target.value)}
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isTriggeringDeadlines}
+                          onClick={handleTriggerDeadlinesNow}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
+                        >
+                          <BellRing className={`w-3.5 h-3.5 ${isTriggeringDeadlines ? 'animate-bounce' : ''}`} />
+                          <span>{isTriggeringDeadlines ? 'Disparando...' : 'Disparar Resumo Agora'}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

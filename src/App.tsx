@@ -17,6 +17,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { TermsPage } from './pages/TermsPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { AILiveModePage } from './pages/AILiveModePage';
+import { WhatsAppQuickTaskPage } from './pages/WhatsAppQuickTaskPage';
 
 export function App() {
   return (
@@ -43,6 +44,7 @@ export function App() {
                   <Route path="/:orgSlug/solicitar" element={<PublicDemandPortalPage />} />
                   <Route path="/:orgSlug/protocolo" element={<PublicProtocolTrackerPage />} />
                   <Route path="/:orgSlug/protocolo/:protocolId" element={<PublicProtocolTrackerPage />} />
+                  <Route path="/:orgSlug/wa/:taskId" element={<WhatsAppQuickTaskPage />} />
 
                   {/* Painel Interno da Organização / Igreja */}
                   <Route path="/:orgSlug/jarvis" element={<AILiveModePage />} />

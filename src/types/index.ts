@@ -63,7 +63,21 @@ export interface EvolutionIntegrationConfig {
   notifyOnTaskBlocked?: boolean;
   notifyOnTaskApproved?: boolean;
   notifyOnMention?: boolean;
+  notifyOnChecklistUpdate?: boolean;
+  notifyOnDeadlineApproaching?: boolean;
+  deadlineNotificationTime?: string; // e.g. "08:30"
+  lastDeadlineReminderDate?: string; // e.g. "2026-10-20"
+  enableWhatsAppReplies?: boolean;
   updatedAt?: string;
+}
+
+export interface WhatsAppTaskContext {
+  phone: string;
+  taskId: string;
+  organizationId: string;
+  taskTitle: string;
+  messageId?: string;
+  updatedAt: string;
 }
 
 export interface User {

@@ -1558,5 +1558,44 @@ export class FirestoreRepository {
       console.error('Erro no masterUpdateOrgSubscription:', e);
     }
   }
+
+  /**
+   * Salva o contexto da última tarefa notificada via WhatsApp
+   */
+  public static async saveWhatsAppContext(
+    orgId: string,
+    phone: string,
+    context: any
+  ): Promise<void> {
+    if (!isFirebaseConfigured || !db || !orgId || !phone) return;
+    try {
+      const ref = doc(db, 'organizations', orgId, 'whatsapp_contexts', phone);
+      await setDoc(ref, sanitizeForFirestore(context), { merge: true });
+    } catch (e) {
+      console.warn('Erro ao salvar whatsapp_context:', e);
+    }
+  }
+
+  /**
+   * Busca o contexto da última tarefa notificada para um telefone
+   */
+  public static async fetchWhatsAppContext(
+    orgId: string,
+    phone: string
+  ): Promise<any | null> {
+    if (!isFirebaseConfigured || !db || !orgId || !phone) return null;
+    try {
+      const ref = doc(db, 'organizations', orgId, 'whatsapp_contexts', phone);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        return snap.data();
+      }
+      return null;
+    } catch (e) {
+      console.warn('Erro ao buscar whatsapp_context:', e);
+      return null;
+    }
+  }
 }
+
 

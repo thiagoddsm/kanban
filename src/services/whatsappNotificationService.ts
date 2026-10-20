@@ -1,5 +1,9 @@
 import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from './evolutionApiService';
-import { Organization, Task, User } from '../types';
+import { Organization, Task, User, ChecklistItem } from '../types';
+import { WhatsAppReplyService } from './whatsappReplyService';
+
+// Debounce map para notificações de checklist por tarefa
+const checklistDebounceTimers = new Map<string, NodeJS.Timeout>();
 
 export class WhatsAppNotificationService {
   private static resolveBaseUrl(): string {
@@ -10,6 +14,12 @@ export class WhatsAppNotificationService {
     const baseUrl = this.resolveBaseUrl();
     const slug = org.slug || 'ib';
     return `${baseUrl}/${slug}/tasks`;
+  }
+
+  public static resolveQuickTaskUrl(org: Organization, taskId: string): string {
+    const baseUrl = this.resolveBaseUrl();
+    const slug = org.slug || 'ib';
+    return `${baseUrl}/${slug}/wa/${taskId}`;
   }
 
   /**
@@ -25,6 +35,39 @@ export class WhatsAppNotificationService {
       return authorUser.whatsappInstanceName;
     }
     return orgInstance;
+  }
+
+  /**
+   * Formata visualmente o bloco de Checklist / Subtarefas (2/3)
+   */
+  public static formatChecklistBlock(task: Task): string {
+    if (!task.checklist || task.checklist.length === 0) return '';
+
+    const items: ChecklistItem[] = task.checklist.map((item, idx) =>
+      typeof item === 'string' ? { id: `chk_${idx}`, text: item, completed: false } : item
+    );
+
+    const completed = items.filter((i) => i.completed).length;
+    const total = items.length;
+
+    const listText = items
+      .slice(0, 8)
+      .map((item, idx) => `${item.completed ? '✅' : '⬜'} *${idx + 1}.* ${item.text}`)
+      .join('\n');
+
+    const extra = total > 8 ? `\n_...e mais ${total - 8} subtarefa(s)_` : '';
+
+    return `\n\n☑️ *Checklist / Subtarefas (${completed}/${total}):*\n${listText}${extra}`;
+  }
+
+  /**
+   * Cria o rodapé interativo com código de referência, link de edição expressa e guia de resposta
+   */
+  private static buildInteractiveFooter(org: Organization, task: Task): string {
+    const quickUrl = this.resolveQuickTaskUrl(org, task.id);
+    const shortRef = task.id.length > 8 ? task.id.slice(-6) : task.id;
+
+    return `\n\n⚡ *Editar Tarefa:* ${quickUrl}\n\n💬 _Responda no WhatsApp para comentar, ou envie:_\n*1* Em Andamento | *2* Revisão | *3* Concluído | *C1, C2...* Concluir Subtarefa\n🔖 Ref: #T-${shortRef}`;
   }
 
   /**
@@ -64,8 +107,10 @@ export class WhatsAppNotificationService {
       : 'Sem prazo definido';
 
     const firstName = (assigneeUser.name || (assigneeUser.email ? assigneeUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const taskUrl = this.resolveTaskUrl(organization);
-    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}\n\n👉 *Acesse a demanda:* ${taskUrl}`;
+    const checklistBlock = this.formatChecklistBlock(task);
+    const footer = this.buildInteractiveFooter(organization, task);
+
+    const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${task.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${task.priority || 'Média'}${checklistBlock}${footer}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -76,6 +121,17 @@ export class WhatsAppNotificationService {
         text,
         configOverride: orgConfig,
       });
+
+      if (res.success) {
+        WhatsAppReplyService.recordTaskContext(
+          organization.id,
+          phone,
+          task.id,
+          task.title,
+          res.messageId
+        );
+      }
+
       return res.success;
     } catch (err) {
       console.warn('[WhatsAppNotify] Falha ao enviar notificação de atribuição:', err);
@@ -114,8 +170,8 @@ export class WhatsAppNotificationService {
 
     const actorName = actorUser?.name || 'Um membro';
     const firstName = (mentionedUser.name || (mentionedUser.email ? mentionedUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const taskUrl = this.resolveTaskUrl(organization);
-    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_\n\n👉 *Responder agora:* ${taskUrl}`;
+    const footer = this.buildInteractiveFooter(organization, task);
+    const text = `💬 *Você foi mencionado(a) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* mencionou você na demanda:\n📋 *"${task.title}"*\n\n💭 *Mensagem:* _"${content}"_${footer}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -126,6 +182,17 @@ export class WhatsAppNotificationService {
         text,
         configOverride: orgConfig,
       });
+
+      if (res.success) {
+        WhatsAppReplyService.recordTaskContext(
+          organization.id,
+          phone,
+          task.id,
+          task.title,
+          res.messageId
+        );
+      }
+
       return res.success;
     } catch (err) {
       console.warn('[WhatsAppNotify] Falha ao enviar notificação de menção:', err);
@@ -160,8 +227,8 @@ export class WhatsAppNotificationService {
     if (!phone) return false;
 
     const actorName = actorUser?.name || 'Um membro';
-    const taskUrl = this.resolveTaskUrl(organization);
-    const text = `🚨 *Alerta de Demanda Bloqueada (Gargalo) - Kanban Oiko*\n\nA demanda *"${task.title}"* foi sinalizada como bloqueada por *${actorName}*.\n\n⚠️ *Motivo do Bloqueio:* _"${reason}"_\n\n👉 *Ver detalhes para desbloqueio:* ${taskUrl}`;
+    const footer = this.buildInteractiveFooter(organization, task);
+    const text = `🚨 *Alerta de Demanda Bloqueada (Gargalo) - Kanban Oiko*\n\nA demanda *"${task.title}"* foi sinalizada como bloqueada por *${actorName}*.\n\n⚠️ *Motivo do Bloqueio:* _"${reason}"_${footer}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -172,6 +239,17 @@ export class WhatsAppNotificationService {
         text,
         configOverride: orgConfig,
       });
+
+      if (res.success) {
+        WhatsAppReplyService.recordTaskContext(
+          organization.id,
+          phone,
+          task.id,
+          task.title,
+          res.messageId
+        );
+      }
+
       return res.success;
     } catch (err) {
       console.warn('[WhatsAppNotify] Falha ao enviar notificação de bloqueio:', err);
@@ -205,8 +283,8 @@ export class WhatsAppNotificationService {
 
     const actorName = actorUser?.name || 'Líder';
     const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-    const taskUrl = this.resolveTaskUrl(organization);
-    const text = `🎉 *Demanda Aprovada pela Revisão! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\nA demanda já está na coluna *Aprovado pela Revisão*. Agora você pode realizar a ação final (postagem, envio, etc.) e depois mover para *Concluído*.\n\n👉 *Acessar:* ${taskUrl}`;
+    const footer = this.buildInteractiveFooter(organization, task);
+    const text = `🎉 *Demanda Aprovada pela Revisão! - Kanban Oiko*\n\nOlá, *${firstName}*!\nA entrega para a demanda *"${task.title}"* foi revisada e *APROVADA* por *${actorName}*. Parabéns pelo trabalho! 🚀\n\nA demanda já está na coluna *Aprovado pela Revisão*. Agora você pode realizar a ação final (postagem, envio, etc.) e depois mover para *Concluído*.${footer}`;
 
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
@@ -217,11 +295,229 @@ export class WhatsAppNotificationService {
         text,
         configOverride: orgConfig,
       });
+
+      if (res.success) {
+        WhatsAppReplyService.recordTaskContext(
+          organization.id,
+          phone,
+          task.id,
+          task.title,
+          res.messageId
+        );
+      }
+
       return res.success;
     } catch (err) {
       console.warn('[WhatsAppNotify] Falha ao enviar notificação de aprovação:', err);
       return false;
     }
+  }
+
+  /**
+   * Notifica avanço de Checklist / Subtarefas com debounce anti-spam
+   */
+  public static notifyChecklistProgress({
+    organization,
+    task,
+    targetUsers,
+    actorUser,
+    completedItemText,
+  }: {
+    organization: Organization;
+    task: Task;
+    targetUsers: User[];
+    actorUser?: User | null;
+    completedItemText?: string;
+  }): void {
+    const orgConfig = organization.evolutionConfig;
+    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnChecklistUpdate === false) {
+      return;
+    }
+
+    // Debounce de 7 segundos para agrupar múltiplos checks seguidos em uma só mensagem
+    const existing = checklistDebounceTimers.get(task.id);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(async () => {
+      checklistDebounceTimers.delete(task.id);
+
+      const items: ChecklistItem[] = (task.checklist || []).map((item, idx) =>
+        typeof item === 'string' ? { id: `chk_${idx}`, text: item, completed: false } : item
+      );
+
+      const completed = items.filter((i) => i.completed).length;
+      const total = items.length;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const actorName = actorUser?.name || 'Um membro';
+      const checklistBlock = this.formatChecklistBlock(task);
+      const footer = this.buildInteractiveFooter(organization, task);
+
+      const instanceName = this.resolveInstanceName(organization, actorUser);
+
+      for (const targetUser of targetUsers) {
+        if (targetUser.notifyWhatsApp === false) continue;
+        const phone = targetUser.whatsapp || targetUser.phone;
+        if (!phone) continue;
+
+        const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
+        const text = `☑️ *Progresso de Subtarefas (${completed}/${total}) - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atualizou etapas da demanda *"${task.title}"*:\n${completedItemText ? `\n✅ _${completedItemText}_\n` : ''}📊 *Andamento Geral:* ${completed} de ${total} concluídas (${pct}%)${checklistBlock}${footer}`;
+
+        try {
+          const res = await EvolutionApiService.sendTextMessage({
+            instanceName,
+            to: phone,
+            text,
+            configOverride: orgConfig,
+          });
+
+          if (res.success) {
+            WhatsAppReplyService.recordTaskContext(
+              organization.id,
+              phone,
+              task.id,
+              task.title,
+              res.messageId
+            );
+          }
+        } catch (err) {
+          console.warn('[WhatsAppNotify] Falha ao enviar aviso de checklist:', err);
+        }
+      }
+    }, 7000);
+
+    checklistDebounceTimers.set(task.id, timer);
+  }
+
+  /**
+   * Alerta Matinal Consolidado de Prazos (2 dias antes e no dia do vencimento)
+   * Agrupa todas as demandas de cada responsável em UMA única mensagem
+   */
+  public static async notifyDeadlineReminders({
+    organization,
+    tasks,
+    users,
+    actorUser,
+  }: {
+    organization: Organization;
+    tasks: Task[];
+    users: User[];
+    actorUser?: User | null;
+  }): Promise<{ sentCount: number }> {
+    const orgConfig = organization.evolutionConfig;
+    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) {
+      return { sentCount: 0 };
+    }
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const in2Days = new Date();
+    in2Days.setDate(in2Days.getDate() + 2);
+    const in2DaysStr = in2Days.toISOString().split('T')[0];
+
+    // Filtra tarefas ativas não concluídas com prazo Hoje ou Daqui a 2 Dias
+    const activeTasks = tasks.filter((t) => !t.isArchived && t.status !== 'DONE' && !!t.deadline);
+    const todayTasks = activeTasks.filter((t) => t.deadline === todayStr);
+    const soonTasks = activeTasks.filter((t) => t.deadline === in2DaysStr);
+
+    if (todayTasks.length === 0 && soonTasks.length === 0) {
+      return { sentCount: 0 };
+    }
+
+    // Agrupa por responsável
+    const userGroups = new Map<string, { today: Task[]; soon: Task[] }>();
+
+    const assignToGroup = (task: Task, isToday: boolean) => {
+      const uids =
+        task.assigneeIds && task.assigneeIds.length > 0
+          ? task.assigneeIds
+          : task.assigneeId
+          ? [task.assigneeId]
+          : [];
+
+      uids.forEach((uid) => {
+        const group = userGroups.get(uid) || { today: [], soon: [] };
+        if (isToday) {
+          if (!group.today.some((t) => t.id === task.id)) group.today.push(task);
+        } else {
+          if (!group.soon.some((t) => t.id === task.id)) group.soon.push(task);
+        }
+        userGroups.set(uid, group);
+      });
+    };
+
+    todayTasks.forEach((t) => assignToGroup(t, true));
+    soonTasks.forEach((t) => assignToGroup(t, false));
+
+    let sentCount = 0;
+    const instanceName = this.resolveInstanceName(organization, actorUser);
+
+    for (const [userId, group] of userGroups.entries()) {
+      const user = users.find((u) => u.id === userId);
+      if (!user || user.notifyWhatsApp === false) continue;
+      const phone = user.whatsapp || user.phone;
+      if (!phone) continue;
+
+      const firstName = (user.name || (user.email ? user.email.split('@')[0] : 'Membro')).split(' ')[0];
+      const sections: string[] = [];
+
+      if (group.today.length > 0) {
+        const todayItems = group.today
+          .map((t, idx) => {
+            const chk = t.checklist || [];
+            const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
+            const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
+            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
+            return `${idx + 1}. *${t.title}*${chkInfo}\n   👉 Editar: ${quickUrl}`;
+          })
+          .join('\n');
+        sections.push(`🚨 *VENCENDO HOJE (${group.today.length}):*\n${todayItems}`);
+      }
+
+      if (group.soon.length > 0) {
+        const soonItems = group.soon
+          .map((t, idx) => {
+            const chk = t.checklist || [];
+            const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
+            const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
+            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
+            return `${idx + 1}. *${t.title}*${chkInfo}\n   👉 Editar: ${quickUrl}`;
+          })
+          .join('\n');
+        sections.push(`⏳ *VENCEM EM 2 DIAS (${group.soon.length}):*\n${soonItems}`);
+      }
+
+      const kanbanUrl = this.resolveTaskUrl(organization);
+      const text = `⏰ *Resumo Matinal de Prazos - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o status das suas entregas:\n\n${sections.join('\n\n')}\n\n📋 *Acessar Kanban Completo:* ${kanbanUrl}`;
+
+      try {
+        const res = await EvolutionApiService.sendTextMessage({
+          instanceName,
+          to: phone,
+          text,
+          configOverride: orgConfig,
+        });
+
+        if (res.success) {
+          sentCount++;
+          // Se tiver ao menos uma tarefa hoje, salva como contexto ativo
+          const primeTask = group.today[0] || group.soon[0];
+          if (primeTask) {
+            WhatsAppReplyService.recordTaskContext(
+              organization.id,
+              phone,
+              primeTask.id,
+              primeTask.title,
+              res.messageId
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(`[WhatsAppNotify] Erro ao enviar lembrete de prazo para ${user.name}:`, err);
+      }
+    }
+
+    return { sentCount };
   }
 
   /**
@@ -267,7 +563,6 @@ export class WhatsAppNotificationService {
 
   /**
    * Notifica responsáveis com um resumo consolidado de múltiplas demandas criadas (ex: via JSON / Importação em lote)
-   * Garante o envio de APENAS UMA mensagem por responsável com a lista e prazos de todas as suas tarefas.
    */
   public static async notifyBatchTasksAssigned({
     organization,
@@ -316,19 +611,39 @@ export class WhatsAppNotificationService {
       const phone = targetUser.whatsapp || targetUser.phone;
       if (!phone) continue;
 
-      let text = '';
       const firstName = (targetUser.name || (targetUser.email ? targetUser.email.split('@')[0] : 'Membro')).split(' ')[0];
-
       const taskUrl = this.resolveTaskUrl(organization);
 
       if (userTasks.length === 1) {
-        // Mensagem unitária
         const singleTask = userTasks[0];
         const deadlineFormatted = singleTask.deadline
           ? new Date(singleTask.deadline + 'T00:00:00').toLocaleDateString('pt-BR')
           : 'Sem prazo definido';
+        const checklistBlock = this.formatChecklistBlock(singleTask);
+        const footer = this.buildInteractiveFooter(organization, singleTask);
 
-        text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${singleTask.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${singleTask.priority || 'Média'}\n\n👉 *Acesse a demanda:* ${taskUrl}`;
+        const text = `📋 *Nova Demanda Atribuída - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* atribuiu uma nova demanda para você:\n\n📌 *Título:* ${singleTask.title}\n📅 *Prazo:* ${deadlineFormatted}\n🏷️ *Prioridade:* ${singleTask.priority || 'Média'}${checklistBlock}${footer}`;
+
+        try {
+          const res = await EvolutionApiService.sendTextMessage({
+            instanceName,
+            to: phone,
+            text,
+            configOverride: orgConfig,
+          });
+          if (res.success) {
+            sentCount++;
+            WhatsAppReplyService.recordTaskContext(
+              organization.id,
+              phone,
+              singleTask.id,
+              singleTask.title,
+              res.messageId
+            );
+          }
+        } catch (err) {
+          console.warn('[WhatsAppNotify] Erro ao enviar mensagem de tarefa única:', err);
+        }
       } else {
         // Mensagem consolidada (Resumo de Múltiplas Tarefas)
         const taskItemsText = userTasks
@@ -338,27 +653,36 @@ export class WhatsAppNotificationService {
               : 'Sem prazo';
             const subCount = t.checklist?.length || 0;
             const subInfo = subCount > 0 ? `\n   ☑️ _${subCount} subtarefa(s)_` : '';
-            return `${idx + 1}️⃣ *${t.title}*\n   📅 Prazo: ${deadlineFormatted} • Prioridade: ${t.priority || 'Média'}${subInfo}`;
+            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
+            return `${idx + 1}️⃣ *${t.title}*\n   📅 Prazo: ${deadlineFormatted} • Prioridade: ${t.priority || 'Média'}${subInfo}\n   👉 Editar: ${quickUrl}`;
           })
           .join('\n\n');
 
-        text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* ${taskUrl}`;
-      }
+        const text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* ${taskUrl}`;
 
-      try {
-        const res = await EvolutionApiService.sendTextMessage({
-          instanceName,
-          to: phone,
-          text,
-          configOverride: orgConfig,
-        });
-        if (res.success) sentCount++;
-      } catch (err) {
-        console.warn(`[WhatsAppNotify] Erro ao enviar resumo em lote para ${targetUser.name}:`, err);
+        try {
+          const res = await EvolutionApiService.sendTextMessage({
+            instanceName,
+            to: phone,
+            text,
+            configOverride: orgConfig,
+          });
+          if (res.success) {
+            sentCount++;
+            WhatsAppReplyService.recordTaskContext(
+              organization.id,
+              phone,
+              userTasks[0].id,
+              userTasks[0].title,
+              res.messageId
+            );
+          }
+        } catch (err) {
+          console.warn(`[WhatsAppNotify] Erro ao enviar resumo em lote para ${targetUser.name}:`, err);
+        }
       }
     }
 
     return { sentCount };
   }
 }
-

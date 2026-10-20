@@ -412,4 +412,81 @@ export class EvolutionApiService {
       };
     }
   }
+
+  /**
+   * Busca mensagens recentes recebidas na instância (para polling / sincronização)
+   */
+  public static async fetchRecentIncomingMessages(
+    instanceName: string,
+    configOverride?: EvolutionIntegrationConfig,
+    limit: number = 30
+  ): Promise<any[]> {
+    const { baseUrl, apiKey } = this.resolveConfig(configOverride);
+    const cleanName = this.sanitizeSlug(instanceName);
+
+    try {
+      const res = await fetch(`${baseUrl}/chat/findMessages/${cleanName}`, {
+        method: 'POST',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          where: {
+            key: {
+              fromMe: false,
+            },
+          },
+          limit,
+        }),
+      });
+
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.records)) return data.records;
+      if (data && Array.isArray(data.messages)) return data.messages;
+      return [];
+    } catch (err) {
+      console.warn(`[EvolutionApiService] Falha ao buscar mensagens de ${cleanName}:`, err);
+      return [];
+    }
+  }
+
+  /**
+   * Configura Webhook da instância para envio de eventos em tempo real
+   */
+  public static async setInstanceWebhook(
+    instanceName: string,
+    webhookUrl: string,
+    configOverride?: EvolutionIntegrationConfig
+  ): Promise<{ success: boolean; error?: string }> {
+    const { baseUrl, apiKey } = this.resolveConfig(configOverride);
+    const cleanName = this.sanitizeSlug(instanceName);
+
+    try {
+      const res = await fetch(`${baseUrl}/webhook/set/${cleanName}`, {
+        method: 'POST',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enabled: true,
+          url: webhookUrl,
+          webhookByEvents: false,
+          events: ['MESSAGES_UPSERT'],
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { success: false, error: data.message || `Erro HTTP ${res.status}` };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erro ao configurar webhook' };
+    }
+  }
 }
+

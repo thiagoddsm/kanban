@@ -27,6 +27,7 @@ import { FirestoreRepository } from '../services/firestoreRepository';
 import { EntitlementsService } from '../services/entitlementsService';
 import { EvolutionApiService, DEFAULT_EVOLUTION_CONFIG } from '../services/evolutionApiService';
 import { WhatsAppNotificationService } from '../services/whatsappNotificationService';
+import { WhatsAppReplyService } from '../services/whatsappReplyService';
 import { useAuth } from './AuthContext';
 
 import { useTenant } from './TenantContext';
@@ -174,6 +175,9 @@ interface DataContextType {
   addComment: (taskId: string, content: string, mentionedUserIds?: string[]) => void;
   getCommentsForTask: (taskId: string) => Comment[];
 
+  // WhatsApp Bidirectional & Deadlines
+  triggerDeadlineRemindersNow: () => Promise<number>;
+
   // Reset & Archive Loader
   fetchArchivedData: () => Promise<void>;
   resetAllData: () => void;
@@ -195,7 +199,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
-  const { currentOrganization, currentCampus, campuses } = useTenant();
+  const { currentOrganization, currentCampus, campuses, updateOrganization } = useTenant();
   const { memberships } = useAccess();
   const { success, warning, error: notifyError, info } = useNotification();
 
@@ -728,6 +732,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }
 
+    // Automation Trigger: TASK_CHECKLIST_PROGRESS (In-App + WhatsApp)
+    if (oldTask && updatedTask.checklist && updatedTask.checklist.length > 0) {
+      const oldList = (oldTask.checklist || []).map((i: any) =>
+        typeof i === 'string' ? { text: i, completed: false } : i
+      );
+      const newList = (updatedTask.checklist || []).map((i: any) =>
+        typeof i === 'string' ? { text: i, completed: false } : i
+      );
+      const newlyCompleted = newList.find(
+        (newItem, idx) => newItem.completed && !oldList[idx]?.completed
+      );
+      if (newlyCompleted) {
+        const assignees = orgUsers.filter(
+          (u) =>
+            (updatedTask.assigneeIds || []).includes(u.id) ||
+            u.id === updatedTask.assigneeId
+        );
+        if (assignees.length > 0) {
+          WhatsAppNotificationService.notifyChecklistProgress({
+            organization: currentOrganization,
+            task: updatedTask,
+            targetUsers: assignees,
+            actorUser: currentUser,
+            completedItemText: newlyCompleted.text,
+          });
+        }
+      }
+    }
 
     success('Tarefa atualizada!', updatedTask.title);
   }, [rawTasks, rawEvents, campuses, currentOrganization, currentUser, orgUsers, warning, success]);
@@ -936,6 +968,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     FirestoreRepository.recordActivity(act);
     success('Demanda Aprovada!', `"${task.title}" foi aprovada e movida para "Aprovado pela Revisão".`);
   }, [rawTasks, currentOrganization, currentUser, success]);
+
+  // Disparo manual ou sob demanda dos resumos de prazos
+  const triggerDeadlineRemindersNow = useCallback(async (): Promise<number> => {
+    try {
+      const res = await WhatsAppNotificationService.notifyDeadlineReminders({
+        organization: currentOrganization,
+        tasks: rawTasks,
+        users: orgUsers,
+        actorUser: currentUser,
+      });
+      if (res.sentCount > 0) {
+        success(
+          'Lembretes de Prazo Enviados!',
+          `Disparados ${res.sentCount} resumo(s) de prazos via WhatsApp para a equipe.`
+        );
+      } else {
+        info(
+          'Nenhuma Demanda Próxima',
+          'Não há tarefas ativas vencendo hoje ou em 2 dias com responsáveis notificados.'
+        );
+      }
+      return res.sentCount;
+    } catch (err) {
+      console.error('Erro ao disparar lembretes de prazo:', err);
+      notifyError('Erro no disparo', 'Falha ao processar lembretes de prazo via WhatsApp.');
+      return 0;
+    }
+  }, [currentOrganization, rawTasks, orgUsers, currentUser, success, info, notifyError]);
 
   const archiveTask = useCallback((taskId: string, isArchived: boolean) => {
     const task = rawTasks.find((t) => t.id === taskId);
@@ -1379,6 +1439,59 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [comments]);
 
+  // ── Sincronizador de Respostas do WhatsApp (Bidirecional) ──
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+    const cleanup = WhatsAppReplyService.startListening({
+      organization: currentOrganization,
+      users: orgUsers,
+      tasks: rawTasks,
+      onUpdateTask: updateTask,
+      onAddComment: addComment,
+    });
+    return cleanup;
+  }, [currentOrganization, orgUsers, rawTasks, updateTask, addComment]);
+
+  // ── Verificador Matinal de Prazos (08:30) ──
+  useEffect(() => {
+    if (!currentOrganization?.id) return;
+    const orgConfig = currentOrganization.evolutionConfig;
+    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) return;
+
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    if (orgConfig?.lastDeadlineReminderDate === todayStr) return;
+
+    const [targetHour, targetMinute] = (orgConfig?.deadlineNotificationTime || '08:30')
+      .split(':')
+      .map((n) => parseInt(n, 10));
+
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    if (
+      currentHour > targetHour ||
+      (currentHour === targetHour && currentMinute >= (targetMinute || 0))
+    ) {
+      WhatsAppNotificationService.notifyDeadlineReminders({
+        organization: currentOrganization,
+        tasks: rawTasks,
+        users: orgUsers,
+        actorUser: currentUser,
+      }).then((res) => {
+        if (res.sentCount > 0) {
+          console.log(`[DeadlineReminder] Enviados ${res.sentCount} resumos matinais de prazo.`);
+        }
+        updateOrganization(currentOrganization.id, {
+          evolutionConfig: {
+            ...orgConfig,
+            lastDeadlineReminderDate: todayStr,
+          },
+        });
+      });
+    }
+  }, [currentOrganization, rawTasks, orgUsers, currentUser, updateOrganization]);
+
   // Demand Types Management
   const addDemandType = useCallback((newType: DemandTypeDefinition) => {
     const updated = [...demandTypes, newType];
@@ -1633,6 +1746,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     getEventStats,
     addComment,
     getCommentsForTask,
+    triggerDeadlineRemindersNow,
     fetchArchivedData,
     resetAllData,
     memberJourneys: rawMemberJourneys,
@@ -1654,7 +1768,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     createTask, updateTask, moveTask, archiveTask, deleteTask, restoreTask, permanentlyDeleteTask,
     checkDependencies, remindPredecessors, blockTaskWithReason, unblockTask, approveTask,
     createEvent, createEventFromTemplate, updateEvent, archiveEvent, deleteEvent, getEventStats,
-    addComment, getCommentsForTask, fetchArchivedData, resetAllData,
+    addComment, getCommentsForTask, triggerDeadlineRemindersNow, fetchArchivedData, resetAllData,
     rawMemberJourneys, addMemberJourney, updateMemberJourney, deleteMemberJourney,
     rawPastoralAppointments, addPastoralAppointment, updatePastoralAppointment, deletePastoralAppointment,
   ]);
