@@ -1475,20 +1475,35 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [comments]);
 
   // ── Sincronizador de Respostas do WhatsApp (Bidirecional) ──
+  const orgUsersRef = useRef(orgUsers);
+  orgUsersRef.current = orgUsers;
+  const rawTasksRef = useRef(rawTasks);
+  rawTasksRef.current = rawTasks;
+  const commentsRef = useRef(comments);
+  commentsRef.current = comments;
+  const updateTaskRef = useRef(updateTask);
+  updateTaskRef.current = updateTask;
+  const addCommentRef = useRef(addComment);
+  addCommentRef.current = addComment;
+
   useEffect(() => {
     if (!currentOrganization?.id) return;
     const cleanup = WhatsAppReplyService.startListening({
       organization: currentOrganization,
-      getUsers: () => orgUsers,
-      getTasks: () => rawTasks,
-      getComments: () => comments,
-      onUpdateTask: updateTask,
+      getUsers: () => orgUsersRef.current,
+      getTasks: () => rawTasksRef.current,
+      getComments: () => commentsRef.current,
+      onUpdateTask: (task) => updateTaskRef.current(task),
       onAddComment: (taskId, content, author) => {
-        addComment(taskId, content, undefined, author);
+        addCommentRef.current(taskId, content, undefined, author);
       },
     });
     return cleanup;
-  }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.enableWhatsAppReplies, updateTask, addComment]);
+  }, [
+    currentOrganization.id,
+    currentOrganization.evolutionConfig?.isEnabled,
+    currentOrganization.evolutionConfig?.enableWhatsAppReplies,
+  ]);
 
   // ── Verificador Matinal de Prazos (Execução Única por Dia com Lock Síncrono) ──
   const isCheckingDeadlinesRef = useRef(false);

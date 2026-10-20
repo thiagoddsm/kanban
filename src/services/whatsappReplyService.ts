@@ -6,6 +6,7 @@ import { StorageService } from './storageService';
 const PROCESSED_MSGS_KEY = 'oiko_wa_processed_messages_v1';
 const CONTEXT_LOCAL_KEY_PREFIX = 'oiko_wa_context_';
 const LEADER_KEY_PREFIX = 'oiko_wa_poll_leader_';
+const LAST_POLL_TS_KEY = 'oiko_wa_last_poll_ts_';
 const TAB_SESSION_ID = Math.random().toString(36).substring(2, 9);
 
 export class WhatsAppReplyService {
@@ -13,6 +14,7 @@ export class WhatsAppReplyService {
   private static pollingIntervals = new Map<string, NodeJS.Timeout>();
   private static lastCheckTimestamps = new Map<string, number>();
   private static isPollingMap = new Map<string, boolean>();
+  private static isInitialized = new Map<string, boolean>();
 
   static {
     try {
@@ -481,9 +483,16 @@ export class WhatsAppReplyService {
     }
 
     const instanceName = orgConfig?.instanceName || 'Oiko_Gestao';
-    // Ouve mensagens recebidas nos últimos 45 minutos para capturar respostas recém enviadas
+
+    // 🔒 Inicializa timestamp: NUNCA olha 45 minutos no passado.
+    // Começa exatamente em AGORA (Date.now()), ou recupera no máximo 30s se a página deu reload rápido
     if (!this.lastCheckTimestamps.has(orgId)) {
-      this.lastCheckTimestamps.set(orgId, Date.now() - 45 * 60 * 1000);
+      const savedTs = Number(localStorage.getItem(`${LAST_POLL_TS_KEY}${orgId}`) || 0);
+      const startTs = savedTs > 0 ? Math.max(savedTs, Date.now() - 30 * 1000) : Date.now();
+      this.lastCheckTimestamps.set(orgId, startTs);
+      try {
+        localStorage.setItem(`${LAST_POLL_TS_KEY}${orgId}`, startTs.toString());
+      } catch {}
     }
 
     const poll = async () => {
@@ -518,6 +527,24 @@ export class WhatsAppReplyService {
           orgConfig,
           50
         );
+
+        // 🛡️ 3. Dreno do histórico no primeiro boot: marca todas as mensagens preexistentes no WhatsApp
+        // como já processadas para NUNCA re-executar mensagens antigas após refresh / reload!
+        if (!this.isInitialized.get(orgId)) {
+          this.isInitialized.set(orgId, true);
+          for (const msg of messages) {
+            const mId = msg.key?.id;
+            if (mId) {
+              this.markMessageAsProcessed(mId);
+            }
+          }
+          const nowTs = Date.now();
+          this.lastCheckTimestamps.set(orgId, nowTs);
+          try {
+            localStorage.setItem(`${LAST_POLL_TS_KEY}${orgId}`, nowTs.toString());
+          } catch {}
+          return;
+        }
 
         const lastCheck = this.lastCheckTimestamps.get(orgId) || 0;
         let newestTimestamp = lastCheck;
@@ -594,6 +621,9 @@ export class WhatsAppReplyService {
         }
 
         this.lastCheckTimestamps.set(orgId, newestTimestamp);
+        try {
+          localStorage.setItem(`${LAST_POLL_TS_KEY}${orgId}`, newestTimestamp.toString());
+        } catch {}
       } catch (err) {
         // Silencioso em caso de erro temporário de rede
       } finally {

@@ -49,6 +49,8 @@ export interface SendMessageResult {
 }
 
 export class EvolutionApiService {
+  private static outboundMessageDebounce = new Map<string, number>();
+
   /**
    * Resolve a configuração ativa (priorizando custom / org -> default)
    */
@@ -368,6 +370,18 @@ export class EvolutionApiService {
         error: 'Número de telefone destinatário inválido ou incompleto.',
       };
     }
+
+    // 🔒 Rate-limiter anti-duplicação: impede envio da mesma mensagem exata para o mesmo número em < 10s
+    const debounceKey = `${formattedPhone}_${(text || '').trim()}`;
+    const lastSentAt = this.outboundMessageDebounce.get(debounceKey) || 0;
+    if (Date.now() - lastSentAt < 10000) {
+      console.warn(`[EvolutionApiService] Mensagem idêntica para ${formattedPhone} suprimida pelo rate-limiter (<10s).`);
+      return {
+        success: true,
+        instanceUsed: cleanName,
+      };
+    }
+    this.outboundMessageDebounce.set(debounceKey, Date.now());
 
     const payload = {
       number: formattedPhone,
