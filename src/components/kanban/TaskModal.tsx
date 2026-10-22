@@ -365,18 +365,34 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   const handleAddCheckItem = () => {
     if (!newCheckText.trim()) return;
     const newItem: ChecklistItem = {
-      id: 'chk_' + Date.now().toString(36),
+      id: 'chk_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       text: newCheckText.trim(),
       completed: false,
     };
-    setChecklist((prev) => [...prev, newItem]);
+    const updated = [...checklist, newItem];
+    setChecklist(updated);
     setNewCheckText('');
-    // Não chama updateTask: o salvamento ocorre ao clicar em "Salvar Alterações"
+
+    // Persiste imediatamente mesclando todo o formulário preenchido
+    const consolidated = getConsolidatedTask({ checklist: updated });
+    updateTask(consolidated);
   };
 
   const handleRemoveCheckItem = (itemId: string) => {
-    setChecklist((prev) => prev.filter((i) => i.id !== itemId));
-    // Não chama updateTask: salva junto com o restante ao clicar em "Salvar Alterações"
+    const updated = checklist.filter((i) => i.id !== itemId);
+    setChecklist(updated);
+
+    // Persiste imediatamente mesclando todo o formulário preenchido
+    const consolidated = getConsolidatedTask({ checklist: updated });
+    updateTask(consolidated);
+  };
+
+  const handleUpdateCheckItem = (itemId: string, patch: Partial<ChecklistItem>) => {
+    const updated = checklist.map((i) => (i.id === itemId ? { ...i, ...patch } : i));
+    setChecklist(updated);
+
+    const consolidated = getConsolidatedTask({ checklist: updated });
+    updateTask(consolidated);
   };
 
   const handleAddAttachment = () => {
@@ -820,12 +836,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                     {/* Sub-assignee */}
                     <select
                       value={item.assigneeId || ''}
-                      onChange={(e) => {
-                        const newAssignee = e.target.value;
-                        setChecklist((prev) =>
-                          prev.map((i) => (i.id === item.id ? { ...i, assigneeId: newAssignee || undefined } : i))
-                        );
-                      }}
+                      onChange={(e) => handleUpdateCheckItem(item.id, { assigneeId: e.target.value || undefined })}
                       className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] text-slate-300 focus:outline-none"
                     >
                       <option value="">Sem responsável</option>
@@ -840,12 +851,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                     <input
                       type="date"
                       value={item.dueDate || ''}
-                      onChange={(e) => {
-                        const newDate = e.target.value;
-                        setChecklist((prev) =>
-                          prev.map((i) => (i.id === item.id ? { ...i, dueDate: newDate || undefined } : i))
-                        );
-                      }}
+                      onChange={(e) => handleUpdateCheckItem(item.id, { dueDate: e.target.value || undefined })}
                       className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] text-slate-300 focus:outline-none"
                     />
 
