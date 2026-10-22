@@ -109,12 +109,16 @@ export const NewDemandModal: React.FC<NewDemandModalProps> = ({
 
   const handleAddAttachment = () => {
     if (!attTitle.trim() || !attUrl.trim()) return;
+    let formattedUrl = attUrl.trim();
+    if (!/^https?:\/\//i.test(formattedUrl) && !formattedUrl.startsWith('/')) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
     setAttachmentLinks([
       ...attachmentLinks,
       {
         id: 'att_' + Date.now().toString(36),
         title: attTitle.trim(),
-        url: attUrl.trim(),
+        url: formattedUrl,
         type: attType,
       },
     ]);

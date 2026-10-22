@@ -1060,6 +1060,50 @@ export class FirestoreRepository {
   }
 
   /**
+   * Fetch all activities for an organization from Firestore
+   */
+  public static async fetchActivities(orgId: string): Promise<ActivityLog[]> {
+    if (!isFirebaseConfigured || !db || !orgId) {
+      return StorageService.getActivities(orgId);
+    }
+    try {
+      const col = collection(db, 'organizations', orgId, 'activities');
+      const snap = await getDocs(col);
+      if (snap.empty) {
+        return StorageService.getActivities(orgId);
+      }
+      const list = snap.docs.map((d) => d.data() as ActivityLog);
+      list.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      StorageService.saveActivities(orgId, list);
+      return list;
+    } catch (e) {
+      console.warn('Aviso: lendo atividades do cache local:', e);
+      return StorageService.getActivities(orgId);
+    }
+  }
+
+  /**
+   * Realtime subscription for audit activities
+   */
+  public static subscribeActivities(orgId: string, callback: (activities: ActivityLog[]) => void): () => void {
+    if (!isFirebaseConfigured || !db || !orgId) return () => {};
+
+    try {
+      const col = collection(db, 'organizations', orgId, 'activities');
+      return onSnapshot(col, (snap) => {
+        const activities = snap.docs.map((d) => d.data() as ActivityLog);
+        activities.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+        callback(activities);
+      }, (err) => {
+        console.warn('Subscription error for activities:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to subscribe to activities:', e);
+      return () => {};
+    }
+  }
+
+  /**
    * Save Comment to /organizations/{orgId}/comments/{commentId}
    */
   public static async saveComment(comment: Comment): Promise<void> {

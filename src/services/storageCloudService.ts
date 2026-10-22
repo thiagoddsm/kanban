@@ -5,6 +5,8 @@ export interface UploadProgressCallback {
   (progress: number): void;
 }
 
+import { sanitizeHeaderValue, getFileMimeType } from './storageUploadService';
+
 export class StorageCloudService {
   /**
    * Upload an attachment or deliverable for a specific task in an organization
@@ -19,16 +21,22 @@ export class StorageCloudService {
     }
 
     const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `organizations/${orgId}/tasks/${taskId}/${timestamp}_${sanitizedName}`;
+    const resolvedMime = getFileMimeType(file);
+    const sanitizedName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.-]/g, '_');
+    const safeOrgId = (orgId && orgId.trim() !== '') ? orgId.trim() : 'default_org';
+    const safeTaskId = (taskId && taskId.trim() !== '') ? taskId.trim() : 'temp_task';
+    const storagePath = `organizations/${safeOrgId}/tasks/${safeTaskId}/${timestamp}_${sanitizedName}`;
     const fileRef = ref(storage, storagePath);
 
     const snapshot = await uploadBytes(fileRef, file, {
-      contentType: file.type,
+      contentType: resolvedMime,
       customMetadata: {
-        orgId,
-        taskId,
-        originalName: file.name,
+        orgId: sanitizeHeaderValue(safeOrgId),
+        taskId: sanitizeHeaderValue(safeTaskId),
+        originalName: sanitizeHeaderValue(file.name),
       },
     });
 
@@ -53,16 +61,22 @@ export class StorageCloudService {
     }
 
     const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `organizations/${orgId}/events/${eventId}/${timestamp}_${sanitizedName}`;
+    const resolvedMime = getFileMimeType(file);
+    const sanitizedName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.-]/g, '_');
+    const safeOrgId = (orgId && orgId.trim() !== '') ? orgId.trim() : 'default_org';
+    const safeEventId = (eventId && eventId.trim() !== '') ? eventId.trim() : 'temp_event';
+    const storagePath = `organizations/${safeOrgId}/events/${safeEventId}/${timestamp}_${sanitizedName}`;
     const fileRef = ref(storage, storagePath);
 
     const snapshot = await uploadBytes(fileRef, file, {
-      contentType: file.type,
+      contentType: resolvedMime,
       customMetadata: {
-        orgId,
-        eventId,
-        originalName: file.name,
+        orgId: sanitizeHeaderValue(safeOrgId),
+        eventId: sanitizeHeaderValue(safeEventId),
+        originalName: sanitizeHeaderValue(file.name),
       },
     });
 
@@ -85,15 +99,20 @@ export class StorageCloudService {
       throw new Error('Firebase Storage não inicializado.');
     }
 
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const storagePath = `users/${userId}/avatar/${sanitizedName}`;
+    const resolvedMime = getFileMimeType(file);
+    const sanitizedName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.-]/g, '_');
+    const safeUserId = (userId && userId.trim() !== '') ? userId.trim() : 'unknown_user';
+    const storagePath = `users/${safeUserId}/avatar/${sanitizedName}`;
     const fileRef = ref(storage, storagePath);
 
     const snapshot = await uploadBytes(fileRef, file, {
-      contentType: file.type,
+      contentType: resolvedMime,
       customMetadata: {
-        userId,
-        originalName: file.name,
+        userId: sanitizeHeaderValue(safeUserId),
+        originalName: sanitizeHeaderValue(file.name),
       },
     });
 

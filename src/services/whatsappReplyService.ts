@@ -355,6 +355,19 @@ export class WhatsAppReplyService {
       };
       onUpdateTask(updated);
 
+      FirestoreRepository.recordActivity({
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: organization.id,
+        campusId: task.campusId,
+        userId: senderUser?.id || `wa_${cleanSender.slice(-8)}`,
+        userName: `${senderName} (WhatsApp)`,
+        action: 'moveu para Em Andamento via WhatsApp',
+        targetType: 'task',
+        targetId: task.id,
+        targetTitle: task.title,
+        timestamp: new Date().toISOString(),
+      });
+
       if (messageId) {
         this.markMessageAsProcessed(messageId);
       }
@@ -377,6 +390,19 @@ export class WhatsAppReplyService {
         updatedAt: new Date().toISOString(),
       };
       onUpdateTask(updated);
+
+      FirestoreRepository.recordActivity({
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: organization.id,
+        campusId: task.campusId,
+        userId: senderUser?.id || `wa_${cleanSender.slice(-8)}`,
+        userName: `${senderName} (WhatsApp)`,
+        action: 'enviou para Revisão via WhatsApp',
+        targetType: 'task',
+        targetId: task.id,
+        targetTitle: task.title,
+        timestamp: new Date().toISOString(),
+      });
 
       if (messageId) {
         this.markMessageAsProcessed(messageId);
@@ -407,6 +433,19 @@ export class WhatsAppReplyService {
         updatedAt: new Date().toISOString(),
       };
       onUpdateTask(updated);
+
+      FirestoreRepository.recordActivity({
+        id: 'act_' + Math.random().toString(36).substring(2, 9),
+        organizationId: organization.id,
+        campusId: task.campusId,
+        userId: senderUser?.id || `wa_${cleanSender.slice(-8)}`,
+        userName: `${senderName} (WhatsApp)`,
+        action: 'marcou como Concluído via WhatsApp',
+        targetType: 'task',
+        targetId: task.id,
+        targetTitle: task.title,
+        timestamp: new Date().toISOString(),
+      });
 
       if (messageId) {
         this.markMessageAsProcessed(messageId);
@@ -443,6 +482,19 @@ export class WhatsAppReplyService {
           updatedAt: new Date().toISOString(),
         };
         onUpdateTask(updatedTask);
+
+        FirestoreRepository.recordActivity({
+          id: 'act_' + Math.random().toString(36).substring(2, 9),
+          organizationId: organization.id,
+          campusId: task.campusId,
+          userId: senderUser?.id || `wa_${cleanSender.slice(-8)}`,
+          userName: `${senderName} (WhatsApp)`,
+          action: `${newCompleted ? 'concluiu' : 'desmarcou'} a subtarefa "${targetItem.text}" via WhatsApp`,
+          targetType: 'task',
+          targetId: task.id,
+          targetTitle: task.title,
+          timestamp: new Date().toISOString(),
+        });
 
         if (messageId) {
           this.markMessageAsProcessed(messageId);
@@ -493,6 +545,19 @@ export class WhatsAppReplyService {
     if (commentAdded === false) {
       return { success: false };
     }
+
+    FirestoreRepository.recordActivity({
+      id: 'act_' + Math.random().toString(36).substring(2, 9),
+      organizationId: organization.id,
+      campusId: task.campusId,
+      userId: senderUser?.id || authorData.id,
+      userName: `${authorData.name} (WhatsApp)`,
+      action: `comentou via WhatsApp: "${actionText.slice(0, 80)}${actionText.length > 80 ? '...' : ''}"`,
+      targetType: 'task',
+      targetId: task.id,
+      targetTitle: task.title,
+      timestamp: new Date().toISOString(),
+    });
 
     if (messageId) {
       this.markMessageAsProcessed(messageId);

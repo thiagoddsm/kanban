@@ -297,6 +297,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+    const unsubActivities = FirestoreRepository.subscribeActivities(currentOrganization.id, (remoteActivities) => {
+      if (remoteActivities) {
+        setActivities(remoteActivities);
+        StorageService.saveActivities(currentOrganization.id, remoteActivities);
+      }
+    });
+
     return () => {
       unsubTasks();
       unsubEvents();
@@ -305,6 +312,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       unsubConfig();
       unsubMembers();
       unsubPastoral();
+      unsubActivities();
     };
   }, [currentOrganization.id, currentUser?.id]);
 
@@ -741,19 +749,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const updated = StorageService.updateTask(updatedTask);
     setRawTasks(updated);
     
-    // Gravação assíncrona com controle de concorrência otimista
-    // Usa a versão mais atualizada possível (entre rawTasks e a task passada no argumento)
-    const latestInStore = rawTasks.find((t) => t.id === task.id);
-    const latestVersion = Math.max(latestInStore?.version || 0, task.version || 0);
-    FirestoreRepository.saveTask(updatedTask, latestVersion).then((res) => {
-      if (res.conflict && res.remoteTask) {
-        warning(
-          'Conflito de edição simultânea!',
-          `A tarefa "${res.remoteTask.title}" foi alterada recentemente por outro membro da equipe. A versão mais recente foi carregada.`
-        );
-        setRawTasks((prev) => prev.map((t) => (t.id === res.remoteTask!.id ? res.remoteTask! : t)));
-      } else if (res.success && res.newVersion) {
-        // Atualiza versão em rawTasks para evitar conflito falso na próxima gravação
+    // Gravação assíncrona no Firestore
+    FirestoreRepository.saveTask(updatedTask).then((res) => {
+      if (res.success && res.newVersion) {
         setRawTasks((prev) =>
           prev.map((t) => (t.id === updatedTask.id ? { ...t, version: res.newVersion! } : t))
         );
@@ -779,6 +777,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     // Automation Trigger: TASK_CHECKLIST_PROGRESS (In-App + WhatsApp)
+    let newlyCompletedItemText: string | undefined;
     if (oldTask && updatedTask.checklist && updatedTask.checklist.length > 0) {
       const oldList = (oldTask.checklist || []).map((i: any) =>
         typeof i === 'string' ? { text: i, completed: false } : i
@@ -790,6 +789,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         (newItem, idx) => newItem.completed && !oldList[idx]?.completed
       );
       if (newlyCompleted) {
+        newlyCompletedItemText = newlyCompleted.text;
         const assignees = orgUsers.filter(
           (u) =>
             (updatedTask.assigneeIds || []).includes(u.id) ||
@@ -804,6 +804,47 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             completedItemText: newlyCompleted.text,
           });
         }
+      }
+    }
+
+    // Auditoria cronológica de alterações na demanda
+    if (oldTask) {
+      let actionDesc: string | null = null;
+      if (oldTask.status !== updatedTask.status) {
+        const colDef = KANBAN_COLUMNS.find((c) => c.id === updatedTask.status);
+        actionDesc = `moveu para ${colDef ? colDef.title : updatedTask.status}`;
+      } else if (newlyCompletedItemText) {
+        actionDesc = `concluiu a subtarefa "${newlyCompletedItemText}"`;
+      } else if (oldTask.priority !== updatedTask.priority) {
+        actionDesc = `alterou prioridade para ${updatedTask.priority}`;
+      } else if (oldTask.deadline !== updatedTask.deadline) {
+        actionDesc = `alterou o prazo para ${updatedTask.deadline ? new Date(updatedTask.deadline + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem prazo'}`;
+      } else if (oldTask.assigneeId !== updatedTask.assigneeId || JSON.stringify(oldTask.assigneeIds || []) !== JSON.stringify(updatedTask.assigneeIds || [])) {
+        actionDesc = `atualizou os responsáveis (${updatedTask.assigneeName || 'Equipe'})`;
+      } else if (oldTask.title !== updatedTask.title) {
+        actionDesc = `alterou o título para "${updatedTask.title}"`;
+      } else if (oldTask.description !== updatedTask.description) {
+        actionDesc = `atualizou a descrição da demanda`;
+      } else if ((oldTask.attachmentLinks || []).length !== (updatedTask.attachmentLinks || []).length) {
+        actionDesc = `atualizou os anexos da demanda`;
+      }
+
+      if (actionDesc) {
+        const newActivity: ActivityLog = {
+          id: 'act_' + Math.random().toString(36).substring(2, 9),
+          organizationId: currentOrganization.id,
+          campusId: updatedTask.campusId,
+          userId: currentUser?.id || 'sys',
+          userName: currentUser?.name || 'Sistema',
+          action: actionDesc,
+          targetType: 'task',
+          targetId: updatedTask.id,
+          targetTitle: updatedTask.title,
+          timestamp: new Date().toISOString(),
+        };
+        setActivities((prev) => [newActivity, ...prev.filter((a) => a.id !== newActivity.id)]);
+        StorageService.addActivity(newActivity);
+        FirestoreRepository.recordActivity(newActivity);
       }
     }
 

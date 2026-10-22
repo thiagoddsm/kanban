@@ -22,13 +22,20 @@ service firebase.storage {
         || request.resource.contentType.matches('application/pdf')
         || request.resource.contentType.matches('application/zip')
         || request.resource.contentType.matches('application/x-zip-compressed')
+        || request.resource.contentType.matches('application/x-rar-compressed')
+        || request.resource.contentType.matches('application/x-7z-compressed')
+        || request.resource.contentType.matches('application/octet-stream')
+        || request.resource.contentType.matches('application/postscript')
         || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
-        || request.resource.contentType.matches('application/msword');
+        || request.resource.contentType.matches('application/msword')
+        || request.resource.contentType.matches('application/vnd.ms-excel.*')
+        || request.resource.contentType.matches('application/vnd.ms-powerpoint.*')
+        || request.resource.contentType.matches('text/.*');
     }
 
     // 1. User Avatars (max 5MB, images only)
     match /users/{userId}/avatar/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isOwner(userId) 
         && isValidFileSize(5) 
         && request.resource.contentType.matches('image/.*');
@@ -37,16 +44,15 @@ service firebase.storage {
 
     // 2. Organization Task Attachments & Deliverables (max 50MB)
     match /organizations/{orgId}/tasks/{taskId}/{fileName} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() 
-        && isValidFileSize(50) 
+      allow read: if true;
+      allow create: if isValidFileSize(50) 
         && isAllowedFileType();
-      allow delete: if isAuthenticated();
+      allow update, delete: if isAuthenticated();
     }
 
     // 3. Organization Event Assets & Media (max 50MB)
     match /organizations/{orgId}/events/{eventId}/{fileName} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAuthenticated() 
         && isValidFileSize(50) 
         && isAllowedFileType();

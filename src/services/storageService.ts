@@ -457,9 +457,14 @@ export class StorageService {
 
   static addActivity(activity: ActivityLog): ActivityLog[] {
     const activities = this.getActivities(activity.organizationId);
-    const updated = [activity, ...activities].slice(0, 100);
+    const updated = [activity, ...activities.filter((a) => a.id !== activity.id)].slice(0, 200);
     localStorage.setItem(getOrgKey(activity.organizationId, 'activities'), JSON.stringify(updated));
     return updated;
+  }
+
+  static saveActivities(orgId: string, activities: ActivityLog[]): void {
+    const key = getOrgKey(orgId, 'activities');
+    localStorage.setItem(key, JSON.stringify(activities.slice(0, 200)));
   }
 
   // --- CUSTOM DEMAND TYPES (Scoped by Org) ---

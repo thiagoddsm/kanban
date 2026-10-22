@@ -6,7 +6,7 @@ import { useAccess } from '../../context/AccessContext';
 import { useTenant } from '../../context/TenantContext';
 import { useNotification } from '../../context/NotificationContext';
 import { StorageUploadService } from '../../services/storageUploadService';
-import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem, User } from '../../types';
+import { Task, TaskPriority, TaskStatus, DemandType, AttachmentLink, ChecklistItem, User, ActivityLog } from '../../types';
 import { PriorityBadge, StatusBadge, DemandTypeBadge } from '../common/Badge';
 import { 
   X, 
@@ -56,6 +56,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
     deleteTask, 
     addComment, 
     getCommentsForTask,
+    activities,
     blockTaskWithReason,
     unblockTask,
     approveTask,
@@ -64,7 +65,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   const { currentUser } = useAuth();
   const { canAssignResponsible, canChangePriority, canApproveTasks, canArchive } = useAccess();
-  const { campuses } = useTenant();
+  const { campuses, currentOrganization } = useTenant();
   const { success: notifySuccess, error: notifyError } = useNotification();
 
   // Local editable states
@@ -111,7 +112,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   // Tab State
   const [activeModalTab, setActiveModalTab] = useState<'details' | 'history'>('details');
 
-  // Sync state whenever active task changes
+  // Sincroniza o formulário APENAS ao abrir ou trocar de tarefa
   useEffect(() => {
     if (task) {
       setTitle(task.title);
@@ -140,17 +141,122 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
       setBlockReasonInput(task.blockedReason || '');
       setActionRequiredByInput(task.blockedActionRequiredBy || '');
     }
-  }, [task?.id, task?.updatedAt, task?.version]);
+  }, [task?.id]);
+
+  /**
+   * Consolida todos os campos atualmente preenchidos no formulário do modal
+   * com o estado mais recente da tarefa no DataContext, garantindo que NENHUMA
+   * alteração anterior seja sobrescrita por ações parciais (ex: checklist, upload, link).
+   */
+  const getConsolidatedTask = (overrides?: Partial<Task>): Task => {
+    const latestTask = tasks.find((t) => t.id === task.id) || task;
+    const assigneesList = selectedAssigneeIds.map((id) => {
+      const u = users.find((user) => user.id === id);
+      return {
+        id,
+        name: u ? u.name : 'Responsável',
+        avatar: u ? u.avatar : undefined,
+      };
+    });
+
+    return {
+      ...latestTask,
+      title: title.trim() || latestTask.title,
+      description: description.trim(),
+      status,
+      priority,
+      eventId: eventId || undefined,
+      campusId: campusId || undefined,
+      assigneeId: selectedAssigneeIds[0] || undefined,
+      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
+      assigneeAvatar: assigneesList[0]?.avatar,
+      assigneeIds: selectedAssigneeIds,
+      assignees: assigneesList,
+      startDate,
+      deadline,
+      effortEstimate,
+      checklist,
+      attachmentLinks,
+      dependencies,
+      ...overrides,
+    };
+  };
 
   // Direct File Upload State
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { activities } = useData();
   const taskActivities = useMemo(() => {
-    return (activities || []).filter((a) => a.targetId === task.id || a.targetTitle?.includes(task.title));
-  }, [activities, task.id, task.title]);
+    // 1. Atividades registradas diretamente para esta tarefa
+    const rawMatches = (activities || []).filter(
+      (a) => a.targetId === task.id || (a.targetTitle && a.targetTitle.trim() === task.title.trim())
+    );
+
+    const list: ActivityLog[] = [...rawMatches];
+
+    // 2. Se não houver registro de criação explícito nos logs, sintetiza a criação a partir dos dados nativos da tarefa
+    const hasCreation = list.some((a) => a.action?.includes('abriu a demanda') || a.action?.includes('criou'));
+    if (!hasCreation && task.createdAt) {
+      list.push({
+        id: `synth_created_${task.id}`,
+        organizationId: task.organizationId || '',
+        userId: task.createdBy || 'sys',
+        userName: task.createdByName || 'Criador da Demanda',
+        action: 'criou e abriu a demanda',
+        targetType: 'task',
+        targetId: task.id,
+        targetTitle: task.title,
+        timestamp: task.createdAt,
+      });
+    }
+
+    // 3. Se a demanda estiver concluída e não houver registro de conclusão, sintetiza
+    const hasCompletion = list.some((a) => a.action?.includes('conclu') || a.newValue === 'DONE');
+    if (!hasCompletion && task.status === 'DONE' && (task.completedAt || task.updatedAt)) {
+      list.push({
+        id: `synth_completed_${task.id}`,
+        organizationId: task.organizationId || '',
+        userId: task.approverId || task.assigneeId || 'sys',
+        userName: task.approverName || task.assigneeName || 'Equipe',
+        action: 'concluiu a demanda',
+        targetType: 'task',
+        targetId: task.id,
+        targetTitle: task.title,
+        timestamp: task.completedAt || task.updatedAt || new Date().toISOString(),
+      });
+    }
+
+    // 4. Inclui comentários da demanda na linha do tempo cronológica se ainda não constarem
+    const taskComments = getCommentsForTask(task.id);
+    taskComments.forEach((c) => {
+      const alreadyHasComment = list.some((a) => a.action?.includes(c.content.slice(0, 30)));
+      if (!alreadyHasComment) {
+        list.push({
+          id: `comment_act_${c.id}`,
+          organizationId: task.organizationId || '',
+          userId: c.userId,
+          userName: c.userName || 'Membro',
+          action: `comentou: "${(c.content || '').slice(0, 80)}${(c.content || '').length > 80 ? '...' : ''}"`,
+          targetType: 'task',
+          targetId: task.id,
+          targetTitle: task.title,
+          timestamp: c.createdAt,
+        });
+      }
+    });
+
+    // 5. Ordena cronologicamente do mais recente para o mais antigo
+    list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // 6. Deduplica por ID
+    const seen = new Set<string>();
+    return list.filter((item) => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }, [activities, getCommentsForTask, task]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,30 +265,28 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
     try {
       setIsUploading(true);
       setUploadProgress(0);
+      const safeOrgId = task.organizationId || currentOrganization?.id || 'default';
       const newAtt = await StorageUploadService.uploadTaskAttachment(
-        task.organizationId,
+        safeOrgId,
         task.id,
         file,
         currentUser?.name || 'Membro',
         (progress) => setUploadProgress(progress)
       );
 
-      // Atualiza o estado local primeiro
-      const updatedLinks = [...(task.attachmentLinks || []), ...attachmentLinks.filter(a => !task.attachmentLinks?.some(ta => ta.id === a.id)), newAtt];
+      // Atualiza o estado local de anexos
+      const updatedLinks = [...attachmentLinks.filter(a => a.id !== newAtt.id), newAtt];
       setAttachmentLinks(updatedLinks);
 
-      // IMPORTANTE: Persiste imediatamente no Firestore para que outros usuários vejam o anexo.
-      // Sem isso, o arquivo só aparece para os outros após clicar em "Salvar" manualmente.
-      updateTask({
-        ...task,
-        attachmentLinks: updatedLinks,
-      });
+      // Persiste imediatamente no Firestore preservando TODAS as alterações em edição
+      const consolidated = getConsolidatedTask({ attachmentLinks: updatedLinks });
+      updateTask(consolidated);
 
       notifySuccess('Arquivo anexado!', `"${file.name}" foi salvo e já está visível para todos.`);
       setUploadProgress(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro no upload de arquivo:', err);
-      notifyError?.('Falha no Upload', 'Não foi possível fazer o upload do arquivo. Tente novamente.');
+      notifyError?.('Falha no Upload', err?.message || 'Não foi possível fazer o upload do arquivo. Tente novamente.');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -241,48 +345,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   };
 
   const handleSave = () => {
-    const assigneesList = selectedAssigneeIds.map((id) => {
-      const u = users.find((user) => user.id === id);
-      return {
-        id,
-        name: u ? u.name : 'Responsável',
-        avatar: u ? u.avatar : undefined,
-      };
-    });
-
-    updateTask({
-      ...task,
-      title: title.trim() || task.title,
-      description: description.trim(),
-      status,
-      priority,
-      eventId: eventId || undefined,
-      campusId: campusId || undefined,
-      assigneeId: selectedAssigneeIds[0] || undefined,
-      assigneeName: assigneesList.length > 0 ? assigneesList.map((a) => a.name).join(', ') : undefined,
-      assigneeAvatar: assigneesList[0]?.avatar,
-      assigneeIds: selectedAssigneeIds,
-      assignees: assigneesList,
-      startDate,
-      deadline,
-      effortEstimate,
-      checklist,
-      attachmentLinks,
-      dependencies,
-    });
+    const consolidated = getConsolidatedTask();
+    updateTask(consolidated);
+    notifySuccess('Demanda salva!', 'Todas as alterações foram salvas com sucesso.');
     onClose();
   };
 
   const handleToggleCheck = (itemId: string) => {
-    setChecklist((prev) => {
-      const updated = prev.map((item) =>
-        item.id === itemId ? { ...item, completed: !item.completed } : item
-      );
-      // Persiste usando a tarefa mais atualizada em tasks para evitar perda de dados
-      const latestTask = tasks.find((t) => t.id === task.id) || task;
-      updateTask({ ...latestTask, checklist: updated });
-      return updated;
-    });
+    const updated = checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    setChecklist(updated);
+
+    // Persiste imediatamente mesclando todo o formulário preenchido
+    const consolidated = getConsolidatedTask({ checklist: updated });
+    updateTask(consolidated);
   };
 
   const handleAddCheckItem = () => {
@@ -304,19 +381,49 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   const handleAddAttachment = () => {
     if (!attTitle.trim() || !attUrl.trim()) return;
+    let formattedUrl = attUrl.trim();
+    if (!/^https?:\/\//i.test(formattedUrl) && !formattedUrl.startsWith('/')) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
     const newAtt: AttachmentLink = {
-      id: 'att_' + Date.now().toString(36),
+      id: 'att_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5),
       title: attTitle.trim(),
-      url: attUrl.trim(),
+      url: formattedUrl,
       type: attType,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: currentUser?.name || 'Membro',
     };
-    setAttachmentLinks((prev) => [...prev, newAtt]);
+
+    const updatedLinks = [...attachmentLinks, newAtt];
+    setAttachmentLinks(updatedLinks);
+
+    // Persiste imediatamente mesclando todo o formulário preenchido
+    const consolidated = getConsolidatedTask({ attachmentLinks: updatedLinks });
+    updateTask(consolidated);
+
+    notifySuccess('Link salvo!', `"${newAtt.title}" foi adicionado e salvo na demanda.`);
     setAttTitle('');
     setAttUrl('');
   };
 
-  const handleRemoveAttachment = (attId: string) => {
-    setAttachmentLinks((prev) => prev.filter((a) => a.id !== attId));
+  const handleRemoveAttachment = async (attId: string) => {
+    const attToRemove = attachmentLinks.find((a) => a.id === attId);
+    const updatedLinks = attachmentLinks.filter((a) => a.id !== attId);
+    setAttachmentLinks(updatedLinks);
+
+    // Persiste imediatamente mesclando todo o formulário preenchido
+    const consolidated = getConsolidatedTask({ attachmentLinks: updatedLinks });
+    updateTask(consolidated);
+
+    notifySuccess('Item removido', 'O anexo foi excluído da demanda.');
+
+    if (attToRemove?.storagePath) {
+      try {
+        await StorageUploadService.deleteAttachment(attToRemove.storagePath);
+      } catch (err) {
+        console.warn('Erro ao deletar arquivo do Storage:', err);
+      }
+    }
   };
 
   const handleAddDependency = (depId: string) => {
@@ -405,12 +512,12 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                 type="button"
                 onClick={() => {
                   setStatus('DONE');
-                  updateTask({
-                    ...task,
+                  const consolidated = getConsolidatedTask({
                     status: 'DONE',
                     completedAt: new Date().toISOString(),
                   });
-                  notifySuccess('Demanda Concluída!', `"${task.title}" foi marcada como Concluída.`);
+                  updateTask(consolidated);
+                  notifySuccess('Demanda Concluída!', `"${consolidated.title}" foi marcada como Concluída.`);
                   onClose();
                 }}
                 className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md flex items-center gap-1.5 transition-colors"
