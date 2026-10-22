@@ -52,6 +52,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
   const [notifyOnDeadlineApproaching, setNotifyOnDeadlineApproaching] = useState(orgConfig.notifyOnDeadlineApproaching !== false);
   const [deadlineNotificationTime, setDeadlineNotificationTime] = useState(orgConfig.deadlineNotificationTime || '08:30');
   const [enableWhatsAppReplies, setEnableWhatsAppReplies] = useState(orgConfig.enableWhatsAppReplies !== false);
+  const [sendCommentReplyConfirmation, setSendCommentReplyConfirmation] = useState(orgConfig.sendCommentReplyConfirmation !== false);
   const [isTriggeringDeadlines, setIsTriggeringDeadlines] = useState(false);
 
   React.useEffect(() => {
@@ -71,6 +72,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
     setNotifyOnDeadlineApproaching(config.notifyOnDeadlineApproaching !== false);
     setDeadlineNotificationTime(config.deadlineNotificationTime || '08:30');
     setEnableWhatsAppReplies(config.enableWhatsAppReplies !== false);
+    setSendCommentReplyConfirmation(config.sendCommentReplyConfirmation !== false);
   }, [currentOrganization]);
 
   if (!isOpen) return null;
@@ -111,6 +113,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
       notifyOnDeadlineApproaching,
       deadlineNotificationTime,
       enableWhatsAppReplies,
+      sendCommentReplyConfirmation,
       updatedAt: new Date().toISOString(),
     };
 
@@ -326,23 +329,44 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={enableWhatsAppReplies}
-                      onChange={(e) => setEnableWhatsAppReplies(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Respostas & Comandos pelo WhatsApp (Bidirecional)</span>
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Permite responder no WhatsApp para comentar na tarefa, mudar status (1, 2, 3) ou marcar checklist (C1, C2)
-                      </span>
-                    </div>
-                  </label>
+                  <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-2.5">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableWhatsAppReplies}
+                        onChange={(e) => setEnableWhatsAppReplies(e.target.checked)}
+                        className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                      />
+                      <div>
+                        <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Respostas & Comandos pelo WhatsApp (Bidirecional)</span>
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Permite responder no WhatsApp para comentar na tarefa (#T-código), mudar status (1, 2, 3) ou marcar checklist
+                        </span>
+                      </div>
+                    </label>
+
+                    {enableWhatsAppReplies && (
+                      <div className="pt-2 pl-6 border-t border-slate-800/60">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={sendCommentReplyConfirmation}
+                            onChange={(e) => setSendCommentReplyConfirmation(e.target.checked)}
+                            className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                          />
+                          <div>
+                            <span className="text-xs font-medium text-slate-300 block">Enviar confirmação "💬 Comentário Registrado!"</span>
+                            <span className="text-[10px] text-slate-500 block">
+                              Desmarque para silenciar mensagens extras de confirmação no WhatsApp
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
 
                   <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
                     <input

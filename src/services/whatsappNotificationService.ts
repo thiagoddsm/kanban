@@ -118,7 +118,7 @@ export class WhatsAppNotificationService {
     const quickUrl = this.resolveQuickTaskUrl(org, task.id);
     const shortRef = task.id.length > 8 ? task.id.slice(-6) : task.id;
 
-    return `\n\n⚡ *Editar Tarefa:* ${quickUrl}\n\n💬 _Responda no WhatsApp para comentar, ou envie:_\n*1* Em Andamento | *2* Revisão | *3* Concluído | *C1, C2...* Concluir Subtarefa\n🔖 Ref: #T-${shortRef}`;
+    return `\n\n⚡ *Acesso Rápido:* ${quickUrl}\n\n💬 *Como responder:* Digite citando esta mensagem ou envie \`#T-${shortRef}: seu comentário\`\n⚡ *Ações rápidas:* *#T-${shortRef} 1* (Andamento) | *#T-${shortRef} 3* (Concluir) | *#T-${shortRef} C1* (Subtarefa)\n🔖 Ref: #T-${shortRef}`;
   }
 
   /**
@@ -503,73 +503,87 @@ export class WhatsAppNotificationService {
     let sentCount = 0;
     const instanceName = this.resolveInstanceName(organization, actorUser);
 
+    // Agrupa tarefas por TELEFONE normalizado (garante 1 única mensagem consolidada por número físico)
+    const phoneGroups = new Map<string, { user: User; today: Task[]; soon: Task[]; originalPhone: string }>();
+
     for (const [userId, group] of userGroups.entries()) {
       const user = users.find((u) => u.id === userId) || StorageService.getUsers().find((u) => u.id === userId);
       if (!user || user.notifyWhatsApp === false) continue;
       const phone = await this.resolveUserPhone(user);
       if (!phone) continue;
+      const clean = WhatsAppReplyService.cleanPhone(phone);
+      if (!clean) continue;
 
+      const existing = phoneGroups.get(clean) || { user, today: [], soon: [], originalPhone: phone };
+      group.today.forEach((t) => {
+        if (!existing.today.some((et) => et.id === t.id)) existing.today.push(t);
+      });
+      group.soon.forEach((t) => {
+        if (!existing.soon.some((et) => et.id === t.id)) existing.soon.push(t);
+      });
+      phoneGroups.set(clean, existing);
+    }
+
+    for (const [cleanPhone, data] of phoneGroups.entries()) {
+      const { user, today, soon, originalPhone } = data;
       const firstName = (user.name || (user.email ? user.email.split('@')[0] : 'Membro')).split(' ')[0];
       const sections: string[] = [];
 
-      if (group.today.length > 0) {
-        const todayItems = group.today
+      if (today.length > 0) {
+        const todayItems = today
           .map((t, idx) => {
             const chk = t.checklist || [];
             const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
             const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
             const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
-            return `${idx + 1}. *${t.title}*${chkInfo}\n   👉 Editar: ${quickUrl}`;
+            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
+            return `${idx + 1}. *${t.title}* [Ref: \`#T-${shortRef}\`]${chkInfo}\n   👉 Editar: ${quickUrl}`;
           })
           .join('\n');
-        sections.push(`🚨 *VENCENDO HOJE (${group.today.length}):*\n${todayItems}`);
+        sections.push(`🚨 *VENCENDO HOJE (${today.length}):*\n${todayItems}`);
       }
 
-      if (group.soon.length > 0) {
-        const soonItems = group.soon
+      if (soon.length > 0) {
+        const soonItems = soon
           .map((t, idx) => {
             const chk = t.checklist || [];
             const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
             const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
             const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
-            return `${idx + 1}. *${t.title}*${chkInfo}\n   👉 Editar: ${quickUrl}`;
+            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
+            return `${idx + 1}. *${t.title}* [Ref: \`#T-${shortRef}\`]${chkInfo}\n   👉 Editar: ${quickUrl}`;
           })
           .join('\n');
-        sections.push(`⏳ *VENCEM EM 2 DIAS (${group.soon.length}):*\n${soonItems}`);
+        sections.push(`⏳ *VENCEM EM 2 DIAS (${soon.length}):*\n${soonItems}`);
       }
 
       const kanbanUrl = this.resolveTaskUrl(organization);
-      const primeTask = group.today[0] || group.soon[0];
-      const shortRef = primeTask?.id ? (primeTask.id.length > 8 ? primeTask.id.slice(-6) : primeTask.id) : '';
+      const primeTask = today[0] || soon[0];
+      const primeRef = primeTask?.id ? (primeTask.id.length > 8 ? primeTask.id.slice(-6) : primeTask.id) : '';
 
-      let footerGuide = '';
-      if (primeTask) {
-        footerGuide =
-          `\n\n💬 *Como responder ou alterar via WhatsApp:*\n` +
-          `• Responda esta mensagem com seu comentário (ex: "Gravando hoje!")\n` +
-          `• Ou digite: *1* (Em Andamento) | *2* (Revisão) | *3* (Concluir)\n` +
-          `• Digite: *C1*, *C2*... para marcar subtarefa\n` +
-          `🔖 _Demanda ativa: #T-${shortRef} - ${primeTask.title}_`;
-      }
+      const footerGuide =
+        `\n\n💬 *Como responder a uma demanda específica:*\n` +
+        `• Envie: *#T-código:* seu comentário (ex: *#T-${primeRef}:* Concluído hoje!)\n` +
+        `• Ou deslize para responder citando esta mensagem\n` +
+        `• Ações rápidas: *#T-código 1* (Andamento) | *#T-código 3* (Concluir) | *#T-código C1* (Subtarefa)`;
 
       const text = `⏰ *Resumo Matinal de Prazos - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o status das suas entregas:\n\n${sections.join('\n\n')}${footerGuide}\n\n📋 *Acessar Kanban Completo:* ${kanbanUrl}`;
 
       try {
         const res = await EvolutionApiService.sendTextMessage({
           instanceName,
-          to: phone,
+          to: originalPhone,
           text,
           configOverride: orgConfig,
         });
 
         if (res.success) {
           sentCount++;
-          // Se tiver ao menos uma tarefa hoje, salva como contexto ativo
-          const primeTask = group.today[0] || group.soon[0];
+          // Salva como contexto a primeira tarefa (caso responda sem #T-)
           if (primeTask) {
             WhatsAppReplyService.recordTaskContext(
               organization.id,
-              phone,
+              originalPhone,
               primeTask.id,
               primeTask.title,
               res.messageId
@@ -718,11 +732,15 @@ export class WhatsAppNotificationService {
             const subCount = t.checklist?.length || 0;
             const subInfo = subCount > 0 ? `\n   ☑️ _${subCount} subtarefa(s)_` : '';
             const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
-            return `${idx + 1}️⃣ *${t.title}*\n   📅 Prazo: ${deadlineFormatted} • Prioridade: ${t.priority || 'Média'}${subInfo}\n   👉 Editar: ${quickUrl}`;
+            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
+            return `${idx + 1}️⃣ *${t.title}* [Ref: \`#T-${shortRef}\`]\n   📅 Prazo: ${deadlineFormatted} • Prioridade: ${t.priority || 'Média'}${subInfo}\n   👉 Editar: ${quickUrl}`;
           })
           .join('\n\n');
 
-        const text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}\n\n👉 *Acesse todas as suas demandas:* ${taskUrl}`;
+        const primeShort = userTasks[0]?.id ? (userTasks[0].id.length > 8 ? userTasks[0].id.slice(-6) : userTasks[0].id) : '';
+        const guideText = `\n\n💬 *Como responder a uma demanda específica:*\n• Envie *#T-código:* seu comentário (ex: *#T-${primeShort}:* Já recebi a demanda)\n• Ou responda citando esta mensagem\n• Ações rápidas: *#T-código 1* (Andamento) | *#T-código 3* (Concluir)`;
+
+        const text = `📋 *Novas Demandas Atribuídas - Kanban Oiko*\n\nOlá, *${firstName}*!\n*${actorName}* importou/atribuiu *${userTasks.length} demandas* para você:\n\n${taskItemsText}${guideText}\n\n👉 *Acesse todas as suas demandas:* ${taskUrl}`;
 
         try {
           const res = await EvolutionApiService.sendTextMessage({

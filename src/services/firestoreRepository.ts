@@ -32,7 +32,8 @@ import {
   Notification,
   AutomationRule,
   MemberJourneyCard,
-  PastoralCareAppointment
+  PastoralCareAppointment,
+  JarvisMeetingSession
 } from '../types';
 
 function sanitizeForFirestore<T>(data: T): any {
@@ -1660,7 +1661,8 @@ export class FirestoreRepository {
     messageId: string,
     clientId?: string
   ): Promise<boolean> {
-    if (!isFirebaseConfigured || !db || !orgId || !messageId) return false;
+    if (!isFirebaseConfigured || !db) return true;
+    if (!orgId || !messageId) return false;
     const safeId = messageId.replace(/[^a-zA-Z0-9_-]/g, '_');
     try {
       const lockRef = doc(db, 'organizations', orgId, 'whatsapp_locks', safeId);
@@ -1681,6 +1683,154 @@ export class FirestoreRepository {
     } catch (e) {
       console.warn('[FirestoreRepository] Mensagem já reivindicada ou sem permissão:', e);
       return false;
+    }
+  }
+
+  /**
+   * Trava global distribuída para o Resumo Matinal diário.
+   * Garante que apenas 1 instância/dispositivo em toda a organização execute o envio a cada dia.
+   */
+  public static async claimDailyDigest(orgId: string, dateStr: string): Promise<boolean> {
+    if (!isFirebaseConfigured || !db) return true;
+    if (!orgId || !dateStr) return false;
+    try {
+      const digestLockRef = doc(db, 'organizations', orgId, 'daily_digest_locks', dateStr);
+      const claimed = await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(digestLockRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          // Se já concluído ou claim feito há menos de 1 hora, bloqueia reexecução
+          if (data?.status === 'completed' || (Date.now() - (data?.timestamp || 0) < 60 * 60 * 1000)) {
+            return false;
+          }
+        }
+        transaction.set(digestLockRef, {
+          dateStr,
+          status: 'in_progress',
+          timestamp: Date.now(),
+          dispatchedAt: new Date().toISOString(),
+        });
+        return true;
+      });
+      return claimed;
+    } catch (e) {
+      console.warn('[FirestoreRepository] Resumo matinal já reivindicado ou erro no lock:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Conclui a trava do Resumo Matinal diário no Firestore
+   */
+  public static async completeDailyDigest(orgId: string, dateStr: string, sentCount: number): Promise<void> {
+    if (!isFirebaseConfigured || !db || !orgId || !dateStr) return;
+    try {
+      const digestLockRef = doc(db, 'organizations', orgId, 'daily_digest_locks', dateStr);
+      await setDoc(digestLockRef, {
+        dateStr,
+        status: 'completed',
+        sentCount,
+        completedAt: new Date().toISOString(),
+        timestamp: Date.now(),
+      }, { merge: true });
+    } catch (e) {
+      console.warn('[FirestoreRepository] Falha ao finalizar lock do resumo matinal:', e);
+    }
+  }
+
+  // ==========================================
+  // JARVIS LIVE MEETINGS REPOSITORY
+  // ==========================================
+
+  /**
+   * Salva ou atualiza uma sessão de reunião do Jarvis em /organizations/{orgId}/meetings/{meetingId}
+   */
+  public static async saveMeeting(
+    orgId: string,
+    meeting: JarvisMeetingSession
+  ): Promise<boolean> {
+    StorageService.addMeeting(orgId, meeting);
+    if (!isFirebaseConfigured || !db || !orgId || !meeting.id) return true;
+
+    try {
+      const meetingRef = doc(db, 'organizations', orgId, 'meetings', meeting.id);
+      const sanitized = sanitizeForFirestore({
+        ...meeting,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(meetingRef, sanitized, { merge: true });
+      return true;
+    } catch (e) {
+      console.error('[FirestoreRepository] Erro ao salvar reunião do Jarvis:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Busca histórico de reuniões do Jarvis da organização
+   */
+  public static async fetchMeetings(orgId: string): Promise<JarvisMeetingSession[]> {
+    if (!isFirebaseConfigured || !db || !orgId) {
+      return StorageService.getMeetings(orgId);
+    }
+
+    try {
+      const colRef = collection(db, 'organizations', orgId, 'meetings');
+      const snap = await getDocs(colRef);
+      if (snap.empty) {
+        return StorageService.getMeetings(orgId);
+      }
+      const remote = snap.docs.map((d) => d.data() as JarvisMeetingSession);
+      remote.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      StorageService.saveMeetings(orgId, remote);
+      return remote;
+    } catch (e) {
+      console.warn('[FirestoreRepository] Aviso ao buscar reuniões do Jarvis, usando cache local:', e);
+      return StorageService.getMeetings(orgId);
+    }
+  }
+
+  /**
+   * Exclui uma sessão de reunião do Jarvis
+   */
+  public static async deleteMeeting(orgId: string, meetingId: string): Promise<void> {
+    StorageService.deleteMeeting(orgId, meetingId);
+    if (!isFirebaseConfigured || !db || !orgId || !meetingId) return;
+
+    try {
+      const ref = doc(db, 'organizations', orgId, 'meetings', meetingId);
+      await deleteDoc(ref);
+    } catch (e) {
+      console.error('[FirestoreRepository] Erro ao excluir reunião do Jarvis:', e);
+    }
+  }
+
+  /**
+   * Listener em tempo real para reuniões do Jarvis
+   */
+  public static subscribeMeetings(
+    orgId: string,
+    callback: (meetings: JarvisMeetingSession[]) => void
+  ): () => void {
+    if (!isFirebaseConfigured || !db || !orgId) return () => {};
+
+    try {
+      const colRef = collection(db, 'organizations', orgId, 'meetings');
+      return onSnapshot(
+        colRef,
+        (snap) => {
+          const list = snap.docs.map((d) => d.data() as JarvisMeetingSession);
+          list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          StorageService.saveMeetings(orgId, list);
+          callback(list);
+        },
+        (err) => {
+          console.warn('[FirestoreRepository] Erro no listener de reuniões do Jarvis:', err);
+        }
+      );
+    } catch (e) {
+      console.warn('[FirestoreRepository] Falha ao assinar reuniões do Jarvis:', e);
+      return () => {};
     }
   }
 }

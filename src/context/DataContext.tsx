@@ -1016,12 +1016,15 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [rawTasks, currentOrganization, currentUser, success]);
 
   // Disparo manual ou sob demanda dos resumos de prazos
+  const isTriggeringDeadlinesManualRef = useRef(false);
   const triggerDeadlineRemindersNow = useCallback(async (): Promise<number> => {
+    if (isTriggeringDeadlinesManualRef.current) return 0;
+    isTriggeringDeadlinesManualRef.current = true;
     try {
       const res = await WhatsAppNotificationService.notifyDeadlineReminders({
         organization: currentOrganization,
-        tasks: rawTasks,
-        users: orgUsers,
+        tasks: rawTasksRef.current,
+        users: orgUsersRef.current,
         actorUser: currentUser,
       });
       if (res.sentCount > 0) {
@@ -1040,8 +1043,10 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Erro ao disparar lembretes de prazo:', err);
       notifyError('Erro no disparo', 'Falha ao processar lembretes de prazo via WhatsApp.');
       return 0;
+    } finally {
+      isTriggeringDeadlinesManualRef.current = false;
     }
-  }, [currentOrganization, rawTasks, orgUsers, currentUser, success, info, notifyError]);
+  }, [currentOrganization, currentUser, success, info, notifyError]);
 
   const archiveTask = useCallback((taskId: string, isArchived: boolean) => {
     const task = rawTasks.find((t) => t.id === taskId);
@@ -1584,17 +1589,26 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         currentHour > targetHour ||
         (currentHour === targetHour && currentMinute >= (targetMinute || 0))
       ) {
-        // Bloqueio imediato síncrono para anular qualquer execução concorrente
+        // Bloqueio imediato síncrono local
         isCheckingDeadlinesRef.current = true;
         localStorage.setItem(lockKey, todayStr);
 
         try {
+          // 🔒 TRAVA GLOBAL NO FIRESTORE: Garante que NENHUMA outra aba, máquina ou usuário execute hoje
+          const claimed = await FirestoreRepository.claimDailyDigest(currentOrganization.id, todayStr);
+          if (!claimed) {
+            console.log(`[DeadlineReminder] Resumo do dia ${todayStr} já reivindicado por outra instância.`);
+            return;
+          }
+
           const res = await WhatsAppNotificationService.notifyDeadlineReminders({
             organization: currentOrganization,
-            tasks: rawTasks,
-            users: orgUsers,
+            tasks: rawTasksRef.current,
+            users: orgUsersRef.current,
             actorUser: currentUser,
           });
+
+          await FirestoreRepository.completeDailyDigest(currentOrganization.id, todayStr, res.sentCount);
 
           if (res.sentCount > 0) {
             console.log(`[DeadlineReminder] Enviados ${res.sentCount} resumos matinais de prazo.`);

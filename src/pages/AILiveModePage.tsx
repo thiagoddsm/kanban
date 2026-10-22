@@ -27,7 +27,13 @@ import {
   MessageSquare,
   Calendar,
   ArrowUpRight,
-  Loader2
+  Loader2,
+  Save,
+  History,
+  Clock,
+  Bookmark,
+  ChevronRight,
+  FolderOpen
 } from 'lucide-react';
 import { useAI } from '../context/AIContext';
 import { useAuth } from '../context/AuthContext';
@@ -43,12 +49,11 @@ import {
   WordCloudEntry
 } from '../services/aiTranscriptionService';
 import { JsonTaskParser } from '../services/jsonTaskParser';
+import { FirestoreRepository } from '../services/firestoreRepository';
+import { StorageService } from '../services/storageService';
+import { JarvisMeetingSession, JarvisTranscriptSegment } from '../types';
 
-interface TranscriptSegment {
-  id: string;
-  timestamp: string;
-  text: string;
-}
+type TranscriptSegment = JarvisTranscriptSegment;
 
 type JarvisMainMode = 'assistant' | 'meeting';
 type MeetingHudTab = 'ALL' | 'MINDMAP' | 'WORDCLOUD' | 'SUMMARY' | 'PEOPLE';
@@ -99,6 +104,10 @@ export const AILiveModePage: React.FC = () => {
   const [tempKey, setTempKey] = useState(apiKey);
 
   // ── Estado do Modo Reunião Ao Vivo ──
+  const [currentMeetingId, setCurrentMeetingId] = useState<string>(
+    () => 'meet_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6)
+  );
+  const [meetingTitle, setMeetingTitle] = useState('');
   const [isRecordingMeeting, setIsRecordingMeeting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -111,6 +120,27 @@ export const AILiveModePage: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [createdTaskKeys, setCreatedTaskKeys] = useState<Record<string, boolean>>({});
+
+  // ── Histórico de Reuniões Gravadas ──
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
+  const [savedMeetings, setSavedMeetings] = useState<JarvisMeetingSession[]>(() =>
+    StorageService.getMeetings(orgId)
+  );
+  const [isSavingMeeting, setIsSavingMeeting] = useState(false);
+
+  // Carrega e assina reuniões da organização em tempo real
+  useEffect(() => {
+    if (!orgId) return;
+    setSavedMeetings(StorageService.getMeetings(orgId));
+    FirestoreRepository.fetchMeetings(orgId).then((remote) => {
+      if (remote && remote.length > 0) setSavedMeetings(remote);
+    });
+
+    const unsub = FirestoreRepository.subscribeMeetings(orgId, (list) => {
+      if (list) setSavedMeetings(list);
+    });
+    return () => unsub();
+  }, [orgId]);
 
   // Refs para Web Speech API contínua com Auto-Healing
   const recognitionRef = useRef<any>(null);
@@ -240,6 +270,26 @@ export const AILiveModePage: React.FC = () => {
           if (!silent) {
             success('Inteligência Atualizada', 'Mapa mental, resumo e atividades por pessoa sincronizados!');
           }
+
+          // Auto-save contínuo em background (persiste ata, nuvem, mapa mental e tarefas)
+          const autoTitle =
+            meetingTitle.trim() ||
+            res.data.centralTopic ||
+            `Reunião Jarvis ${new Date().toLocaleDateString('pt-BR')}`;
+          FirestoreRepository.saveMeeting(orgId, {
+            id: currentMeetingId,
+            organizationId: orgId,
+            title: autoTitle,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            durationSeconds: elapsedSeconds,
+            segments,
+            intelligence: res.data,
+            wordCloud: wordCloudItems,
+            createdTaskKeys,
+            modelUsed: selectedModel,
+            status: 'IN_PROGRESS'
+          }).catch(() => {});
         } else if (!silent && res.error) {
           notifyError('Aviso da IA', res.error);
         }
@@ -251,7 +301,7 @@ export const AILiveModePage: React.FC = () => {
         setIsAnalyzingAi(false);
       }
     },
-    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning]
+    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, elapsedSeconds, wordCloudItems, createdTaskKeys]
   );
 
   // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
@@ -433,6 +483,98 @@ export const AILiveModePage: React.FC = () => {
     });
     setSegments(demoSegs);
     success('Transcrição de demonstração carregada!', 'Sincronizando Mapa Mental, Nuvem e Atividades...');
+  };
+
+  // Salvar Reunião no Firestore e LocalStorage
+  const handleSaveCurrentMeeting = async (customTitle?: string) => {
+    if (segments.length === 0 && !intelligence) {
+      warning('Reunião vazia', 'Inicie a escuta ou adicione notas antes de salvar a reunião.');
+      return;
+    }
+
+    const titleToUse =
+      (customTitle || meetingTitle).trim() ||
+      intelligence?.centralTopic ||
+      `Reunião Jarvis ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+
+    setIsSavingMeeting(true);
+    try {
+      const sessionObj: JarvisMeetingSession = {
+        id: currentMeetingId,
+        organizationId: orgId,
+        title: titleToUse,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        durationSeconds: elapsedSeconds,
+        segments,
+        intelligence,
+        wordCloud: wordCloudItems,
+        createdTaskKeys,
+        modelUsed: selectedModel,
+        status: isRecordingMeeting ? 'IN_PROGRESS' : 'COMPLETED'
+      };
+
+      await FirestoreRepository.saveMeeting(orgId, sessionObj);
+      setMeetingTitle(titleToUse);
+      success('Reunião Salva!', `Ata, nuvem de palavras e mapa mental de "${titleToUse}" foram salvos no histórico.`);
+    } catch (err: any) {
+      notifyError('Erro ao salvar reunião', err?.message || 'Falha ao persistir reunião.');
+    } finally {
+      setIsSavingMeeting(false);
+    }
+  };
+
+  // Carregar reunião do histórico para o HUD
+  const handleLoadSavedMeeting = (meeting: JarvisMeetingSession) => {
+    stopMeetingRecognition();
+    setCurrentMeetingId(meeting.id);
+    setMeetingTitle(meeting.title);
+    setSegments(meeting.segments || []);
+    setIntelligence(meeting.intelligence || null);
+    setElapsedSeconds(meeting.durationSeconds || 0);
+    setCreatedTaskKeys(meeting.createdTaskKeys || {});
+    setLastSyncTime(
+      new Date(meeting.updatedAt || meeting.createdAt).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    );
+    setIsHistoryDrawerOpen(false);
+    success('Reunião Carregada!', `"${meeting.title}" foi carregada no J.A.R.V.I.S.`);
+  };
+
+  // Iniciar nova reunião em branco
+  const handleStartNewMeeting = () => {
+    stopMeetingRecognition();
+    setCurrentMeetingId('meet_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6));
+    setMeetingTitle('');
+    setSegments([]);
+    setInterimText('');
+    setIntelligence(null);
+    setElapsedSeconds(0);
+    setLastSyncTime(null);
+    setCreatedTaskKeys({});
+    lastAnalyzedLengthRef.current = 0;
+    setIsHistoryDrawerOpen(false);
+    info('Nova Sessão', 'Pronto para uma nova reunião.');
+  };
+
+  // Excluir reunião do histórico
+  const handleDeleteSavedMeeting = async (meetingId: string, title: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Tem certeza que deseja excluir a gravação da reunião "${title}"?`)) return;
+
+    try {
+      await FirestoreRepository.deleteMeeting(orgId, meetingId);
+      setSavedMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+      if (currentMeetingId === meetingId) {
+        handleStartNewMeeting();
+      }
+      success('Reunião Excluída', `"${title}" foi removida do histórico.`);
+    } catch (err: any) {
+      notifyError('Erro ao excluir', err?.message || 'Não foi possível excluir.');
+    }
   };
 
   // Limpar reunião
@@ -789,6 +931,31 @@ export const AILiveModePage: React.FC = () => {
                   <span>Simular Reunião</span>
                 </button>
               )}
+
+              {/* Botão de Histórico de Reuniões */}
+              <button
+                type="button"
+                onClick={() => setIsHistoryDrawerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/60 text-cyan-300 text-xs font-bold transition-all"
+                title="Ver e carregar reuniões gravadas anteriormente"
+              >
+                <History className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Histórico ({savedMeetings.length})</span>
+              </button>
+
+              {/* Botão Salvar Reunião */}
+              {(segments.length > 0 || intelligence) && (
+                <button
+                  type="button"
+                  onClick={() => handleSaveCurrentMeeting()}
+                  disabled={isSavingMeeting}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 text-xs font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                  title="Salvar todas as anotações, mapa mental, resumo e nuvem no histórico"
+                >
+                  <Save className={`w-3.5 h-3.5 ${isSavingMeeting ? 'animate-spin' : ''}`} />
+                  <span>{isSavingMeeting ? 'Salvando...' : 'Salvar Reunião'}</span>
+                </button>
+              )}
             </div>
 
             {/* Indicadores & Exportação */}
@@ -802,6 +969,12 @@ export const AILiveModePage: React.FC = () => {
                 />
                 <span>Auto-Sync IA</span>
               </label>
+
+              {meetingTitle && (
+                <span className="text-cyan-400 font-bold hidden sm:inline max-w-[200px] truncate" title={meetingTitle}>
+                  📌 {meetingTitle}
+                </span>
+              )}
 
               {lastSyncTime && (
                 <span className="text-cyan-600 hidden xl:inline">
@@ -818,6 +991,16 @@ export const AILiveModePage: React.FC = () => {
                   >
                     <Copy className="w-3 h-3" />
                     <span>Copiar Ata</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleStartNewMeeting}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-800/50 text-cyan-400 font-bold"
+                    title="Iniciar nova reunião zerada"
+                  >
+                    <PlusCircle className="w-3 h-3 text-cyan-400" />
+                    <span className="hidden sm:inline">Nova Sessão</span>
                   </button>
 
                   <button
@@ -1515,6 +1698,163 @@ export const AILiveModePage: React.FC = () => {
             </span>
           </div>
         </>
+      )}
+
+      {/* ── GAVETA LATERAL: HISTÓRICO DE REUNIÕES GRAVADAS ─────────────────── */}
+      {isHistoryDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-md h-full bg-slate-950 border-l border-cyan-800/60 p-5 flex flex-col space-y-4 shadow-[0_0_50px_rgba(6,182,212,0.15)] animate-slide-left font-mono"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header da Gaveta */}
+            <div className="flex items-center justify-between pb-3 border-b border-cyan-900/40">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-cyan-400" />
+                <div>
+                  <h3 className="text-sm font-black text-white tracking-wider">
+                    HISTÓRICO DE REUNIÕES
+                  </h3>
+                  <p className="text-[10px] text-cyan-600">
+                    {savedMeetings.length} reuniões salvas nesta organização
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsHistoryDrawerOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Ações Rápidas no Topo da Gaveta */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleStartNewMeeting}
+                className="flex-1 py-2 px-3 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+              >
+                <PlusCircle className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Nova Reunião</span>
+              </button>
+
+              {(segments.length > 0 || intelligence) && (
+                <button
+                  type="button"
+                  onClick={() => handleSaveCurrentMeeting()}
+                  className="py-2 px-3 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Salvar Atual</span>
+                </button>
+              )}
+            </div>
+
+            {/* Lista de Reuniões */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1">
+              {savedMeetings.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 text-cyan-800 space-y-2">
+                  <FolderOpen className="w-10 h-10 opacity-40 text-cyan-600" />
+                  <p className="text-xs text-cyan-600 font-sans">
+                    Nenhuma reunião gravada ainda. Inicie uma reunião ao vivo e clique em <strong>"Salvar Reunião"</strong>.
+                  </p>
+                </div>
+              ) : (
+                savedMeetings.map((m) => {
+                  const isCurrent = m.id === currentMeetingId;
+                  const dateFormatted = new Date(m.createdAt).toLocaleDateString('pt-BR');
+                  const timeFormatted = new Date(m.createdAt).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  const durationStr = formatDuration(m.durationSeconds || 0);
+                  const wordCount = m.wordCloud?.length || 0;
+                  const decisionsCount = m.intelligence?.keyDecisions?.length || 0;
+                  const peopleCount = m.intelligence?.peopleActivities?.length || 0;
+
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => handleLoadSavedMeeting(m)}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                        isCurrent
+                          ? 'bg-cyan-950/40 border-cyan-400/80 shadow-[0_0_20px_rgba(6,182,212,0.2)]'
+                          : 'bg-slate-900/60 border-cyan-900/30 hover:border-cyan-600/50 hover:bg-slate-900'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-xs sm:text-sm text-white truncate font-sans">
+                              {m.title}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
+                                ABERTA AGORA
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[10px] text-cyan-600 mt-1 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5 text-cyan-500" />
+                              {dateFormatted} às {timeFormatted}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-cyan-500" />
+                              {durationStr}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteSavedMeeting(m.id, m.title, e)}
+                          className="p-1 text-slate-500 hover:text-rose-400 rounded hover:bg-slate-800 transition-colors shrink-0"
+                          title="Excluir gravação"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Badges de Conteúdo Salvo */}
+                      <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-cyan-950/60 flex-wrap text-[9px] font-mono">
+                        {m.intelligence?.mindMap && (
+                          <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 border border-cyan-700/40 text-cyan-300">
+                            🧠 Mapa Mental
+                          </span>
+                        )}
+                        {wordCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-700/40 text-purple-300">
+                            ☁️ Nuvem ({wordCount})
+                          </span>
+                        )}
+                        {decisionsCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/40 text-emerald-300">
+                            ✓ {decisionsCount} Decisões
+                          </span>
+                        )}
+                        {peopleCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-950/80 border border-amber-700/40 text-amber-300">
+                            👥 {peopleCount} Pessoas
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer com status */}
+            <div className="pt-2 border-t border-cyan-900/40 text-[10px] text-cyan-700 text-center">
+              Sincronizado na Nuvem via Firestore & LocalStorage
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

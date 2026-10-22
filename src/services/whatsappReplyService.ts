@@ -11,6 +11,7 @@ const TAB_SESSION_ID = Math.random().toString(36).substring(2, 9);
 
 export class WhatsAppReplyService {
   private static processedMessageIds = new Set<string>();
+  private static recentProcessedFingerprints = new Map<string, number>();
   private static pollingIntervals = new Map<string, NodeJS.Timeout>();
   private static lastCheckTimestamps = new Map<string, number>();
   private static isPollingMap = new Map<string, boolean>();
@@ -145,17 +146,29 @@ export class WhatsAppReplyService {
       keysToTry.add(clean.slice(-9));
     }
 
+    const MAX_CONTEXT_AGE_MS = 2 * 60 * 60 * 1000; // 2 horas
+
     for (const key of keysToTry) {
       try {
         const remote = await FirestoreRepository.fetchWhatsAppContext(organizationId, key);
-        if (remote && remote.taskId) return remote;
+        if (remote && remote.taskId) {
+          const age = Date.now() - new Date(remote.updatedAt || 0).getTime();
+          if (age >= 0 && age < MAX_CONTEXT_AGE_MS) {
+            return remote;
+          }
+        }
       } catch {}
 
       try {
         const raw = localStorage.getItem(`${CONTEXT_LOCAL_KEY_PREFIX}${key}`);
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && parsed.taskId) return parsed;
+          if (parsed && parsed.taskId) {
+            const age = Date.now() - new Date(parsed.updatedAt || 0).getTime();
+            if (age >= 0 && age < MAX_CONTEXT_AGE_MS) {
+              return parsed;
+            }
+          }
         }
       } catch {}
     }
@@ -254,11 +267,42 @@ export class WhatsAppReplyService {
     const cleanSender = this.cleanPhone(senderPhone);
     const trimmedText = messageText.trim();
 
-    // 1. Tenta identificar a tarefa através de referência no texto citado ou na própria mensagem
-    let targetTaskId: string | null =
-      this.extractTaskIdFromText(quotedText) || this.extractTaskIdFromText(trimmedText);
+    // 🔒 Trava de duplicatas instantâneas de conteúdo (elimina disparos múltiplos de abas/Evolution)
+    const contentFingerprint = `${cleanSender}_${trimmedText}`;
+    const lastSeenTime = WhatsAppReplyService.recentProcessedFingerprints.get(contentFingerprint) || 0;
+    if (Date.now() - lastSeenTime < 6000) {
+      return { success: false };
+    }
+    WhatsAppReplyService.recentProcessedFingerprints.set(contentFingerprint, Date.now());
 
-    // 2. Se não encontrou código expresso, busca o último contexto gravado para este telefone
+    // 1. Identificação da demanda e extração da ação/texto
+    let targetTaskId: string | null = null;
+    let actionText = trimmedText;
+    let hasExplicitTaskRef = false;
+
+    // A) Verifica se a mensagem começa com #T-xxxxxx ou contém #T-xxxxxx
+    const prefixMatch = trimmedText.match(/^#T-([a-zA-Z0-9_-]+)(?::|\s+)?(.*)/is);
+    if (prefixMatch) {
+      targetTaskId = prefixMatch[1];
+      actionText = (prefixMatch[2] || '').trim();
+      hasExplicitTaskRef = true;
+    } else {
+      // B) Procura citação de mensagem (Swipe to Reply no WhatsApp) ou menção no corpo
+      const inQuoteId = this.extractTaskIdFromText(quotedText);
+      const inTextId = this.extractTaskIdFromText(trimmedText);
+
+      if (inQuoteId) {
+        targetTaskId = inQuoteId;
+        hasExplicitTaskRef = true;
+        actionText = trimmedText;
+      } else if (inTextId) {
+        targetTaskId = inTextId;
+        hasExplicitTaskRef = true;
+        actionText = trimmedText.replace(new RegExp(`#T-${inTextId}:?`, 'gi'), '').trim();
+      }
+    }
+
+    // C) Se não houve menção explícita nem citação, busca o contexto recente (< 2h)
     if (!targetTaskId) {
       const ctx = await this.getTaskContext(organization.id, cleanSender);
       if (ctx && ctx.taskId) {
@@ -266,7 +310,29 @@ export class WhatsAppReplyService {
       }
     }
 
-    // Localiza o usuário que enviou (por telefone ou por pushName do WhatsApp)
+    // Se ainda não identificou nenhuma tarefa, NÃO adivinha tarefa e NÃO grava comentário em demanda alheia!
+    if (!targetTaskId) {
+      console.log(`[WhatsAppReply] Mensagem ignorada de ${cleanSender}: nenhuma demanda referenciada.`);
+      return { success: false };
+    }
+
+    // Localiza a tarefa pelo ID completo ou pelos caracteres finais (ex: #T-n05sih)
+    const cleanTarget = targetTaskId.toLowerCase().trim();
+    const task = tasks.find((t) => {
+      const tid = t.id.toLowerCase();
+      return (
+        tid === cleanTarget ||
+        tid.endsWith(cleanTarget) ||
+        (cleanTarget.length >= 5 && tid.includes(cleanTarget))
+      );
+    });
+
+    if (!task) {
+      console.warn(`[WhatsAppReply] Demanda não encontrada para o código: ${targetTaskId}`);
+      return { success: false };
+    }
+
+    // Localiza o usuário remetente
     let senderUser = this.findUserByPhone(users, cleanSender);
     if (!senderUser && pushName) {
       const cleanPush = pushName.trim().toLowerCase();
@@ -276,50 +342,8 @@ export class WhatsAppReplyService {
       });
     }
 
-    // 3. Fallback inteligente: se ainda não encontrou tarefa específica mas o usuário é identificado
-    let task: Task | undefined;
-    if (targetTaskId) {
-      task = tasks.find(
-        (t) => t.id === targetTaskId || t.id.endsWith(targetTaskId!) || t.id.includes(targetTaskId!)
-      );
-    }
-
-    if (!task && senderUser) {
-      const userFirstName = senderUser.name ? senderUser.name.toLowerCase().split(' ')[0] : '';
-
-      // Tarefas onde o usuário foi mencionado recentemente em comentários
-      const tasksWithMentions = tasks.filter((t) => {
-        if (t.isArchived) return false;
-        const taskComments = (comments || []).filter((c) => c.taskId === t.id);
-        return taskComments.some(
-          (c) =>
-            (userFirstName && c.content?.toLowerCase().includes(`@${userFirstName}`)) ||
-            c.userId === senderUser!.id
-        );
-      });
-
-      // Tarefas ativas atribuídas a este usuário
-      const userActiveTasks = tasks.filter(
-        (t) =>
-          !t.isArchived &&
-          t.status !== 'DONE' &&
-          ((t.assigneeIds || []).includes(senderUser!.id) || t.assigneeId === senderUser!.id)
-      );
-
-      const candidateTasks = [...tasksWithMentions, ...userActiveTasks];
-      if (candidateTasks.length > 0) {
-        candidateTasks.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
-        task = candidateTasks[0];
-      }
-    }
-
-    if (!task) {
-      console.warn(`[WhatsAppReply] Nenhuma tarefa identificada para ${cleanSender} (${pushName || 'sem nome'}).`);
-      return { success: false };
-    }
-
     const senderName = senderUser?.name || pushName || 'Membro via WhatsApp';
-    const cleanLower = trimmedText.toLowerCase();
+    const cleanLower = actionText.toLowerCase();
     const instanceName = organization.evolutionConfig?.instanceName || 'Oiko_Gestao';
 
     // ── COMANDO 1: Mover para Em Andamento (1, /andamento, andamento) ──
@@ -332,7 +356,7 @@ export class WhatsAppReplyService {
       onUpdateTask(updated);
 
       if (messageId) {
-        this.processedMessageIds.add(messageId);
+        this.markMessageAsProcessed(messageId);
       }
 
       await EvolutionApiService.sendTextMessage({
@@ -355,7 +379,7 @@ export class WhatsAppReplyService {
       onUpdateTask(updated);
 
       if (messageId) {
-        this.processedMessageIds.add(messageId);
+        this.markMessageAsProcessed(messageId);
       }
 
       await EvolutionApiService.sendTextMessage({
@@ -385,7 +409,7 @@ export class WhatsAppReplyService {
       onUpdateTask(updated);
 
       if (messageId) {
-        this.processedMessageIds.add(messageId);
+        this.markMessageAsProcessed(messageId);
       }
 
       await EvolutionApiService.sendTextMessage({
@@ -421,7 +445,7 @@ export class WhatsAppReplyService {
         onUpdateTask(updatedTask);
 
         if (messageId) {
-          this.processedMessageIds.add(messageId);
+          this.markMessageAsProcessed(messageId);
         }
 
         const completedCount = updatedList.filter((i) => i.completed).length;
@@ -438,11 +462,23 @@ export class WhatsAppReplyService {
       }
     }
 
-    // ── TEXTO LIVRE: Gravar como Comentário na Tarefa ──
+    // ── SEGURANÇA CONTRA ENQUETES DE GC E CONVERSAS PESSOAIS ──
+    // Se a mensagem NÃO tem referência explícita (#T- nem citação de mensagem)
+    // NÃO podemos interpretar textos livres como comentários (ex: "Elias - Emoções", "0", "Felipe, Sara")
+    if (!hasExplicitTaskRef) {
+      console.log(`[WhatsAppReply] Texto livre sem prefixo #T- e sem citação ignorado para evitar captura indevida de conversa.`);
+      return { success: false };
+    }
+
+    if (!actionText || !actionText.trim()) {
+      return { success: false };
+    }
+
+    // ── TEXTO LIVRE COM REF EXPLÍCITA: Gravar como Comentário na Tarefa ──
     const alreadyExistsInComments = (comments || []).some(
       (c) =>
         c.taskId === task!.id &&
-        (c.content || '').trim() === trimmedText &&
+        (c.content || '').trim() === actionText &&
         Math.abs(Date.now() - new Date(c.createdAt).getTime()) < 60000
     );
     if (alreadyExistsInComments) {
@@ -453,22 +489,24 @@ export class WhatsAppReplyService {
       ? { id: senderUser.id, name: senderUser.name, avatar: senderUser.avatar }
       : { id: `wa_${cleanSender.slice(-8)}`, name: senderName };
 
-    const commentAdded = onAddComment(task.id, trimmedText, authorData);
+    const commentAdded = onAddComment(task.id, actionText, authorData);
     if (commentAdded === false) {
       return { success: false };
     }
 
     if (messageId) {
-      this.processedMessageIds.add(messageId);
+      this.markMessageAsProcessed(messageId);
     }
 
-    // Responde no WhatsApp confirmando que o comentário foi adicionado
-    await EvolutionApiService.sendTextMessage({
-      instanceName,
-      to: senderPhone,
-      text: `💬 *Comentário Registrado!*\n\nSua resposta foi inserida na demanda *"${task.title}"*:\n\n_${trimmedText.slice(0, 150)}${trimmedText.length > 150 ? '...' : ''}_\n\n👉 A equipe já pode visualizar seu comentário no Kanban.`,
-      configOverride: organization.evolutionConfig,
-    });
+    // Responde no WhatsApp confirmando que o comentário foi adicionado (se não desativado)
+    if (organization.evolutionConfig?.sendCommentReplyConfirmation !== false) {
+      await EvolutionApiService.sendTextMessage({
+        instanceName,
+        to: senderPhone,
+        text: `💬 *Comentário Registrado!*\n\nSua resposta foi inserida na demanda *"${task.title}"*:\n\n_${actionText.slice(0, 150)}${actionText.length > 150 ? '...' : ''}_\n\n👉 A equipe já pode visualizar seu comentário no Kanban.`,
+        configOverride: organization.evolutionConfig,
+      });
+    }
 
     return { success: true, action: 'ADD_COMMENT', replySent: true };
   }
@@ -605,6 +643,12 @@ export class WhatsAppReplyService {
               ? msg.messageTimestamp * 1000
               : Number(msg.messageTimestamp)
             : Date.now();
+
+          // 🔒 Se a mensagem tiver mais de 10 minutos de idade, descarta para nunca reprocessar histórico antigo
+          if (ts < Date.now() - 10 * 60 * 1000) {
+            this.markMessageAsProcessed(msgId);
+            continue;
+          }
 
           if (ts <= lastCheck) continue;
           if (ts > newestTimestamp) {

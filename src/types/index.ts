@@ -68,6 +68,7 @@ export interface EvolutionIntegrationConfig {
   deadlineNotificationTime?: string; // e.g. "08:30"
   lastDeadlineReminderDate?: string; // e.g. "2026-10-20"
   enableWhatsAppReplies?: boolean;
+  sendCommentReplyConfirmation?: boolean;
   updatedAt?: string;
 }
 
@@ -665,6 +666,31 @@ export interface PastoralCareAppointment {
   isConfidential?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ==========================================
+// 4. J.A.R.V.I.S. - REUNIÕES AO VIVO
+// ==========================================
+
+export interface JarvisTranscriptSegment {
+  id: string;
+  timestamp: string;
+  text: string;
+}
+
+export interface JarvisMeetingSession {
+  id: string;
+  organizationId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  durationSeconds: number;
+  segments: JarvisTranscriptSegment[];
+  intelligence: any | null; // LiveMeetingIntelligence
+  wordCloud: Array<{ word: string; weight: number; count?: number }>;
+  createdTaskKeys: Record<string, boolean>;
+  modelUsed?: string;
+  status: 'IN_PROGRESS' | 'COMPLETED';
 }
 
 

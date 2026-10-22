@@ -11,7 +11,8 @@ import {
   EventCategoryDefinition,
   DepartmentDefinition,
   MemberJourneyCard,
-  PastoralCareAppointment
+  PastoralCareAppointment,
+  JarvisMeetingSession
 } from '../types';
 import { 
   INITIAL_ORGANIZATIONS, 
@@ -583,6 +584,44 @@ export class StorageService {
     const list = this.getPastoralAppointments(orgId);
     const updated = list.filter((a) => a.id !== id);
     this.savePastoralAppointments(orgId, updated);
+    return updated;
+  }
+
+  // --- JARVIS LIVE MEETINGS (Scoped by Org) ---
+  static getMeetings(orgId: string): JarvisMeetingSession[] {
+    const key = getOrgKey(orgId, 'jarvis_meetings');
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static saveMeetings(orgId: string, items: JarvisMeetingSession[]): void {
+    localStorage.setItem(getOrgKey(orgId, 'jarvis_meetings'), JSON.stringify(items));
+  }
+
+  static addMeeting(orgId: string, item: JarvisMeetingSession): JarvisMeetingSession[] {
+    const list = this.getMeetings(orgId);
+    const exists = list.some((m) => m.id === item.id);
+    const updated = exists
+      ? list.map((m) => (m.id === item.id ? { ...m, ...item, updatedAt: new Date().toISOString() } : m))
+      : [item, ...list];
+    this.saveMeetings(orgId, updated);
+    return updated;
+  }
+
+  static updateMeeting(orgId: string, item: JarvisMeetingSession): JarvisMeetingSession[] {
+    return this.addMeeting(orgId, item);
+  }
+
+  static deleteMeeting(orgId: string, id: string): JarvisMeetingSession[] {
+    const list = this.getMeetings(orgId);
+    const updated = list.filter((m) => m.id !== id);
+    this.saveMeetings(orgId, updated);
     return updated;
   }
 
