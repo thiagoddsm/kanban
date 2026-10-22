@@ -74,7 +74,7 @@ export const AILiveModePage: React.FC = () => {
   const { currentUser } = useAuth();
   const { currentOrganization, campuses } = useTenant();
   const { users, events, demandTypes, createTask } = useData();
-  const { success, warning, error: notifyError } = useNotification();
+  const { success, warning, info, error: notifyError } = useNotification();
 
   const {
     isListening: isAssistantListening,

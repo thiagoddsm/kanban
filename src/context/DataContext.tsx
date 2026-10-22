@@ -1374,9 +1374,28 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return true;
   }, [rawEvents, rawTasks, campuses, currentOrganization, currentUser, orgUsers, getEventStats, warning, success]);
 
-  const archiveEvent = useCallback((eventId: string, isArchived: boolean) => {
+  const archiveEvent = useCallback(async (eventId: string, isArchived: boolean) => {
     const updated = StorageService.archiveEvent(currentOrganization.id, eventId, isArchived);
     setRawEvents(updated);
+
+    // Cascata automática para todas as tarefas vinculadas a este evento
+    const tasksToChange = rawTasks.filter((t) => t.eventId === eventId && t.isArchived !== isArchived);
+    const affectedCount = tasksToChange.length;
+
+    if (affectedCount > 0) {
+      const nowIso = new Date().toISOString();
+      const updatedTasks = rawTasks.map((t) =>
+        t.eventId === eventId ? { ...t, isArchived, updatedAt: nowIso } : t
+      );
+      setRawTasks(updatedTasks);
+      StorageService.saveTasks(currentOrganization.id, updatedTasks);
+
+      // Persistência em lote atômico no Firestore
+      FirestoreRepository.archiveTasksByEvent(currentOrganization.id, eventId, isArchived).catch((err) => {
+        console.warn('Erro ao arquivar tarefas do evento no Firestore:', err);
+      });
+    }
+
     const targetEvent = updated.find((e) => e.id === eventId) || rawEvents.find((e) => e.id === eventId);
     if (targetEvent) {
       const updatedEvent = { ...targetEvent, isArchived, updatedAt: new Date().toISOString() };
@@ -1387,7 +1406,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         campusId: targetEvent.campusId,
         userId: currentUser?.id || 'sys',
         userName: currentUser?.name || 'Sistema',
-        action: isArchived ? 'arquivou o projeto' : 'restaurou o projeto',
+        action: isArchived
+          ? (affectedCount > 0 ? `arquivou o projeto e ${affectedCount} demandas vinculadas` : 'arquivou o projeto')
+          : (affectedCount > 0 ? `restaurou o projeto e ${affectedCount} demandas vinculadas` : 'restaurou o projeto'),
         targetType: 'event',
         targetId: targetEvent.id,
         targetTitle: targetEvent.title,
@@ -1396,15 +1417,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setActivities(StorageService.addActivity(act));
       FirestoreRepository.recordActivity(act);
     }
-    success(isArchived ? 'Projeto arquivado com sucesso!' : 'Projeto restaurado com sucesso!');
-  }, [rawEvents, currentOrganization, currentUser, success]);
+
+    if (affectedCount > 0) {
+      success(
+        isArchived ? 'Projeto e demandas arquivados!' : 'Projeto e demandas restaurados!',
+        isArchived
+          ? `O projeto "${targetEvent?.title || ''}" e ${affectedCount} demanda(s) foram arquivados do Kanban.`
+          : `O projeto "${targetEvent?.title || ''}" e ${affectedCount} demanda(s) foram restaurados ao Kanban.`
+      );
+    } else {
+      success(isArchived ? 'Projeto arquivado com sucesso!' : 'Projeto restaurado com sucesso!');
+    }
+  }, [rawEvents, rawTasks, currentOrganization, currentUser, success]);
 
   const deleteEvent = useCallback((eventId: string) => {
     const updated = StorageService.deleteEvent(currentOrganization.id, eventId);
     setRawEvents(updated);
     FirestoreRepository.deleteEvent(currentOrganization.id, eventId);
+
+    // Desvincula as tarefas do evento excluído para não manter IDs órfãos
+    const hasLinked = rawTasks.some((t) => t.eventId === eventId);
+    if (hasLinked) {
+      const unlinkedTasks = rawTasks.map((t) => (t.eventId === eventId ? { ...t, eventId: undefined } : t));
+      setRawTasks(unlinkedTasks);
+      StorageService.saveTasks(currentOrganization.id, unlinkedTasks);
+    }
+
     info('Evento excluído permanentemente.');
-  }, [currentOrganization, info]);
+  }, [currentOrganization, rawTasks, info]);
 
   // Comments with @mentions notification
   const addComment = useCallback((
@@ -1636,6 +1676,61 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearInterval(interval);
     };
   }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.notifyOnDeadlineApproaching, currentOrganization.evolutionConfig?.deadlineNotificationTime, currentOrganization.evolutionConfig?.lastDeadlineReminderDate, updateOrganization]);
+
+  // ── Auto-Reconciliação Retroativa de Tarefas de Eventos Arquivados (ex: Missão de Casa) ──
+  const isReconcilingRef = useRef(false);
+
+  useEffect(() => {
+    if (!currentOrganization?.id || isReconcilingRef.current) return;
+
+    const reconcileArchivedEventTasks = async () => {
+      try {
+        isReconcilingRef.current = true;
+        // 1. Busca eventos arquivados da organização (remoto + local)
+        const archivedEvents = await FirestoreRepository.fetchEvents(currentOrganization.id, true);
+        const localArchivedEvents = StorageService.getEvents(currentOrganization.id).filter((e) => !!e.isArchived);
+        const allArchivedEventIds = new Set([
+          ...archivedEvents.map((e) => e.id),
+          ...localArchivedEvents.map((e) => e.id),
+        ]);
+
+        if (allArchivedEventIds.size === 0) return;
+
+        // 2. Localiza tarefas ativas vinculadas a eventos que já estão arquivados
+        const tasksToArchive = rawTasksRef.current.filter(
+          (t) => !t.isArchived && !t.isDeleted && t.eventId && allArchivedEventIds.has(t.eventId)
+        );
+
+        if (tasksToArchive.length > 0) {
+          console.log(`[AutoReconcile] Arquivando ${tasksToArchive.length} tarefas de eventos já arquivados.`);
+          const nowIso = new Date().toISOString();
+          const taskIdsToArchive = new Set(tasksToArchive.map((t) => t.id));
+
+          // Atualiza estado e localStorage
+          setRawTasks((prev) => {
+            const next = prev.map((t) =>
+              taskIdsToArchive.has(t.id) ? { ...t, isArchived: true, updatedAt: nowIso } : t
+            );
+            StorageService.saveTasks(currentOrganization.id, next);
+            return next;
+          });
+
+          // Atualiza Firestore em lote para cada evento afetado
+          const affectedEventIds = new Set(tasksToArchive.map((t) => t.eventId!));
+          for (const evId of affectedEventIds) {
+            await FirestoreRepository.archiveTasksByEvent(currentOrganization.id, evId, true);
+          }
+        }
+      } catch (err) {
+        console.warn('[AutoReconcile] Erro na reconciliação de tarefas de eventos arquivados:', err);
+      } finally {
+        isReconcilingRef.current = false;
+      }
+    };
+
+    const timeout = setTimeout(reconcileArchivedEventTasks, 1500);
+    return () => clearTimeout(timeout);
+  }, [currentOrganization.id]);
 
   // Demand Types Management
   const addDemandType = useCallback((newType: DemandTypeDefinition) => {

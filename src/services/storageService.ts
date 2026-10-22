@@ -379,6 +379,18 @@ export class StorageService {
       e.id === eventId ? { ...e, isArchived, updatedAt: new Date().toISOString() } : e
     );
     this.saveEvents(orgId, updated);
+
+    // Cascata automática para as tarefas vinculadas a este evento
+    const tasks = this.getTasks(orgId);
+    const hasLinkedTasks = tasks.some((t) => t.eventId === eventId && t.isArchived !== isArchived);
+    if (hasLinkedTasks) {
+      const nowIso = new Date().toISOString();
+      const updatedTasks = tasks.map((t) =>
+        t.eventId === eventId ? { ...t, isArchived, updatedAt: nowIso } : t
+      );
+      this.saveTasks(orgId, updatedTasks);
+    }
+
     return updated;
   }
 

@@ -14,7 +14,8 @@ import {
   onSnapshot,
   arrayUnion,
   arrayRemove,
-  runTransaction
+  runTransaction,
+  writeBatch
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { StorageService } from './storageService';
@@ -715,6 +716,47 @@ export class FirestoreRepository {
       console.log('✅ Evento excluído do Firestore:', eventId);
     } catch (e) {
       console.error('Erro ao excluir evento do Firestore:', e);
+    }
+  }
+
+  /**
+   * Arquiva ou restaura em lote no Firestore todas as tarefas vinculadas a um evento específico
+   */
+  public static async archiveTasksByEvent(orgId: string, eventId: string, isArchived: boolean): Promise<number> {
+    if (!orgId || !eventId) return 0;
+    if (!isFirebaseConfigured || !db) return 0;
+
+    try {
+      const q = query(
+        collection(db, 'organizations', orgId, 'tasks'),
+        where('eventId', '==', eventId)
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return 0;
+
+      const batch = writeBatch(db);
+      let count = 0;
+      const nowIso = new Date().toISOString();
+
+      snap.docs.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (Boolean(data.isArchived) !== isArchived) {
+          batch.update(docSnap.ref, {
+            isArchived,
+            updatedAt: nowIso,
+          });
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        await batch.commit();
+        console.log(`✅ ${count} tarefa(s) do evento ${eventId} ${isArchived ? 'arquivadas' : 'restauradas'} no Firestore.`);
+      }
+      return count;
+    } catch (e) {
+      console.warn('[FirestoreRepository] Erro ao atualizar tarefas do evento em lote:', e);
+      return 0;
     }
   }
 

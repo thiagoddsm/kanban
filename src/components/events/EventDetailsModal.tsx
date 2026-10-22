@@ -282,7 +282,11 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             {canManageEvents && (
               <button
                 onClick={() => {
-                  if (window.confirm(`Tem certeza que deseja arquivar o projeto "${event.title}"?`)) {
+                  const tasksCount = eventTasks.length;
+                  const msg = tasksCount > 0
+                    ? `Tem certeza que deseja arquivar o projeto "${event.title}"?\n\nTodas as suas ${tasksCount} demanda(s) vinculadas também serão arquivadas do Kanban.`
+                    : `Tem certeza que deseja arquivar o projeto "${event.title}"?`;
+                  if (window.confirm(msg)) {
                     archiveEvent(event.id, true);
                     onClose();
                   }

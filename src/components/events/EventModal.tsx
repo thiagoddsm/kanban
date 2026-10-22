@@ -14,7 +14,7 @@ interface EventModalProps {
 }
 
 export const EventModal: React.FC<EventModalProps> = ({ event, isOpen, onClose }) => {
-  const { users, createEvent, updateEvent, archiveEvent } = useData();
+  const { tasks, users, createEvent, updateEvent, archiveEvent } = useData();
   const { currentUser } = useAuth();
   const { campuses, currentCampus, currentOrganization } = useTenant();
 
@@ -290,8 +290,14 @@ export const EventModal: React.FC<EventModalProps> = ({ event, isOpen, onClose }
               <button
                 type="button"
                 onClick={() => {
-                  archiveEvent(event.id, true);
-                  onClose();
+                  const linkedCount = tasks.filter((t) => t.eventId === event.id && !t.isArchived).length;
+                  const msg = linkedCount > 0
+                    ? `Tem certeza que deseja arquivar o projeto "${event.title}"?\n\nTodas as suas ${linkedCount} demanda(s) vinculadas também serão arquivadas do Kanban.`
+                    : `Tem certeza que deseja arquivar o projeto "${event.title}"?`;
+                  if (window.confirm(msg)) {
+                    archiveEvent(event.id, true);
+                    onClose();
+                  }
                 }}
                 className="text-xs text-rose-400 hover:text-rose-300"
               >

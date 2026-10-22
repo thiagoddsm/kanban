@@ -163,7 +163,14 @@ export const EventsView: React.FC<EventsViewProps> = ({ onNavigate }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            archiveEvent(evt.id, true);
+                            const stats = getEventStats(evt.id);
+                            const count = stats.totalTasks;
+                            const msg = count > 0
+                              ? `Tem certeza que deseja arquivar o projeto "${evt.title}"?\n\nTodas as suas ${count} demanda(s) vinculadas também serão arquivadas do Kanban.`
+                              : `Tem certeza que deseja arquivar o projeto "${evt.title}"?`;
+                            if (window.confirm(msg)) {
+                              archiveEvent(evt.id, true);
+                            }
                           }}
                           className="p-1 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                           title="Arquivar Projeto"

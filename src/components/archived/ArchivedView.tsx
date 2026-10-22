@@ -122,6 +122,12 @@ export const ArchivedView: React.FC = () => {
                         {t.campusName}
                       </span>
                     )}
+                    {t.eventId && (
+                      <span className="text-[10px] text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                        <Calendar className="w-2.5 h-2.5" />
+                        <span>{events.find((e) => e.id === t.eventId)?.title || 'Projeto'}</span>
+                      </span>
+                    )}
                   </div>
                   <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{t.title}</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -175,7 +181,8 @@ export const ArchivedView: React.FC = () => {
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     Líder: {evt.leaderName} • Período:{' '}
                     {new Date(evt.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} até{' '}
-                    {new Date(evt.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    {new Date(evt.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}{' '}
+                    • {tasks.filter((t) => t.eventId === evt.id).length} demanda(s) vinculada(s)
                   </p>
                 </div>
 
