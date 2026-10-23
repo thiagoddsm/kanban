@@ -65,8 +65,15 @@ export interface EvolutionIntegrationConfig {
   notifyOnMention?: boolean;
   notifyOnChecklistUpdate?: boolean;
   notifyOnDeadlineApproaching?: boolean;
-  deadlineNotificationTime?: string; // e.g. "08:30"
+  deadlineNotificationTime?: string; // e.g. "08:30" (legado / matinal)
   lastDeadlineReminderDate?: string; // e.g. "2026-10-20"
+  // Resumos Consolidados do Dia (Briefings WhatsApp - 1 ou 2 momentos do dia)
+  dailyDigestEnabled?: boolean;
+  dailyDigestTimeMorning?: string; // e.g. "08:30"
+  dailyDigestTimeEvening?: string; // e.g. "17:30"
+  enableEveningDigest?: boolean; // Se deve enviar o 2º resumo no fim do dia
+  lastMorningDigestDate?: string;
+  lastEveningDigestDate?: string;
   enableWhatsAppReplies?: boolean;
   sendCommentReplyConfirmation?: boolean;
   updatedAt?: string;

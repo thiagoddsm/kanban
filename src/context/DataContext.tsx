@@ -674,14 +674,18 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         actorName: currentUser?.name || 'Sistema',
       });
 
-      const assignedUser = orgUsers.find((u) => u.id === newTask.assigneeId) || (newTask.assigneeId === currentUser?.id ? currentUser : undefined);
-      if (assignedUser) {
-        WhatsAppNotificationService.notifyTaskAssigned({
-          organization: currentOrganization,
-          task: newTask,
-          assigneeUser: assignedUser,
-          actorUser: currentUser,
-        });
+      // Dispara WhatsApp apenas se explicitamente habilitado nas configs da organização
+      // Por padrão fica desativado para agrupar as criações no resumo diário
+      if (currentOrganization.evolutionConfig?.notifyOnTaskCreated === true) {
+        const assignedUser = orgUsers.find((u) => u.id === newTask.assigneeId) || (newTask.assigneeId === currentUser?.id ? currentUser : undefined);
+        if (assignedUser) {
+          WhatsAppNotificationService.notifyTaskAssigned({
+            organization: currentOrganization,
+            task: newTask,
+            assigneeUser: assignedUser,
+            actorUser: currentUser,
+          });
+        }
       }
     }
 
@@ -765,14 +769,16 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         actorName: currentUser?.name || 'Liderança',
       });
 
-      const assignedUser = orgUsers.find((u) => u.id === updatedTask.assigneeId) || (updatedTask.assigneeId === currentUser?.id ? currentUser : undefined);
-      if (assignedUser) {
-        WhatsAppNotificationService.notifyTaskAssigned({
-          organization: currentOrganization,
-          task: updatedTask,
-          assigneeUser: assignedUser,
-          actorUser: currentUser,
-        });
+      if (currentOrganization.evolutionConfig?.notifyOnTaskCreated === true) {
+        const assignedUser = orgUsers.find((u) => u.id === updatedTask.assigneeId) || (updatedTask.assigneeId === currentUser?.id ? currentUser : undefined);
+        if (assignedUser) {
+          WhatsAppNotificationService.notifyTaskAssigned({
+            organization: currentOrganization,
+            task: updatedTask,
+            assigneeUser: assignedUser,
+            actorUser: currentUser,
+          });
+        }
       }
     }
 
@@ -790,19 +796,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       );
       if (newlyCompleted) {
         newlyCompletedItemText = newlyCompleted.text;
-        const assignees = orgUsers.filter(
-          (u) =>
-            (updatedTask.assigneeIds || []).includes(u.id) ||
-            u.id === updatedTask.assigneeId
-        );
-        if (assignees.length > 0) {
-          WhatsAppNotificationService.notifyChecklistProgress({
-            organization: currentOrganization,
-            task: updatedTask,
-            targetUsers: assignees,
-            actorUser: currentUser,
-            completedItemText: newlyCompleted.text,
-          });
+        // Evita spam de WhatsApp para cada etapa/checklist concluído; apenas se explicitamente habilitado
+        if (currentOrganization.evolutionConfig?.notifyOnChecklistUpdate === true) {
+          const assignees = orgUsers.filter(
+            (u) =>
+              (updatedTask.assigneeIds || []).includes(u.id) ||
+              u.id === updatedTask.assigneeId
+          );
+          if (assignees.length > 0) {
+            WhatsAppNotificationService.notifyChecklistProgress({
+              organization: currentOrganization,
+              task: updatedTask,
+              targetUsers: assignees,
+              actorUser: currentUser,
+              completedItemText: newlyCompleted.text,
+            });
+          }
         }
       }
     }
@@ -1056,33 +1065,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     success('Demanda Aprovada!', `"${task.title}" foi aprovada e movida para "Aprovado pela Revisão".`);
   }, [rawTasks, currentOrganization, currentUser, success]);
 
-  // Disparo manual ou sob demanda dos resumos de prazos
+  // Disparo manual ou sob demanda dos resumos consolidados de demandas e prazos
   const isTriggeringDeadlinesManualRef = useRef(false);
   const triggerDeadlineRemindersNow = useCallback(async (): Promise<number> => {
     if (isTriggeringDeadlinesManualRef.current) return 0;
     isTriggeringDeadlinesManualRef.current = true;
     try {
-      const res = await WhatsAppNotificationService.notifyDeadlineReminders({
+      const res = await WhatsAppNotificationService.notifyDailyDigest({
         organization: currentOrganization,
         tasks: rawTasksRef.current,
         users: orgUsersRef.current,
         actorUser: currentUser,
+        period: 'manual',
       });
       if (res.sentCount > 0) {
         success(
-          'Lembretes de Prazo Enviados!',
-          `Disparados ${res.sentCount} resumo(s) de prazos via WhatsApp para a equipe.`
+          'Resumo Diário Enviado!',
+          `Disparados ${res.sentCount} resumo(s) consolidado(s) via WhatsApp para a equipe.`
         );
       } else {
         info(
-          'Nenhuma Demanda Próxima',
-          'Não há tarefas ativas vencendo hoje ou em 2 dias com responsáveis notificados.'
+          'Nenhuma Alteração Recente',
+          'Não há demandas vencendo, criadas ou alteradas nas últimas 24h para os responsáveis cadastrados.'
         );
       }
       return res.sentCount;
     } catch (err) {
-      console.error('Erro ao disparar lembretes de prazo:', err);
-      notifyError('Erro no disparo', 'Falha ao processar lembretes de prazo via WhatsApp.');
+      console.error('Erro ao disparar resumo consolidado:', err);
+      notifyError('Erro no disparo', 'Falha ao processar resumo consolidado via WhatsApp.');
       return 0;
     } finally {
       isTriggeringDeadlinesManualRef.current = false;
@@ -1638,7 +1648,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     currentOrganization.evolutionConfig?.enableWhatsAppReplies,
   ]);
 
-  // ── Verificador Matinal de Prazos (Execução Única por Dia com Lock Síncrono) ──
+  // ── Resumos Diários de Demandas (Manhã e Fim do Dia - Execução Única por Momento com Lock Distribuído) ──
   const isCheckingDeadlinesRef = useRef(false);
 
   useEffect(() => {
@@ -1646,65 +1656,113 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const checkAndDispatch = async () => {
       const orgConfig = currentOrganization.evolutionConfig;
-      if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) return;
+      if (orgConfig?.isEnabled === false) return;
+      if (orgConfig?.dailyDigestEnabled === false && orgConfig?.notifyOnDeadlineApproaching === false) return;
 
       const now = new Date();
       const todayStr = now.toISOString().split('T')[0];
-      const lockKey = `oiko_deadline_dispatched_${currentOrganization.id}_${todayStr}`;
-
-      // Já foi disparado hoje para esta organização
-      if (orgConfig?.lastDeadlineReminderDate === todayStr || localStorage.getItem(lockKey) === todayStr) {
-        return;
-      }
-
-      if (isCheckingDeadlinesRef.current) return;
-
-      const [targetHour, targetMinute] = (orgConfig?.deadlineNotificationTime || '08:30')
-        .split(':')
-        .map((n) => parseInt(n, 10));
-
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
 
-      if (
-        currentHour > targetHour ||
-        (currentHour === targetHour && currentMinute >= (targetMinute || 0))
-      ) {
-        // Bloqueio imediato síncrono local
+      // ── MOMENTO 1: Manhã (Briefing Matinal - Prazos, Novas e Em Andamento) ──
+      const morningTime = orgConfig?.dailyDigestTimeMorning || orgConfig?.deadlineNotificationTime || '08:30';
+      const [mHour, mMinute] = morningTime.split(':').map((n) => parseInt(n, 10));
+      const morningLockKey = `oiko_digest_morning_${currentOrganization.id}_${todayStr}`;
+      const morningSlot = `${todayStr}_morning`;
+
+      const isMorningTimeReached = currentHour > mHour || (currentHour === mHour && currentMinute >= (mMinute || 0));
+      const hasRanMorning =
+        orgConfig?.lastMorningDigestDate === todayStr ||
+        orgConfig?.lastDeadlineReminderDate === todayStr ||
+        localStorage.getItem(morningLockKey) === todayStr;
+
+      if (isMorningTimeReached && !hasRanMorning && !isCheckingDeadlinesRef.current) {
         isCheckingDeadlinesRef.current = true;
-        localStorage.setItem(lockKey, todayStr);
+        localStorage.setItem(morningLockKey, todayStr);
 
         try {
-          // 🔒 TRAVA GLOBAL NO FIRESTORE: Garante que NENHUMA outra aba, máquina ou usuário execute hoje
-          const claimed = await FirestoreRepository.claimDailyDigest(currentOrganization.id, todayStr);
-          if (!claimed) {
-            console.log(`[DeadlineReminder] Resumo do dia ${todayStr} já reivindicado por outra instância.`);
-            return;
+          // 🔒 TRAVA GLOBAL NO FIRESTORE: Garante execução única entre abas e instâncias
+          const claimed = await FirestoreRepository.claimDailyDigest(currentOrganization.id, morningSlot);
+          if (claimed) {
+            const res = await WhatsAppNotificationService.notifyDailyDigest({
+              organization: currentOrganization,
+              tasks: rawTasksRef.current,
+              users: orgUsersRef.current,
+              actorUser: currentUser,
+              period: 'morning',
+            });
+
+            await FirestoreRepository.completeDailyDigest(currentOrganization.id, morningSlot, res.sentCount);
+
+            if (res.sentCount > 0) {
+              console.log(`[DailyDigest] Enviados ${res.sentCount} resumos matinais de demandas.`);
+            }
+
+            updateOrganization(currentOrganization.id, {
+              evolutionConfig: {
+                ...orgConfig,
+                lastDeadlineReminderDate: todayStr,
+                lastMorningDigestDate: todayStr,
+              },
+            });
+          } else {
+            console.log(`[DailyDigest] Resumo matinal de ${todayStr} já reivindicado por outra instância.`);
           }
-
-          const res = await WhatsAppNotificationService.notifyDeadlineReminders({
-            organization: currentOrganization,
-            tasks: rawTasksRef.current,
-            users: orgUsersRef.current,
-            actorUser: currentUser,
-          });
-
-          await FirestoreRepository.completeDailyDigest(currentOrganization.id, todayStr, res.sentCount);
-
-          if (res.sentCount > 0) {
-            console.log(`[DeadlineReminder] Enviados ${res.sentCount} resumos matinais de prazo.`);
-          }
-
-          updateOrganization(currentOrganization.id, {
-            evolutionConfig: {
-              ...orgConfig,
-              lastDeadlineReminderDate: todayStr,
-            },
-          });
         } catch (err) {
-          console.warn('[DeadlineReminder] Erro ao enviar lembretes:', err);
+          console.warn('[DailyDigest] Erro ao enviar resumo matinal:', err);
         } finally {
           isCheckingDeadlinesRef.current = false;
+        }
+      }
+
+      // ── MOMENTO 2: Tarde / Fim do Dia (Balanço do Dia - Entregas e Pendências) ──
+      const isEveningEnabled = orgConfig?.enableEveningDigest !== false;
+      if (isEveningEnabled) {
+        const eveningTime = orgConfig?.dailyDigestTimeEvening || '17:30';
+        const [eHour, eMinute] = eveningTime.split(':').map((n) => parseInt(n, 10));
+        const eveningLockKey = `oiko_digest_evening_${currentOrganization.id}_${todayStr}`;
+        const eveningSlot = `${todayStr}_evening`;
+
+        const isEveningTimeReached = currentHour > eHour || (currentHour === eHour && currentMinute >= (eMinute || 0));
+        const hasRanEvening =
+          orgConfig?.lastEveningDigestDate === todayStr ||
+          localStorage.getItem(eveningLockKey) === todayStr;
+
+        if (isEveningTimeReached && !hasRanEvening && !isCheckingDeadlinesRef.current) {
+          isCheckingDeadlinesRef.current = true;
+          localStorage.setItem(eveningLockKey, todayStr);
+
+          try {
+            const claimed = await FirestoreRepository.claimDailyDigest(currentOrganization.id, eveningSlot);
+            if (claimed) {
+              const res = await WhatsAppNotificationService.notifyDailyDigest({
+                organization: currentOrganization,
+                tasks: rawTasksRef.current,
+                users: orgUsersRef.current,
+                actorUser: currentUser,
+                period: 'evening',
+              });
+
+              await FirestoreRepository.completeDailyDigest(currentOrganization.id, eveningSlot, res.sentCount);
+
+              if (res.sentCount > 0) {
+                console.log(`[DailyDigest] Enviados ${res.sentCount} balanços de fim de tarde.`);
+              }
+
+              updateOrganization(currentOrganization.id, {
+                evolutionConfig: {
+                  ...orgConfig,
+                  lastEveningDigestDate: todayStr,
+                },
+              });
+            } else {
+              console.log(`[DailyDigest] Balanço da tarde de ${todayStr} já reivindicado por outra instância.`);
+            }
+          } catch (err) {
+            console.warn('[DailyDigest] Erro ao enviar balanço da tarde:', err);
+          } finally {
+            isCheckingDeadlinesRef.current = false;
+          }
         }
       }
     };
@@ -1716,7 +1774,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [currentOrganization.id, currentOrganization.evolutionConfig?.isEnabled, currentOrganization.evolutionConfig?.notifyOnDeadlineApproaching, currentOrganization.evolutionConfig?.deadlineNotificationTime, currentOrganization.evolutionConfig?.lastDeadlineReminderDate, updateOrganization]);
+  }, [
+    currentOrganization.id,
+    currentOrganization.evolutionConfig?.isEnabled,
+    currentOrganization.evolutionConfig?.dailyDigestEnabled,
+    currentOrganization.evolutionConfig?.notifyOnDeadlineApproaching,
+    currentOrganization.evolutionConfig?.dailyDigestTimeMorning,
+    currentOrganization.evolutionConfig?.deadlineNotificationTime,
+    currentOrganization.evolutionConfig?.enableEveningDigest,
+    currentOrganization.evolutionConfig?.dailyDigestTimeEvening,
+    currentOrganization.evolutionConfig?.lastMorningDigestDate,
+    currentOrganization.evolutionConfig?.lastEveningDigestDate,
+    currentOrganization.evolutionConfig?.lastDeadlineReminderDate,
+    updateOrganization,
+  ]);
 
   // ── Auto-Reconciliação Retroativa de Tarefas de Eventos Arquivados (ex: Missão de Casa) ──
   const isReconcilingRef = useRef(false);

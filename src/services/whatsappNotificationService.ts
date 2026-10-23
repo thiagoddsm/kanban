@@ -381,11 +381,12 @@ export class WhatsAppNotificationService {
     completedItemText?: string;
   }): void {
     const orgConfig = organization.evolutionConfig;
-    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnChecklistUpdate === false) {
+    // Por padrão NÃO envia mensagem a cada check para evitar spam; o progresso entra no Resumo do Dia
+    if (orgConfig?.isEnabled === false || orgConfig?.notifyOnChecklistUpdate !== true) {
       return;
     }
 
-    // Debounce de 7 segundos para agrupar múltiplos checks seguidos em uma só mensagem
+    // Debounce de 7 segundos para agrupar múltiplos checks seguidos em uma só mensagem caso ativado
     const existing = checklistDebounceTimers.get(task.id);
     if (existing) clearTimeout(existing);
 
@@ -440,19 +441,24 @@ export class WhatsAppNotificationService {
   }
 
   /**
-   * Alerta Matinal Consolidado de Prazos (2 dias antes e no dia do vencimento)
-   * Agrupa todas as demandas de cada responsável em UMA única mensagem
+   * Resumo Consolidado do Dia (Briefing Diário - Manhã e Tarde)
+   * Agrupa em UMA mensagem por membro os 3 pilares solicitados:
+   * 1. 🚨 O que está vencendo (Hoje, atrasadas e em breve)
+   * 2. 🆕 O que foi criado recentemente
+   * 3. 📝 O que foi alterado / progresso recente
    */
-  public static async notifyDeadlineReminders({
+  public static async notifyDailyDigest({
     organization,
     tasks,
     users,
     actorUser,
+    period = 'morning',
   }: {
     organization: Organization;
     tasks: Task[];
     users: User[];
     actorUser?: User | null;
+    period?: 'morning' | 'evening' | 'manual';
   }): Promise<{ sentCount: number }> {
     const orgConfig = organization.evolutionConfig;
     if (orgConfig?.isEnabled === false || orgConfig?.notifyOnDeadlineApproaching === false) {
@@ -461,24 +467,43 @@ export class WhatsAppNotificationService {
 
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
 
     const in2Days = new Date();
     in2Days.setDate(in2Days.getDate() + 2);
     const in2DaysStr = in2Days.toISOString().split('T')[0];
 
-    // Filtra tarefas ativas não concluídas com prazo Hoje ou Daqui a 2 Dias
-    const activeTasks = tasks.filter((t) => !t.isArchived && t.status !== 'DONE' && !!t.deadline);
-    const todayTasks = activeTasks.filter((t) => t.deadline === todayStr);
-    const soonTasks = activeTasks.filter((t) => t.deadline === in2DaysStr);
+    // Tarefas ativas da organização
+    const activeTasks = tasks.filter((t) => !t.isArchived);
 
-    if (todayTasks.length === 0 && soonTasks.length === 0) {
-      return { sentCount: 0 };
+    interface UserDigestData {
+      user: User;
+      todayDue: Task[];
+      soonDue: Task[];
+      overdue: Task[];
+      createdRecent: Task[];
+      updatedRecent: Task[];
     }
 
-    // Agrupa por responsável
-    const userGroups = new Map<string, { today: Task[]; soon: Task[] }>();
+    const userDigestMap = new Map<string, UserDigestData>();
 
-    const assignToGroup = (task: Task, isToday: boolean) => {
+    const getOrCreateUserData = (u: User): UserDigestData => {
+      let data = userDigestMap.get(u.id);
+      if (!data) {
+        data = {
+          user: u,
+          todayDue: [],
+          soonDue: [],
+          overdue: [],
+          createdRecent: [],
+          updatedRecent: [],
+        };
+        userDigestMap.set(u.id, data);
+      }
+      return data;
+    };
+
+    for (const task of activeTasks) {
       const uids =
         task.assigneeIds && task.assigneeIds.length > 0
           ? task.assigneeIds
@@ -486,88 +511,141 @@ export class WhatsAppNotificationService {
           ? [task.assigneeId]
           : [];
 
-      uids.forEach((uid) => {
-        const group = userGroups.get(uid) || { today: [], soon: [] };
-        if (isToday) {
-          if (!group.today.some((t) => t.id === task.id)) group.today.push(task);
-        } else {
-          if (!group.soon.some((t) => t.id === task.id)) group.soon.push(task);
+      if (uids.length === 0) continue;
+
+      const isCompleted = task.status === 'DONE';
+      const deadline = task.deadline;
+      const isDueToday = !isCompleted && deadline === todayStr;
+      const isDueSoon = !isCompleted && deadline && deadline > todayStr && deadline <= in2DaysStr;
+      const isOverdue = !isCompleted && deadline && deadline < todayStr;
+
+      const taskCreatedTime = task.createdAt ? new Date(task.createdAt).getTime() : 0;
+      const isCreatedRecent = taskCreatedTime >= twentyFourHoursAgo;
+
+      const taskUpdatedTime = task.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+      const isUpdatedRecent = taskUpdatedTime >= twentyFourHoursAgo && !isCreatedRecent;
+
+      for (const uid of uids) {
+        const user = users.find((u) => u.id === uid) || StorageService.getUsers().find((u) => u.id === uid);
+        if (!user || user.notifyWhatsApp === false) continue;
+
+        const data = getOrCreateUserData(user);
+
+        if (isDueToday && !data.todayDue.some((t) => t.id === task.id)) {
+          data.todayDue.push(task);
+        } else if (isOverdue && !data.overdue.some((t) => t.id === task.id)) {
+          data.overdue.push(task);
+        } else if (isDueSoon && !data.soonDue.some((t) => t.id === task.id)) {
+          data.soonDue.push(task);
         }
-        userGroups.set(uid, group);
-      });
-    };
 
-    todayTasks.forEach((t) => assignToGroup(t, true));
-    soonTasks.forEach((t) => assignToGroup(t, false));
-
-    let sentCount = 0;
-    const instanceName = this.resolveInstanceName(organization, actorUser);
+        if (isCreatedRecent && !data.createdRecent.some((t) => t.id === task.id)) {
+          data.createdRecent.push(task);
+        } else if (isUpdatedRecent && !data.updatedRecent.some((t) => t.id === task.id)) {
+          data.updatedRecent.push(task);
+        }
+      }
+    }
 
     // Agrupa tarefas por TELEFONE normalizado (garante 1 única mensagem consolidada por número físico)
-    const phoneGroups = new Map<string, { user: User; today: Task[]; soon: Task[]; originalPhone: string }>();
+    const phoneDigestMap = new Map<string, { user: User; originalPhone: string; data: UserDigestData }>();
 
-    for (const [userId, group] of userGroups.entries()) {
-      const user = users.find((u) => u.id === userId) || StorageService.getUsers().find((u) => u.id === userId);
-      if (!user || user.notifyWhatsApp === false) continue;
-      const phone = await this.resolveUserPhone(user);
+    for (const [, data] of userDigestMap.entries()) {
+      const phone = await this.resolveUserPhone(data.user);
       if (!phone) continue;
       const clean = WhatsAppReplyService.cleanPhone(phone);
       if (!clean) continue;
 
-      const existing = phoneGroups.get(clean) || { user, today: [], soon: [], originalPhone: phone };
-      group.today.forEach((t) => {
-        if (!existing.today.some((et) => et.id === t.id)) existing.today.push(t);
-      });
-      group.soon.forEach((t) => {
-        if (!existing.soon.some((et) => et.id === t.id)) existing.soon.push(t);
-      });
-      phoneGroups.set(clean, existing);
+      const existing = phoneDigestMap.get(clean);
+      if (!existing) {
+        phoneDigestMap.set(clean, { user: data.user, originalPhone: phone, data });
+      } else {
+        const merged = existing.data;
+        data.todayDue.forEach((t) => { if (!merged.todayDue.some((mt) => mt.id === t.id)) merged.todayDue.push(t); });
+        data.overdue.forEach((t) => { if (!merged.overdue.some((mt) => mt.id === t.id)) merged.overdue.push(t); });
+        data.soonDue.forEach((t) => { if (!merged.soonDue.some((mt) => mt.id === t.id)) merged.soonDue.push(t); });
+        data.createdRecent.forEach((t) => { if (!merged.createdRecent.some((mt) => mt.id === t.id)) merged.createdRecent.push(t); });
+        data.updatedRecent.forEach((t) => { if (!merged.updatedRecent.some((mt) => mt.id === t.id)) merged.updatedRecent.push(t); });
+      }
     }
 
-    for (const [cleanPhone, data] of phoneGroups.entries()) {
-      const { user, today, soon, originalPhone } = data;
+    let sentCount = 0;
+    const instanceName = this.resolveInstanceName(organization, actorUser);
+
+    for (const [, { user, originalPhone, data }] of phoneDigestMap.entries()) {
       const firstName = (user.name || (user.email ? user.email.split('@')[0] : 'Membro')).split(' ')[0];
       const sections: string[] = [];
 
-      if (today.length > 0) {
-        const todayItems = today
+      // 1. O QUE ESTÁ VENCENDO
+      const expiringList = [...data.overdue, ...data.todayDue, ...data.soonDue];
+      if (expiringList.length > 0) {
+        const expiringItems = expiringList
+          .slice(0, 5)
+          .map((t, idx) => {
+            const isToday = t.deadline === todayStr;
+            const isLate = t.deadline && t.deadline < todayStr;
+            const badge = isLate ? '🚨 *ATRASADA*' : isToday ? '⏰ *HOJE*' : '⏳ *EM BREVE*';
+            const chk = t.checklist || [];
+            const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
+            const chkInfo = chk.length > 0 ? ` (${chkDone}/${chk.length} subtarefas)` : '';
+            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
+            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
+            return `${idx + 1}. ${badge} *${t.title}* [Ref: \`#T-${shortRef}\`]${chkInfo}\n   👉 Acesso Rápido: ${quickUrl}`;
+          })
+          .join('\n');
+        sections.push(`🚨 *O QUE ESTÁ VENCENDO (${expiringList.length}):*\n${expiringItems}`);
+      }
+
+      // 2. O QUE FOI CRIADO RECENTEMENTE
+      if (data.createdRecent.length > 0) {
+        const createdItems = data.createdRecent
+          .slice(0, 4)
+          .map((t, idx) => {
+            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
+            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
+            return `${idx + 1}. *${t.title}* [Ref: \`#T-${shortRef}\` • ${t.status}]\n   👉 Ver Demanda: ${quickUrl}`;
+          })
+          .join('\n');
+        sections.push(`🆕 *DEMANDAS CRIADAS / ATRIBUÍDAS (${data.createdRecent.length}):*\n${createdItems}`);
+      }
+
+      // 3. O QUE FOI ALTERADO / PROGRESSO RECENTE
+      if (data.updatedRecent.length > 0) {
+        const updatedItems = data.updatedRecent
+          .slice(0, 4)
           .map((t, idx) => {
             const chk = t.checklist || [];
             const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
-            const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
+            const chkInfo = chk.length > 0 ? ` (${chkDone}/${chk.length} etapas)` : '';
             const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
             const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
-            return `${idx + 1}. *${t.title}* [Ref: \`#T-${shortRef}\`]${chkInfo}\n   👉 Editar: ${quickUrl}`;
+            return `${idx + 1}. *${t.title}* [${t.status}]${chkInfo}\n   👉 Acesso Rápido: ${quickUrl}`;
           })
           .join('\n');
-        sections.push(`🚨 *VENCENDO HOJE (${today.length}):*\n${todayItems}`);
+        sections.push(`📝 *ALTERAÇÕES & PROGRESSO RECENTE (${data.updatedRecent.length}):*\n${updatedItems}`);
       }
 
-      if (soon.length > 0) {
-        const soonItems = soon
-          .map((t, idx) => {
-            const chk = t.checklist || [];
-            const chkDone = chk.filter((i: any) => typeof i === 'object' && i.completed).length;
-            const chkInfo = chk.length > 0 ? ` [Subtarefas: ${chkDone}/${chk.length}]` : '';
-            const quickUrl = this.resolveQuickTaskUrl(organization, t.id);
-            const shortRef = t.id.length > 8 ? t.id.slice(-6) : t.id;
-            return `${idx + 1}. *${t.title}* [Ref: \`#T-${shortRef}\`]${chkInfo}\n   👉 Editar: ${quickUrl}`;
-          })
-          .join('\n');
-        sections.push(`⏳ *VENCEM EM 2 DIAS (${soon.length}):*\n${soonItems}`);
+      // Se não há nada vencendo, nem criado, nem alterado para este usuário, não envia mensagem para evitar spam
+      if (sections.length === 0) continue;
+
+      let greeting = `☀️ *Briefing Matinal - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o resumo das suas demandas:`;
+      if (period === 'evening') {
+        greeting = `🌇 *Balanço do Dia - Kanban Oiko*\n\nBoa tarde, *${firstName}*! Aqui está o balanço das entregas e atividades de hoje:`;
+      } else if (period === 'manual') {
+        greeting = `📊 *Resumo Consolidado - Kanban Oiko*\n\nOlá, *${firstName}*! Aqui está o resumo das suas demandas:`;
       }
 
-      const kanbanUrl = this.resolveTaskUrl(organization);
-      const primeTask = today[0] || soon[0];
+      const primeTask = expiringList[0] || data.createdRecent[0] || data.updatedRecent[0];
       const primeRef = primeTask?.id ? (primeTask.id.length > 8 ? primeTask.id.slice(-6) : primeTask.id) : '';
 
       const footerGuide =
         `\n\n💬 *Como responder a uma demanda específica:*\n` +
-        `• Envie: *#T-código:* seu comentário (ex: *#T-${primeRef}:* Concluído hoje!)\n` +
+        `• Envie: *#T-código:* seu comentário (ex: *#T-${primeRef}:* Atualizado!)\n` +
         `• Ou deslize para responder citando esta mensagem\n` +
-        `• Ações rápidas: *#T-código 1* (Andamento) | *#T-código 3* (Concluir) | *#T-código C1* (Subtarefa)`;
+        `• Ações rápidas: *#T-código 1* (Andamento) | *#T-código 3* (Concluir) | *#T-código C1* (Subtarefa)\n\n` +
+        `📋 *Acessar Quadro Kanban:* ${this.resolveTaskUrl(organization)}`;
 
-      const text = `⏰ *Resumo Matinal de Prazos - Kanban Oiko*\n\nBom dia, *${firstName}*! Aqui está o status das suas entregas:\n\n${sections.join('\n\n')}${footerGuide}\n\n📋 *Acessar Kanban Completo:* ${kanbanUrl}`;
+      const text = `${greeting}\n\n${sections.join('\n\n')}${footerGuide}`;
 
       try {
         const res = await EvolutionApiService.sendTextMessage({
@@ -579,7 +657,6 @@ export class WhatsAppNotificationService {
 
         if (res.success) {
           sentCount++;
-          // Salva como contexto a primeira tarefa (caso responda sem #T-)
           if (primeTask) {
             WhatsAppReplyService.recordTaskContext(
               organization.id,
@@ -591,11 +668,23 @@ export class WhatsAppNotificationService {
           }
         }
       } catch (err) {
-        console.warn(`[WhatsAppNotify] Erro ao enviar lembrete de prazo para ${user.name}:`, err);
+        console.warn(`[WhatsAppNotify] Erro ao enviar resumo diário para ${user.name}:`, err);
       }
     }
 
     return { sentCount };
+  }
+
+  /**
+   * Mantém retrocompatibilidade chamando notifyDailyDigest
+   */
+  public static async notifyDeadlineReminders(params: {
+    organization: Organization;
+    tasks: Task[];
+    users: User[];
+    actorUser?: User | null;
+  }): Promise<{ sentCount: number }> {
+    return this.notifyDailyDigest({ ...params, period: 'morning' });
   }
 
   /**

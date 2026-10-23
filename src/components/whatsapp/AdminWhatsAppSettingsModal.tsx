@@ -16,7 +16,11 @@ import {
   CheckCircle2, 
   ShieldCheck, 
   BellRing,
-  Sparkles
+  Sparkles,
+  Sun,
+  Moon,
+  Clock,
+  AtSign
 } from 'lucide-react';
 
 interface AdminWhatsAppSettingsModalProps {
@@ -44,13 +48,26 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
   const [baseUrl, setBaseUrl] = useState(orgConfig.baseUrl || DEFAULT_EVOLUTION_CONFIG.baseUrl);
   const [apiKey, setApiKey] = useState(orgConfig.apiKey || DEFAULT_EVOLUTION_CONFIG.apiKey);
   const [isEnabled, setIsEnabled] = useState(orgConfig.isEnabled !== false);
-  const [notifyOnTaskCreated, setNotifyOnTaskCreated] = useState(orgConfig.notifyOnTaskCreated !== false);
+  const [notifyOnTaskCreated, setNotifyOnTaskCreated] = useState(orgConfig.notifyOnTaskCreated === true);
   const [notifyOnTaskBlocked, setNotifyOnTaskBlocked] = useState(orgConfig.notifyOnTaskBlocked !== false);
   const [notifyOnTaskApproved, setNotifyOnTaskApproved] = useState(orgConfig.notifyOnTaskApproved !== false);
   const [notifyOnMention, setNotifyOnMention] = useState(orgConfig.notifyOnMention !== false);
-  const [notifyOnChecklistUpdate, setNotifyOnChecklistUpdate] = useState(orgConfig.notifyOnChecklistUpdate !== false);
-  const [notifyOnDeadlineApproaching, setNotifyOnDeadlineApproaching] = useState(orgConfig.notifyOnDeadlineApproaching !== false);
-  const [deadlineNotificationTime, setDeadlineNotificationTime] = useState(orgConfig.deadlineNotificationTime || '08:30');
+  const [notifyOnChecklistUpdate, setNotifyOnChecklistUpdate] = useState(orgConfig.notifyOnChecklistUpdate === true);
+  
+  // Resumos Diários Consolidados (Manhã e Fim do Dia)
+  const [dailyDigestEnabled, setDailyDigestEnabled] = useState(
+    orgConfig.dailyDigestEnabled !== undefined
+      ? orgConfig.dailyDigestEnabled
+      : orgConfig.notifyOnDeadlineApproaching !== false
+  );
+  const [dailyDigestTimeMorning, setDailyDigestTimeMorning] = useState(
+    orgConfig.dailyDigestTimeMorning || orgConfig.deadlineNotificationTime || '08:30'
+  );
+  const [enableEveningDigest, setEnableEveningDigest] = useState(orgConfig.enableEveningDigest !== false);
+  const [dailyDigestTimeEvening, setDailyDigestTimeEvening] = useState(
+    orgConfig.dailyDigestTimeEvening || '17:30'
+  );
+
   const [enableWhatsAppReplies, setEnableWhatsAppReplies] = useState(orgConfig.enableWhatsAppReplies !== false);
   const [sendCommentReplyConfirmation, setSendCommentReplyConfirmation] = useState(orgConfig.sendCommentReplyConfirmation !== false);
   const [isTriggeringDeadlines, setIsTriggeringDeadlines] = useState(false);
@@ -64,13 +81,21 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
     setBaseUrl(config.baseUrl || DEFAULT_EVOLUTION_CONFIG.baseUrl);
     setApiKey(config.apiKey || DEFAULT_EVOLUTION_CONFIG.apiKey);
     setIsEnabled(config.isEnabled !== false);
-    setNotifyOnTaskCreated(config.notifyOnTaskCreated !== false);
+    setNotifyOnTaskCreated(config.notifyOnTaskCreated === true);
     setNotifyOnTaskBlocked(config.notifyOnTaskBlocked !== false);
     setNotifyOnTaskApproved(config.notifyOnTaskApproved !== false);
     setNotifyOnMention(config.notifyOnMention !== false);
-    setNotifyOnChecklistUpdate(config.notifyOnChecklistUpdate !== false);
-    setNotifyOnDeadlineApproaching(config.notifyOnDeadlineApproaching !== false);
-    setDeadlineNotificationTime(config.deadlineNotificationTime || '08:30');
+    setNotifyOnChecklistUpdate(config.notifyOnChecklistUpdate === true);
+    setDailyDigestEnabled(
+      config.dailyDigestEnabled !== undefined
+        ? config.dailyDigestEnabled
+        : config.notifyOnDeadlineApproaching !== false
+    );
+    setDailyDigestTimeMorning(
+      config.dailyDigestTimeMorning || config.deadlineNotificationTime || '08:30'
+    );
+    setEnableEveningDigest(config.enableEveningDigest !== false);
+    setDailyDigestTimeEvening(config.dailyDigestTimeEvening || '17:30');
     setEnableWhatsAppReplies(config.enableWhatsAppReplies !== false);
     setSendCommentReplyConfirmation(config.sendCommentReplyConfirmation !== false);
   }, [currentOrganization]);
@@ -82,12 +107,12 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
       setIsTriggeringDeadlines(true);
       const count = await triggerDeadlineRemindersNow();
       if (count > 0) {
-        success('Resumos de Prazo Enviados!', `Foram disparadas mensagens consolidadas para ${count} responsável(eis).`);
+        success('Resumos Diários Enviados!', `Foram disparadas mensagens consolidadas para ${count} responsável(eis).`);
       } else {
-        notifyError('Nenhum lembrete pendente', 'Não há demandas com prazo vencendo hoje ou em 2 dias com responsáveis cadastrados.');
+        notifyError('Nenhum resumo pendente', 'Não há demandas vencendo, criadas ou alteradas nas últimas 24h para os responsáveis cadastrados.');
       }
     } catch (err: any) {
-      notifyError('Erro ao disparar', err?.message || 'Falha ao processar lembretes.');
+      notifyError('Erro ao disparar', err?.message || 'Falha ao processar resumo diário.');
     } finally {
       setIsTriggeringDeadlines(false);
     }
@@ -110,8 +135,13 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
       notifyOnTaskApproved,
       notifyOnMention,
       notifyOnChecklistUpdate,
-      notifyOnDeadlineApproaching,
-      deadlineNotificationTime,
+      // Suporte e retrocompatibilidade com resumos diários
+      notifyOnDeadlineApproaching: dailyDigestEnabled,
+      deadlineNotificationTime: dailyDigestTimeMorning,
+      dailyDigestEnabled,
+      dailyDigestTimeMorning,
+      enableEveningDigest,
+      dailyDigestTimeEvening,
       enableWhatsAppReplies,
       sendCommentReplyConfirmation,
       updatedAt: new Date().toISOString(),
@@ -257,79 +287,201 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
 
 
               {/* Automation Toggles */}
-              <div className="pt-4 border-t border-slate-800 space-y-3">
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <BellRing className="w-4 h-4 text-emerald-400" />
-                  <span>Gatilhos de Notificação Automática</span>
-                </h4>
+              <div className="pt-4 border-t border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <BellRing className="w-4 h-4 text-emerald-400" />
+                    <span>Regras de Notificação & Disparo</span>
+                  </h4>
+                </div>
 
-                <div className="space-y-2 text-xs">
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
+                <div className="space-y-3 text-xs">
+                  {/* Master Switch */}
+                  <label className="flex items-center gap-2.5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 cursor-pointer hover:bg-emerald-500/15 transition-colors">
                     <input
                       type="checkbox"
                       checked={isEnabled}
                       onChange={(e) => setIsEnabled(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
+                      className="rounded text-emerald-600 bg-slate-900 border-slate-700 w-4 h-4"
                     />
                     <div>
-                      <span className="font-bold text-white block">Ativar Disparador do WhatsApp</span>
-                      <span className="text-[11px] text-slate-400">Habilita o envio de mensagens pelo sistema</span>
+                      <span className="font-bold text-emerald-300 block text-xs">Ativar Disparador do WhatsApp</span>
+                      <span className="text-[11px] text-emerald-400/80">Habilita o envio automático de mensagens para a equipe</span>
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={notifyOnTaskCreated}
-                      onChange={(e) => setNotifyOnTaskCreated(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Nova Demanda Atribuída</span>
-                      <span className="text-[11px] text-slate-400">Notifica o responsável quando uma demanda for criada para ele</span>
+                  {/* 1. NOTIFICAÇÕES EM TEMPO REAL (IMEDIATAS) */}
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <AtSign className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Notificações Imediatas (Na Hora)</span>
+                      </span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        TEMPO REAL
+                      </span>
                     </div>
-                  </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={notifyOnTaskBlocked}
-                      onChange={(e) => setNotifyOnTaskBlocked(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Alerta de Demanda Bloqueada</span>
-                      <span className="text-[11px] text-slate-400">Notifica o líder/requisitante quando a tarefa for travada por motivo externo</span>
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 cursor-pointer hover:bg-slate-800/40">
+                      <input
+                        type="checkbox"
+                        checked={notifyOnMention}
+                        onChange={(e) => setNotifyOnMention(e.target.checked)}
+                        className="rounded text-indigo-600 bg-slate-900 border-slate-700 mt-0.5"
+                      />
+                      <div>
+                        <span className="font-semibold text-white block">@Menções nos Comentários</span>
+                        <span className="text-[11px] text-slate-400">
+                          Dispara na hora no WhatsApp quando um membro for mencionado com <strong className="text-indigo-300">@Nome</strong>
+                        </span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 cursor-pointer hover:bg-slate-800/40">
+                      <input
+                        type="checkbox"
+                        checked={notifyOnTaskBlocked}
+                        onChange={(e) => setNotifyOnTaskBlocked(e.target.checked)}
+                        className="rounded text-amber-500 bg-slate-900 border-slate-700 mt-0.5"
+                      />
+                      <div>
+                        <span className="font-semibold text-slate-200 block">Alerta de Demanda Bloqueada</span>
+                        <span className="text-[11px] text-slate-400">Notifica líder/requisitante quando a tarefa for travada</span>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80 cursor-pointer hover:bg-slate-800/40">
+                      <input
+                        type="checkbox"
+                        checked={notifyOnTaskApproved}
+                        onChange={(e) => setNotifyOnTaskApproved(e.target.checked)}
+                        className="rounded text-emerald-600 bg-slate-900 border-slate-700 mt-0.5"
+                      />
+                      <div>
+                        <span className="font-semibold text-slate-200 block">Aprovação / Conclusão</span>
+                        <span className="text-[11px] text-slate-400">Notifica quando a demanda for aprovada ou concluída</span>
+                      </div>
+                    </label>
+
+                    <div className="pt-2 border-t border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className="flex items-start gap-2 p-2 rounded-lg bg-slate-900/30 border border-slate-800/50 cursor-pointer hover:bg-slate-800/30">
+                        <input
+                          type="checkbox"
+                          checked={notifyOnTaskCreated}
+                          onChange={(e) => setNotifyOnTaskCreated(e.target.checked)}
+                          className="rounded text-emerald-600 bg-slate-900 border-slate-700 mt-0.5"
+                        />
+                        <div>
+                          <span className="font-medium text-slate-300 block text-[11px]">Nova Demanda Avulsa</span>
+                          <span className="text-[10px] text-slate-500">Desmarcado = agrupa no resumo do dia</span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-start gap-2 p-2 rounded-lg bg-slate-900/30 border border-slate-800/50 cursor-pointer hover:bg-slate-800/30">
+                        <input
+                          type="checkbox"
+                          checked={notifyOnChecklistUpdate}
+                          onChange={(e) => setNotifyOnChecklistUpdate(e.target.checked)}
+                          className="rounded text-emerald-600 bg-slate-900 border-slate-700 mt-0.5"
+                        />
+                        <div>
+                          <span className="font-medium text-slate-300 block text-[11px]">Subtarefa Avulsa (Checklist)</span>
+                          <span className="text-[10px] text-slate-500">Desmarcado = evita spam a cada clique</span>
+                        </div>
+                      </label>
                     </div>
-                  </label>
+                  </div>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={notifyOnTaskApproved}
-                      onChange={(e) => setNotifyOnTaskApproved(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Aprovação / Conclusão</span>
-                      <span className="text-[11px] text-slate-400">Notifica os envolvidos quando a demanda for aprovada/entregue</span>
+                  {/* 2. RESUMO DIÁRIO CONSOLIDADO (1 OU 2 MOMENTOS DO DIA) */}
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dailyDigestEnabled}
+                          onChange={(e) => setDailyDigestEnabled(e.target.checked)}
+                          className="rounded text-emerald-600 bg-slate-900 border-slate-700 w-4 h-4"
+                        />
+                        <div>
+                          <span className="font-bold text-white block">Resumo Diário Consolidado</span>
+                          <span className="text-[11px] text-slate-400">
+                            Envia 1 ou 2 briefings por dia com: 🚨 Vencendo, 🆕 Novas demandas e 📝 O que foi alterado
+                          </span>
+                        </div>
+                      </label>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        1 A 2X AO DIA
+                      </span>
                     </div>
-                  </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={notifyOnMention}
-                      onChange={(e) => setNotifyOnMention(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Notificação de @Menções (Fallback)</span>
-                      <span className="text-[11px] text-slate-400">Dispara via WhatsApp da igreja caso o membro autor do comentário ainda não tenha pareado seu próprio WhatsApp</span>
-                    </div>
-                  </label>
+                    {dailyDigestEnabled && (
+                      <div className="pt-3 border-t border-slate-800/70 space-y-3 pl-1 sm:pl-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Momento 1: Manhã */}
+                          <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Sun className="w-4 h-4 text-amber-400" />
+                              <div>
+                                <span className="font-semibold text-slate-200 block text-xs">1º Momento: Manhã</span>
+                                <span className="text-[10px] text-slate-400">Briefing matinal</span>
+                              </div>
+                            </div>
+                            <input
+                              type="time"
+                              value={dailyDigestTimeMorning}
+                              onChange={(e) => setDailyDigestTimeMorning(e.target.value)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                            />
+                          </div>
 
-                  <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-2.5">
+                          {/* Momento 2: Tarde */}
+                          <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={enableEveningDigest}
+                                onChange={(e) => setEnableEveningDigest(e.target.checked)}
+                                className="rounded text-indigo-500 bg-slate-950 border-slate-700"
+                              />
+                              <div className="flex items-center gap-1.5">
+                                <Moon className="w-4 h-4 text-indigo-400" />
+                                <div>
+                                  <span className="font-semibold text-slate-200 block text-xs">2º Momento: Tarde</span>
+                                  <span className="text-[10px] text-slate-400">Balanço do dia</span>
+                                </div>
+                              </div>
+                            </label>
+                            {enableEveningDigest && (
+                              <input
+                                type="time"
+                                value={dailyDigestTimeEvening}
+                                onChange={(e) => setDailyDigestTimeEvening(e.target.value)}
+                                className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-indigo-400"
+                              />
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[11px] text-slate-400">
+                            Execução com trava distribuída (garante envio único por dia mesmo com múltiplas abas abertas)
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isTriggeringDeadlines}
+                            onClick={handleTriggerDeadlinesNow}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            <BellRing className={`w-3.5 h-3.5 ${isTriggeringDeadlines ? 'animate-bounce' : ''}`} />
+                            <span>{isTriggeringDeadlines ? 'Disparando...' : 'Disparar Resumo Agora'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. RESPOSTAS & COMANDOS PELO WHATSAPP (BIDIRECIONAL) */}
+                  <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
                     <label className="flex items-center gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -343,7 +495,7 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                           <span>Respostas & Comandos pelo WhatsApp (Bidirecional)</span>
                         </span>
                         <span className="text-[11px] text-slate-400">
-                          Permite responder no WhatsApp para comentar na tarefa (#T-código), mudar status (1, 2, 3) ou marcar checklist
+                          Permite responder no WhatsApp para comentar na tarefa (#T-código:), alterar status (1, 2, 3) ou marcar checklist
                         </span>
                       </div>
                     </label>
@@ -364,63 +516,6 @@ export const AdminWhatsAppSettingsModal: React.FC<AdminWhatsAppSettingsModalProp
                             </span>
                           </div>
                         </label>
-                      </div>
-                    )}
-                  </div>
-
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 cursor-pointer hover:bg-slate-800/30">
-                    <input
-                      type="checkbox"
-                      checked={notifyOnChecklistUpdate}
-                      onChange={(e) => setNotifyOnChecklistUpdate(e.target.checked)}
-                      className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                    />
-                    <div>
-                      <span className="font-semibold text-slate-200 block">Avanço de Checklist / Subtarefas (2/3)</span>
-                      <span className="text-[11px] text-slate-400">
-                        Dispara notificação com o progresso atualizado quando itens forem concluídos
-                      </span>
-                    </div>
-                  </label>
-
-                  {/* Deadline Alerts */}
-                  <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 space-y-3">
-                    <label className="flex items-center gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={notifyOnDeadlineApproaching}
-                        onChange={(e) => setNotifyOnDeadlineApproaching(e.target.checked)}
-                        className="rounded text-emerald-600 bg-slate-900 border-slate-700"
-                      />
-                      <div>
-                        <span className="font-semibold text-slate-200 block">Lembretes de Prazos (Hoje e em 2 dias)</span>
-                        <span className="text-[11px] text-slate-400">
-                          Envia resumo consolidado matinal para cada responsável com suas demandas pendentes
-                        </span>
-                      </div>
-                    </label>
-
-                    {notifyOnDeadlineApproaching && (
-                      <div className="pt-2 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 pl-6">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-slate-400">Horário matinal:</span>
-                          <input
-                            type="time"
-                            value={deadlineNotificationTime}
-                            onChange={(e) => setDeadlineNotificationTime(e.target.value)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={isTriggeringDeadlines}
-                          onClick={handleTriggerDeadlinesNow}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition-colors disabled:opacity-50"
-                        >
-                          <BellRing className={`w-3.5 h-3.5 ${isTriggeringDeadlines ? 'animate-bounce' : ''}`} />
-                          <span>{isTriggeringDeadlines ? 'Disparando...' : 'Disparar Resumo Agora'}</span>
-                        </button>
                       </div>
                     )}
                   </div>
