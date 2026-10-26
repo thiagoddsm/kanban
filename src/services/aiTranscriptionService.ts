@@ -33,9 +33,9 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', tag: 'Estável • 100% Gratuito (Recomendado)' },
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
-  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Mais Recente • Recomendado' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade • Rápido' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', tag: 'Ultra Rápido • Econômico' },
   { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Equilibrado' },
   { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
 ] as const;
@@ -147,7 +147,7 @@ export class AiLiveMeetingHelper {
   public static async analyzeLiveMeeting({
     transcriptText,
     apiKey,
-    model = 'gemini-3.5-flash-lite',
+    model = 'gemini-3.8-flash',
     context,
   }: {
     transcriptText: string;
@@ -251,7 +251,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
   ]
 }`;
 
-    const modelsToTry = Array.from(new Set([model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-flash-latest']));
+    const modelsToTry = Array.from(new Set([model, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest']));
 
     const payload = {
       contents: [
@@ -363,14 +363,14 @@ export class AiTranscriptionService {
     const storageKey = `${STORAGE_MODEL_PREFIX}_${orgId}_${userId}`;
     const stored = localStorage.getItem(storageKey) as AiModelId;
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
-      // Migra modelos legados/descontinuados para o 3.5-flash-lite
+      // Migra modelos legados/descontinuados para o 3.8-flash
       if ((stored as string) === 'gemini-3.6-flash' || (stored as string) === 'gemini-2.5-flash' || (stored as string) === 'gemini-2.5-flash-lite') {
-        localStorage.setItem(storageKey, 'gemini-3.5-flash-lite');
-        return 'gemini-3.5-flash-lite';
+        localStorage.setItem(storageKey, 'gemini-3.8-flash');
+        return 'gemini-3.8-flash';
       }
       return stored;
     }
-    return 'gemini-3.5-flash-lite';
+    return 'gemini-3.8-flash';
   }
 
   /**
@@ -387,7 +387,7 @@ export class AiTranscriptionService {
   public static async extractTasksFromTranscript({
     transcriptText,
     apiKey,
-    model = 'gemini-3.5-flash-lite',
+    model = 'gemini-3.8-flash',
     context,
     onProgress,
   }: {
@@ -471,7 +471,7 @@ Responda ESTRITAMENTE em formato JSON válido, sem qualquer texto introdutório 
 }`;
 
     // Lista ordenada de modelos a testar com fallback automático
-    const rawFallbackList = [model, 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-flash-latest'];
+    const rawFallbackList = [model, 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest'];
     const modelsToTry: string[] = [];
     for (const m of rawFallbackList) {
       if (m && !modelsToTry.includes(m)) {
