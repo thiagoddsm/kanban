@@ -38,40 +38,25 @@ export class GeminiProvider implements AIProvider {
       parts: [{ text: input.userMessage }]
     });
 
-    const primaryModel = process.env.AI_MODEL || 'gemini-3.8-flash';
-    const modelsToTry = Array.from(new Set([primaryModel, 'gemini-3.7-flash', 'gemini-3.5-flash-lite']));
+    const modelName = process.env.AI_MODEL || 'gemini-2.5-flash';
 
-    let response: any;
-    let lastError: any;
-    let activeModel = primaryModel;
-
-    for (const currentModel of modelsToTry) {
-      try {
-        response = await this.ai.models.generateContent({
-          model: currentModel,
-          contents,
-          config: {
-            systemInstruction,
-            tools: geminiTools as any
-          }
-        });
-        if (response) {
-          activeModel = currentModel;
-          break;
+    let response;
+    try {
+      response = await this.ai.models.generateContent({
+        model: modelName,
+        contents,
+        config: {
+          systemInstruction,
+          tools: geminiTools as any
         }
-      } catch (err: any) {
-        lastError = err;
-        if (err?.message?.includes('429') || err?.status === 429 || err?.message?.includes('Quota')) {
-          return {
-            text: "Poxa, atingimos o limite de velocidade do nosso plano gratuito na IA do Google. Você poderia aguardar só um minutinho e tentar de novo?"
-          };
-        }
-        console.warn(`[GeminiProvider] Erro no modelo ${currentModel}, tentando alternativo:`, err?.message || err);
+      });
+    } catch (err: any) {
+      if (err?.message?.includes('429') || err?.status === 429 || err?.message?.includes('Quota')) {
+        return {
+          text: "Poxa, atingimos o limite de velocidade do nosso plano gratuito na IA do Google. Você poderia aguardar só um minutinho e tentar de novo?"
+        };
       }
-    }
-
-    if (!response) {
-      throw lastError || new Error("Falha ao comunicar com os modelos do Gemini.");
+      throw err;
     }
 
     // Handle Tool Calling Loop (Oiko Engine -> Function Execution -> Gemini Callback)
@@ -101,7 +86,7 @@ export class GeminiProvider implements AIProvider {
 
       try {
         response = await this.ai.models.generateContent({
-          model: activeModel,
+          model: modelName,
           contents,
           config: {
             systemInstruction,

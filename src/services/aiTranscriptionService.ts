@@ -73,11 +73,9 @@ export interface PersonActivitySummary {
   summary: string;
   tasks: Array<{
     title: string;
-    description?: string;
     deadline?: string;
     priority?: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
     demandType?: string;
-    checklist?: string[];
   }>;
 }
 
@@ -366,7 +364,7 @@ export class AiTranscriptionService {
     const stored = localStorage.getItem(storageKey) as AiModelId;
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
       // Se o usuário tinha ficado com o 3.6-flash salvo no navegador (que está com instabilidade no Google), migra para o 2.5-flash
-      if (stored === 'gemini-3.6-flash' || stored === 'gemini-3.8-flash') {
+      if (stored === 'gemini-3.6-flash') {
         localStorage.setItem(storageKey, 'gemini-2.5-flash');
         return 'gemini-2.5-flash';
       }

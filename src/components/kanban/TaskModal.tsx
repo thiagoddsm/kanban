@@ -184,7 +184,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
 
   // Direct File Upload State
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -260,62 +259,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
   }, [activities, getCommentsForTask, task]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     try {
       setIsUploading(true);
       setUploadProgress(0);
       const safeOrgId = task.organizationId || currentOrganization?.id || 'default';
-      const uploadedAttachments: AttachmentLink[] = [];
+      const newAtt = await StorageUploadService.uploadTaskAttachment(
+        safeOrgId,
+        task.id,
+        file,
+        currentUser?.name || 'Membro',
+        (progress) => setUploadProgress(progress)
+      );
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        setUploadStatusText(
-          files.length > 1
-            ? `Enviando ${i + 1} de ${files.length}: "${file.name}"...`
-            : `Enviando "${file.name}"...`
-        );
-
-        const newAtt = await StorageUploadService.uploadTaskAttachment(
-          safeOrgId,
-          task.id,
-          file,
-          currentUser?.name || 'Membro',
-          (filePct) => {
-            const basePct = (i / files.length) * 100;
-            const currentContribution = filePct / files.length;
-            setUploadProgress(Math.round(basePct + currentContribution));
-          }
-        );
-        uploadedAttachments.push(newAtt);
-      }
-
-      // Atualiza o estado local de anexos somando os novos uploads aos existentes
-      const updatedLinks = [
-        ...attachmentLinks.filter((a) => !uploadedAttachments.some((u) => u.id === a.id)),
-        ...uploadedAttachments,
-      ];
+      // Atualiza o estado local de anexos
+      const updatedLinks = [...attachmentLinks.filter(a => a.id !== newAtt.id), newAtt];
       setAttachmentLinks(updatedLinks);
 
       // Persiste imediatamente no Firestore preservando TODAS as alterações em edição
       const consolidated = getConsolidatedTask({ attachmentLinks: updatedLinks });
       updateTask(consolidated);
 
-      if (files.length === 1) {
-        notifySuccess('Arquivo anexado!', `"${files[0].name}" foi salvo e já está visível para todos.`);
-      } else {
-        notifySuccess('Arquivos anexados!', `${files.length} arquivos foram salvos com sucesso.`);
-      }
+      notifySuccess('Arquivo anexado!', `"${file.name}" foi salvo e já está visível para todos.`);
       setUploadProgress(null);
-      setUploadStatusText('');
     } catch (err: any) {
-      console.error('Erro no upload de arquivos:', err);
-      notifyError?.('Falha no Upload', err?.message || 'Não foi possível fazer o upload dos arquivos. Tente novamente.');
+      console.error('Erro no upload de arquivo:', err);
+      notifyError?.('Falha no Upload', err?.message || 'Não foi possível fazer o upload do arquivo. Tente novamente.');
     } finally {
       setIsUploading(false);
-      setUploadProgress(null);
-      setUploadStatusText('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -929,7 +902,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
               <div className="flex items-center gap-2">
                 <input
                   type="file"
-                  multiple
                   ref={fileInputRef}
                   onChange={handleFileUpload}
                   className="hidden"
@@ -943,7 +915,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
                   }`}
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  <span>{isUploading ? 'Enviando...' : 'Enviar Arquivos / Fotos'}</span>
+                  <span>{isUploading ? 'Enviando...' : 'Enviar Arquivo / Foto'}</span>
                 </label>
               </div>
             </div>
@@ -952,8 +924,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, isOpen, onClose }) =
             {uploadProgress !== null && (
               <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 space-y-1.5">
                 <div className="flex items-center justify-between text-xs text-indigo-300 font-bold">
-                  <span className="truncate pr-2">{uploadStatusText || 'Enviando arquivo(s) para o Cloud Storage...'}</span>
-                  <span className="shrink-0">{uploadProgress}%</span>
+                  <span>Enviando arquivo para o Cloud Storage...</span>
+                  <span>{uploadProgress}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                   <div
