@@ -38,7 +38,8 @@ import {
   Maximize2,
   Minimize2,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  SlidersHorizontal
 } from 'lucide-react';
 import { useAI } from '../context/AIContext';
 import { useAuth } from '../context/AuthContext';
@@ -129,6 +130,23 @@ export const AILiveModePage: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [createdTaskKeys, setCreatedTaskKeys] = useState<Record<string, boolean>>({});
+
+  // ── Modal de Ajuste de Tarefa antes do envio ao Kanban ──
+  interface EditingMeetingTaskState {
+    pIdx: number;
+    tIdx: number;
+    taskKey: string;
+    title: string;
+    description: string;
+    selectedUserId: string;
+    personName: string;
+    priority: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
+    demandType: string;
+    deadline: string;
+    checklist: string[];
+    newChecklistInput: string;
+  }
+  const [editingTask, setEditingTask] = useState<EditingMeetingTaskState | null>(null);
 
   // ── Histórico de Reuniões Gravadas ──
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
@@ -648,11 +666,183 @@ export const AILiveModePage: React.FC = () => {
     }
   };
 
+  // Atribuição rápida de membro a um bloco inteiro de atividades
+  const handleQuickAssignPerson = (personIdx: number, newUserId: string) => {
+    if (!intelligence?.peopleActivities) return;
+    const selectedUser = users.find((u) => u.id === newUserId);
+    const updated = [...intelligence.peopleActivities];
+    if (selectedUser) {
+      updated[personIdx] = {
+        ...updated[personIdx],
+        personName: selectedUser.name,
+        matchedUserId: selectedUser.id,
+        roleOrMinistry: updated[personIdx].roleOrMinistry || 'Membro'
+      };
+      success('Responsável Atualizado', `Atividades vinculadas a ${selectedUser.name}.`);
+    } else {
+      updated[personIdx] = {
+        ...updated[personIdx],
+        personName: 'A Definir',
+        matchedUserId: undefined,
+        roleOrMinistry: 'Pendente de Definição'
+      };
+    }
+    setIntelligence({
+      ...intelligence,
+      peopleActivities: updated
+    });
+  };
+
+  // Abrir modal para ajustar tarefa individual antes de importar
+  const handleOpenEditTask = (pIdx: number, tIdx: number) => {
+    if (!intelligence?.peopleActivities) return;
+    const person = intelligence.peopleActivities[pIdx];
+    const task = person?.tasks?.[tIdx];
+    if (!person || !task) return;
+
+    const taskKey = `${pIdx}_${tIdx}`;
+    setEditingTask({
+      pIdx,
+      tIdx,
+      taskKey,
+      title: task.title || '',
+      description:
+        task.description ||
+        `Demanda extraída no Modo Reunião J.A.R.V.I.S.\nResponsável indicado: ${person.personName}`,
+      selectedUserId: person.matchedUserId || '',
+      personName: person.personName || 'A Definir',
+      priority: (task.priority as any) || 'Alta',
+      demandType: task.demandType || 'Arte',
+      deadline: task.deadline || '',
+      checklist: task.checklist ? [...task.checklist] : [],
+      newChecklistInput: ''
+    });
+  };
+
+  // Salvar ajustes feitos na tarefa individual (e mover apenas aquela tarefa se o responsável mudar)
+  const handleSaveEditedTask = (createInKanban = false) => {
+    if (!editingTask) return;
+    const {
+      pIdx,
+      tIdx,
+      taskKey,
+      title,
+      description,
+      selectedUserId,
+      priority,
+      demandType,
+      deadline,
+      checklist
+    } = editingTask;
+
+    const assignedUser = users.find((u) => u.id === selectedUserId);
+    const finalPersonName = assignedUser ? assignedUser.name : editingTask.personName || 'A Definir';
+
+    // 1. Atualizar inteligência em memória movendo APENAS a tarefa editada caso o responsável mude
+    if (intelligence?.peopleActivities) {
+      const updated = [...intelligence.peopleActivities];
+      if (updated[pIdx]) {
+        const sourcePerson = updated[pIdx];
+        const taskToMove = {
+          ...sourcePerson.tasks[tIdx],
+          title,
+          description,
+          priority,
+          demandType,
+          deadline: deadline || undefined,
+          checklist
+        };
+
+        const targetUserMatched = assignedUser ? assignedUser.id : undefined;
+        const targetPersonName = finalPersonName;
+
+        const isSamePerson =
+          (sourcePerson.matchedUserId && sourcePerson.matchedUserId === targetUserMatched) ||
+          (!sourcePerson.matchedUserId && !targetUserMatched && sourcePerson.personName === targetPersonName);
+
+        if (isSamePerson) {
+          const updatedTasks = [...sourcePerson.tasks];
+          updatedTasks[tIdx] = taskToMove;
+          updated[pIdx] = { ...sourcePerson, tasks: updatedTasks };
+        } else {
+          // Remove apenas esta tarefa do bloco de origem
+          const remainingTasks = sourcePerson.tasks.filter((_, i) => i !== tIdx);
+
+          // Procura se já existe um bloco para o novo responsável
+          const destIdx = updated.findIndex(
+            (p, idx) =>
+              idx !== pIdx &&
+              ((targetUserMatched && p.matchedUserId === targetUserMatched) ||
+                (!targetUserMatched && p.personName.toLowerCase() === targetPersonName.toLowerCase()))
+          );
+
+          if (destIdx >= 0) {
+            const destPerson = updated[destIdx];
+            updated[destIdx] = {
+              ...destPerson,
+              tasks: [...(destPerson.tasks || []), taskToMove]
+            };
+          } else {
+            updated.push({
+              personName: targetPersonName,
+              matchedUserId: targetUserMatched,
+              roleOrMinistry: assignedUser ? 'Membro da Equipe' : 'Pendente de Definição',
+              summary: `Demandas atribuídas para ${targetPersonName}.`,
+              tasks: [taskToMove]
+            });
+          }
+
+          if (remainingTasks.length === 0) {
+            updated.splice(pIdx, 1);
+          } else {
+            updated[pIdx] = { ...sourcePerson, tasks: remainingTasks };
+          }
+        }
+
+        setIntelligence({ ...intelligence, peopleActivities: updated });
+      }
+    }
+
+    // 2. Criar no Kanban se solicitado
+    if (createInKanban) {
+      const checklistItems = checklist.map((item, idx) => ({
+        id: `chk_${Date.now()}_${idx}`,
+        text: item,
+        completed: false
+      }));
+
+      createTask({
+        title,
+        description:
+          description ||
+          `Demanda extraída no Modo Reunião J.A.R.V.I.S.\nResponsável: ${finalPersonName}`,
+        status: 'INBOX',
+        priority: priority as any,
+        demandType: demandType as any,
+        startDate: new Date().toISOString().split('T')[0],
+        deadline: deadline || undefined,
+        assigneeIds: selectedUserId ? [selectedUserId] : [],
+        checklist: checklistItems,
+        tags: ['Jarvis Reunião Ao Vivo'],
+        requesterId: userId,
+        requesterName: currentUser?.name || 'J.A.R.V.I.S.',
+        attachmentLinks: []
+      });
+
+      setCreatedTaskKeys((prev) => ({ ...prev, [taskKey]: true }));
+      success('Tarefa criada no Kanban!', `"${title}" atribuída a ${finalPersonName}.`);
+    } else {
+      success('Ajustes salvos!', `A tarefa "${title}" foi atualizada.`);
+    }
+
+    setEditingTask(null);
+  };
+
   // Criar tarefa individual de uma pessoa direto no Kanban
   const handleCreateSinglePersonTask = (
     personName: string,
     matchedUserId: string | undefined,
-    taskItem: { title: string; deadline?: string; priority?: string; demandType?: string },
+    taskItem: { title: string; description?: string; deadline?: string; priority?: string; demandType?: string; checklist?: string[] },
     taskKey: string
   ) => {
     if (createdTaskKeys[taskKey]) return;
@@ -661,7 +851,9 @@ export const AILiveModePage: React.FC = () => {
       [
         {
           titulo: taskItem.title,
-          descricao_orientacoes: `Extraído ao vivo no Modo Reunião J.A.R.V.I.S.\nResponsável citado: ${personName}`,
+          descricao_orientacoes:
+            taskItem.description ||
+            `Extraído ao vivo no Modo Reunião J.A.R.V.I.S.\nResponsável citado: ${personName}`,
           prioridade: (taskItem.priority as any) || 'Alta',
           tipo: taskItem.demandType || 'Arte',
           datas: {
@@ -682,6 +874,12 @@ export const AILiveModePage: React.FC = () => {
     );
 
     const parsed = normalizedList[0];
+    const checklistItems = (taskItem.checklist || []).map((item, idx) => ({
+      id: `chk_${Date.now()}_${idx}`,
+      text: item,
+      completed: false
+    }));
+
     createTask({
       title: parsed.title,
       description: parsed.description,
@@ -691,7 +889,7 @@ export const AILiveModePage: React.FC = () => {
       startDate: parsed.startDate,
       deadline: parsed.deadline,
       assigneeIds: matchedUserId ? [matchedUserId] : parsed.assigneeIds,
-      checklist: [],
+      checklist: checklistItems,
       tags: ['Jarvis Reunião Ao Vivo'],
       requesterId: userId,
       requesterName: currentUser?.name || 'J.A.R.V.I.S.',
@@ -1592,13 +1790,13 @@ export const AILiveModePage: React.FC = () => {
                           key={person.personName + pIdx}
                           className="p-3.5 rounded-xl bg-slate-900/90 border border-cyan-900/50 space-y-2.5"
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-600 to-indigo-600 text-white font-bold flex items-center justify-center text-xs">
                                 {person.personName.slice(0, 2).toUpperCase()}
                               </div>
                               <div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="font-bold text-white text-xs sm:text-sm">
                                     {person.personName}
                                   </span>
@@ -1614,6 +1812,25 @@ export const AILiveModePage: React.FC = () => {
                                   </span>
                                 )}
                               </div>
+                            </div>
+
+                            {/* Dropdown para alterar o responsável do bloco inteiro */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400 hidden sm:inline">
+                                Alterar:
+                              </span>
+                              <select
+                                value={person.matchedUserId || ''}
+                                onChange={(e) => handleQuickAssignPerson(pIdx, e.target.value)}
+                                className="px-2 py-1 rounded-lg text-xs font-sans bg-slate-950 border border-cyan-800/60 text-cyan-200 focus:outline-none focus:border-cyan-400 transition-all"
+                              >
+                                <option value="">Selecione o Responsável...</option>
+                                {users.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
                           </div>
 
@@ -1645,38 +1862,57 @@ export const AILiveModePage: React.FC = () => {
                                             {t.deadline}
                                           </span>
                                         )}
+                                        {t.checklist && t.checklist.length > 0 && (
+                                          <span className="text-emerald-400 hidden sm:inline">
+                                            • {t.checklist.length} subtarefa(s)
+                                          </span>
+                                        )}
                                       </div>
                                     </div>
 
-                                    <button
-                                      type="button"
-                                      disabled={isCreated}
-                                      onClick={() =>
-                                        handleCreateSinglePersonTask(
-                                          person.personName,
-                                          person.matchedUserId,
-                                          t,
-                                          taskKey
-                                        )
-                                      }
-                                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold shrink-0 flex items-center gap-1 transition-all ${
-                                        isCreated
-                                          ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-500/30'
-                                          : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40'
-                                      }`}
-                                    >
-                                      {isCreated ? (
-                                        <>
-                                          <Check className="w-3 h-3" />
-                                          <span>No Kanban</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <PlusCircle className="w-3 h-3" />
-                                          <span>Criar Card</span>
-                                        </>
-                                      )}
-                                    </button>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {/* Botão Ajustar Tarefa Individual */}
+                                      <button
+                                        type="button"
+                                        disabled={isCreated}
+                                        onClick={() => handleOpenEditTask(pIdx, tIdx)}
+                                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-slate-400 hover:text-cyan-300 bg-slate-900 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/40 flex items-center gap-1 transition-all disabled:opacity-40"
+                                        title="Ajustar responsável, título, prazo ou prioridade apenas desta tarefa"
+                                      >
+                                        <SlidersHorizontal className="w-3 h-3 text-cyan-400" />
+                                        <span className="hidden sm:inline">Ajustar</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={isCreated}
+                                        onClick={() =>
+                                          handleCreateSinglePersonTask(
+                                            person.personName,
+                                            person.matchedUserId,
+                                            t,
+                                            taskKey
+                                          )
+                                        }
+                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all ${
+                                          isCreated
+                                            ? 'bg-emerald-950/50 text-emerald-400 border border-emerald-500/30'
+                                            : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40'
+                                        }`}
+                                      >
+                                        {isCreated ? (
+                                          <>
+                                            <Check className="w-3 h-3" />
+                                            <span>No Kanban</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <PlusCircle className="w-3 h-3" />
+                                            <span>Criar Card</span>
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
                                   </div>
                                 );
                               })}
@@ -2051,6 +2287,270 @@ export const AILiveModePage: React.FC = () => {
             {/* Footer com status */}
             <div className="pt-2 border-t border-cyan-900/40 text-[10px] text-cyan-700 text-center">
               Sincronizado na Nuvem via Firestore & LocalStorage
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DE AJUSTE DE TAREFA INDIVIDUAL ANTES DO ENVIO AO KANBAN ───── */}
+      {editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in font-sans">
+          <div className="w-full max-w-xl bg-slate-900 border border-cyan-500/50 rounded-2xl shadow-[0_0_50px_rgba(6,182,212,0.25)] overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-cyan-900/50 bg-slate-950/80 flex items-center justify-between font-mono">
+              <div className="flex items-center gap-2 text-cyan-300 font-bold text-xs sm:text-sm tracking-wider">
+                <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
+                <span>AJUSTAR DEMANDA INDIVIDUAL ANTES DO KANBAN</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTask(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <div className="p-5 overflow-y-auto space-y-4 font-sans text-xs custom-scrollbar">
+              {/* Título */}
+              <div className="space-y-1">
+                <label className="text-cyan-400 font-bold block text-[11px] uppercase tracking-wider font-mono">
+                  Título da Tarefa *
+                </label>
+                <input
+                  type="text"
+                  value={editingTask.title}
+                  onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  placeholder="Nome objetivo da entrega..."
+                  className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-3 py-2 text-sm text-cyan-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {/* Responsável */}
+              <div className="space-y-1">
+                <label className="text-cyan-400 font-bold flex items-center justify-between text-[11px] uppercase tracking-wider font-mono">
+                  <span>Membro Responsável (Apenas para esta tarefa)</span>
+                </label>
+                <select
+                  value={editingTask.selectedUserId}
+                  onChange={(e) => {
+                    const uId = e.target.value;
+                    const u = users.find((usr) => usr.id === uId);
+                    setEditingTask({
+                      ...editingTask,
+                      selectedUserId: uId,
+                      personName: u ? u.name : 'A Definir'
+                    });
+                  }}
+                  className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="">⚠️ Sem Responsável Definido (A Definir)</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Grid 3 colunas: Prioridade, Tipo, Prazo */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-cyan-400 font-bold block text-[11px] uppercase tracking-wider font-mono">
+                    Prioridade
+                  </label>
+                  <select
+                    value={editingTask.priority}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        priority: e.target.value as any
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-2.5 py-1.5 text-xs text-cyan-100 focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="Baixa">Baixa</option>
+                    <option value="Média">Média</option>
+                    <option value="Alta">Alta</option>
+                    <option value="Urgente">Urgente</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-cyan-400 font-bold block text-[11px] uppercase tracking-wider font-mono">
+                    Tipo de Demanda
+                  </label>
+                  <select
+                    value={editingTask.demandType}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        demandType: e.target.value
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-2.5 py-1.5 text-xs text-cyan-100 focus:outline-none focus:border-cyan-400"
+                  >
+                    {demandTypes.length > 0 ? (
+                      demandTypes.map((dt) => (
+                        <option key={dt.type} value={dt.label || dt.type}>
+                          {dt.label || dt.type}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Arte">Arte</option>
+                        <option value="Vídeo">Vídeo</option>
+                        <option value="Social Media">Social Media</option>
+                        <option value="Som/Música">Som/Música</option>
+                        <option value="Geral">Geral</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-cyan-400 font-bold block text-[11px] uppercase tracking-wider font-mono">
+                    Prazo Final
+                  </label>
+                  <input
+                    type="date"
+                    value={editingTask.deadline}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        deadline: e.target.value
+                      })
+                    }
+                    className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-2 py-1.5 text-xs text-cyan-100 focus:outline-none focus:border-cyan-400"
+                  />
+                </div>
+              </div>
+
+              {/* Descrição / Orientações */}
+              <div className="space-y-1">
+                <label className="text-cyan-400 font-bold block text-[11px] uppercase tracking-wider font-mono">
+                  Descrição & Orientações da Tarefa
+                </label>
+                <textarea
+                  rows={3}
+                  value={editingTask.description}
+                  onChange={(e) =>
+                    setEditingTask({
+                      ...editingTask,
+                      description: e.target.value
+                    })
+                  }
+                  placeholder="Orientações detalhadas registradas durante a conversa..."
+                  className="w-full bg-slate-950 border border-cyan-900/60 rounded-xl px-3 py-2 text-xs text-cyan-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              {/* Checklist / Subtarefas */}
+              <div className="space-y-2">
+                <label className="text-cyan-400 font-bold flex items-center justify-between text-[11px] uppercase tracking-wider font-mono">
+                  <span>Subtarefas / Checklist ({editingTask.checklist.length})</span>
+                </label>
+
+                {editingTask.checklist.length > 0 && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                    {editingTask.checklist.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950 border border-slate-800 text-slate-200"
+                      >
+                        <span className="text-xs truncate flex-1">
+                          {idx + 1}. {item}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = editingTask.checklist.filter((_, i) => i !== idx);
+                            setEditingTask({ ...editingTask, checklist: updated });
+                          }}
+                          className="p-1 text-slate-500 hover:text-rose-400 transition-colors"
+                          title="Remover etapa"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Input para nova etapa */}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={editingTask.newChecklistInput}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        newChecklistInput: e.target.value
+                      })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (editingTask.newChecklistInput.trim()) {
+                          setEditingTask({
+                            ...editingTask,
+                            checklist: [...editingTask.checklist, editingTask.newChecklistInput.trim()],
+                            newChecklistInput: ''
+                          });
+                        }
+                      }
+                    }}
+                    placeholder="Adicionar etapa à checklist (Enter)..."
+                    className="flex-1 bg-slate-950 border border-cyan-900/60 rounded-xl px-3 py-1.5 text-xs text-cyan-100 placeholder-slate-600 focus:outline-none focus:border-cyan-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editingTask.newChecklistInput.trim()) {
+                        setEditingTask({
+                          ...editingTask,
+                          checklist: [...editingTask.checklist, editingTask.newChecklistInput.trim()],
+                          newChecklistInput: ''
+                        });
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-300 font-bold text-xs"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-5 py-3.5 border-t border-cyan-900/50 bg-slate-950/80 flex items-center justify-between gap-3 font-mono">
+              <button
+                type="button"
+                onClick={() => setEditingTask(null)}
+                className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSaveEditedTask(false)}
+                  className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-800/60 text-cyan-300 text-xs font-bold transition-all"
+                >
+                  Salvar Ajustes
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveEditedTask(true)}
+                  className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black tracking-wide flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                >
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span>Salvar e Criar no Kanban</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

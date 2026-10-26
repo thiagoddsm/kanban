@@ -33,11 +33,11 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Estável • Recomendado' },
-  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Ultra Rápido' },
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
-  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', tag: 'Ultra Rápido • Alta Quota (Recomendado)' },
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Mais Recente' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Equilibrado' },
+  { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', tag: 'Automático' },
 ] as const;
 
 export type AiModelId = typeof AI_MODELS[number]['id'];
@@ -73,9 +73,11 @@ export interface PersonActivitySummary {
   summary: string;
   tasks: Array<{
     title: string;
+    description?: string;
     deadline?: string;
     priority?: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
     demandType?: string;
+    checklist?: string[];
   }>;
 }
 
