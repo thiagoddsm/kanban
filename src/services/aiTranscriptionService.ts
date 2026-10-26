@@ -537,7 +537,12 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
       },
     };
 
-    for (const currentModel of modelsToTry) {
+    let lastError = 'Não foi possível sincronizar a inteligência da reunião neste ciclo.';
+
+    for (let i = 0; i < modelsToTry.length; i++) {
+      const currentModel = modelsToTry[i];
+      const nextCandidate = modelsToTry[i + 1];
+
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
         const res = await fetch(url, {
@@ -547,12 +552,17 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         });
 
         if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          const msg = errData?.error?.message || `HTTP ${res.status}`;
+          lastError = msg;
+
           if (res.status === 400 || res.status === 403) {
-            const errData = await res.json().catch(() => ({}));
-            const msg = errData?.error?.message || '';
             if (msg.toLowerCase().includes('key')) {
               return { success: false, error: 'Chave Gemini inválida. Verifique sua configuração de chave.' };
             }
+          }
+          if ((res.status === 429 || res.status === 503) && nextCandidate) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
           continue;
         }
@@ -613,24 +623,15 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         }
 
         return { success: true, data: parsed };
-      } catch (err) {
+      } catch (err: any) {
         console.warn(`[Jarvis Live Meeting] Falha com modelo ${currentModel}:`, err);
+        lastError = err?.message || lastError;
       }
-    }
-
-    // Fallback instantâneo local caso a rede ou cota do Gemini oscile
-    const fallbackSegs = transcriptText
-      .split(/\n+/)
-      .map((t, i) => ({ id: `fb_${i}`, timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), text: t.trim() }))
-      .filter((s) => s.text.length >= 3);
-    const localData = this.buildInstantIntelligence(fallbackSegs, context.users);
-    if (localData) {
-      return { success: true, data: localData };
     }
 
     return {
       success: false,
-      error: 'Não foi possível sincronizar a inteligência da reunião neste ciclo.',
+      error: lastError,
     };
   }
 }
