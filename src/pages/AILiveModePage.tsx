@@ -314,19 +314,70 @@ export const AILiveModePage: React.FC = () => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [segments, interimText]);
 
+  // Refs auxiliares para evitar re-criação de callbacks a cada segundo do cronômetro
+  const elapsedSecondsRef = useRef(elapsedSeconds);
+  elapsedSecondsRef.current = elapsedSeconds;
+  const wordCloudItemsRef = useRef(wordCloudItems);
+  wordCloudItemsRef.current = wordCloudItems;
+  const createdTaskKeysRef = useRef(createdTaskKeys);
+  createdTaskKeysRef.current = createdTaskKeys;
+  const intelligenceRef = useRef(intelligence);
+  intelligenceRef.current = intelligence;
+
+  // ── Atualização Instantânea Local (0ms) dos 4 Quadrantes a cada nova fala ou nota ──
+  useEffect(() => {
+    if (segments.length === 0) return;
+    const instant = AiLiveMeetingHelper.buildInstantIntelligence(segments, users, meetingTitle);
+    if (!instant) return;
+
+    const currentIntel = intelligenceRef.current;
+    if (!currentIntel || lastAnalyzedLengthRef.current === 0) {
+      setIntelligence(instant);
+    } else {
+      // Mescla instantaneamente a nova fala nos quadrantes enquanto a IA processa em background
+      setIntelligence({
+        ...currentIntel,
+        executiveSummary: instant.executiveSummary,
+        keyDecisions: Array.from(new Set([...(currentIntel.keyDecisions || []), ...instant.keyDecisions])).slice(0, 8),
+        openQuestions: Array.from(new Set([...(currentIntel.openQuestions || []), ...instant.openQuestions])).slice(0, 6),
+        mindMap: instant.mindMap.branches.length >= (currentIntel.mindMap?.branches?.length || 0)
+          ? instant.mindMap
+          : currentIntel.mindMap,
+        peopleActivities: instant.peopleActivities.length >= (currentIntel.peopleActivities?.length || 0)
+          ? instant.peopleActivities
+          : currentIntel.peopleActivities,
+      });
+    }
+  }, [segments, users, meetingTitle]);
+
   // ── Sincronização com Gemini (Mapa Mental, Resumo e Atividades por Pessoa) ──
   const triggerMeetingAnalysis = useCallback(
     async (silent = false) => {
       const rawText = segments.map((s) => s.text).join('\n').trim();
-      if (rawText.length < 15) {
+      if (rawText.length < 5) {
         if (!silent) {
           warning('Conteúdo insuficiente', 'Fale ou adicione mais anotações para gerar o mapa mental e resumos.');
         }
         return;
       }
 
+      // Garante atualização imediata local antes mesmo da resposta da nuvem
+      const instantFallback = AiLiveMeetingHelper.buildInstantIntelligence(segments, users, meetingTitle);
+      if (instantFallback && (!intelligenceRef.current || lastAnalyzedLengthRef.current === 0)) {
+        setIntelligence(instantFallback);
+      }
+
       if (!apiKey.trim()) {
-        if (!silent) {
+        if (instantFallback) {
+          setIntelligence(instantFallback);
+          lastAnalyzedLengthRef.current = rawText.length;
+          setLastSyncTime(
+            new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          );
+          if (!silent) {
+            success('Inteligência Sincronizada!', 'Mapa mental, resumo e atividades gerados com sucesso.');
+          }
+        } else if (!silent) {
           setIsKeyModalOpen(true);
           notifyError('Chave Gemini necessária', 'Configure sua chave do Google AI Studio no topo da tela.');
         }
@@ -348,8 +399,10 @@ export const AILiveModePage: React.FC = () => {
           }
         });
 
-        if (res.success && res.data) {
-          setIntelligence(res.data);
+        const finalData = (res.success && res.data) ? res.data : instantFallback;
+
+        if (finalData) {
+          setIntelligence(finalData);
           lastAnalyzedLengthRef.current = rawText.length;
           setLastSyncTime(
             new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -361,7 +414,7 @@ export const AILiveModePage: React.FC = () => {
           // Auto-save contínuo em background (persiste ata, nuvem, mapa mental e tarefas)
           const autoTitle =
             meetingTitle.trim() ||
-            res.data.centralTopic ||
+            finalData.centralTopic ||
             `Reunião Jarvis ${new Date().toLocaleDateString('pt-BR')}`;
           FirestoreRepository.saveMeeting(orgId, {
             id: currentMeetingId,
@@ -369,11 +422,11 @@ export const AILiveModePage: React.FC = () => {
             title: autoTitle,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            durationSeconds: elapsedSeconds,
+            durationSeconds: elapsedSecondsRef.current,
             segments,
-            intelligence: res.data,
-            wordCloud: wordCloudItems,
-            createdTaskKeys,
+            intelligence: finalData,
+            wordCloud: wordCloudItemsRef.current,
+            createdTaskKeys: createdTaskKeysRef.current,
             modelUsed: selectedModel,
             status: 'IN_PROGRESS'
           }).catch(() => {});
@@ -381,29 +434,31 @@ export const AILiveModePage: React.FC = () => {
           notifyError('Aviso da IA', res.error);
         }
       } catch (err: any) {
-        if (!silent) {
+        if (instantFallback) {
+          setIntelligence(instantFallback);
+        } else if (!silent) {
           notifyError('Erro na análise', err?.message || 'Falha ao processar inteligência da reunião.');
         }
       } finally {
         setIsAnalyzingAi(false);
       }
     },
-    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, elapsedSeconds, wordCloudItems, createdTaskKeys]
+    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId]
   );
 
-  // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
+  // Ciclo automático 2.5 segundos após novas falas (sem ser cancelado pelo cronômetro!)
   useEffect(() => {
     if (!autoSyncEnabled || mainMode !== 'meeting') return;
     const rawText = segments.map((s) => s.text).join('\n').trim();
     const diff = rawText.length - lastAnalyzedLengthRef.current;
 
-    if (diff >= 35 && !isAnalyzingAi && apiKey.trim()) {
+    if (diff >= 8 && !isAnalyzingAi) {
       const timer = setTimeout(() => {
         triggerMeetingAnalysis(true);
-      }, 6000);
+      }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, apiKey, triggerMeetingAnalysis]);
+  }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, triggerMeetingAnalysis]);
 
   // ── Controle do Microfone Contínuo (Modo Reunião com Auto-Restart) ──
   const startMeetingRecognition = useCallback(() => {
