@@ -817,10 +817,9 @@ export const AILiveModePage: React.FC = () => {
     if (intelligence?.peopleActivities) {
       const updated = [...intelligence.peopleActivities];
       if (updated[pIdx]) {
-        const targetPerson = { ...updated[pIdx] };
-        const updatedTasks = [...targetPerson.tasks];
-        updatedTasks[tIdx] = {
-          ...updatedTasks[tIdx],
+        const sourcePerson = updated[pIdx];
+        const taskToMove = {
+          ...sourcePerson.tasks[tIdx],
           title,
           description,
           priority,
@@ -828,12 +827,58 @@ export const AILiveModePage: React.FC = () => {
           deadline: deadline || undefined,
           checklist
         };
-        targetPerson.tasks = updatedTasks;
-        if (assignedUser) {
-          targetPerson.personName = assignedUser.name;
-          targetPerson.matchedUserId = assignedUser.id;
+
+        const targetUserMatched = assignedUser ? assignedUser.id : undefined;
+        const targetPersonName = finalPersonName;
+
+        // Se o responsável da tarefa mudou (é diferente do bloco atual)
+        const isSamePerson =
+          (sourcePerson.matchedUserId && sourcePerson.matchedUserId === targetUserMatched) ||
+          (!sourcePerson.matchedUserId && !targetUserMatched && sourcePerson.personName === targetPersonName);
+
+        if (isSamePerson) {
+          // Mantém no mesmo bloco da pessoa, apenas atualiza a tarefa
+          const updatedTasks = [...sourcePerson.tasks];
+          updatedTasks[tIdx] = taskToMove;
+          updated[pIdx] = { ...sourcePerson, tasks: updatedTasks };
+        } else {
+          // Remove a tarefa do bloco de origem
+          const remainingTasks = sourcePerson.tasks.filter((_, i) => i !== tIdx);
+
+          // Procura se já existe um bloco para o novo responsável
+          const destIdx = updated.findIndex((p, idx) =>
+            idx !== pIdx && (
+              (targetUserMatched && p.matchedUserId === targetUserMatched) ||
+              (!targetUserMatched && p.personName.toLowerCase() === targetPersonName.toLowerCase())
+            )
+          );
+
+          if (destIdx >= 0) {
+            // Adiciona a tarefa ao bloco já existente do novo responsável
+            const destPerson = updated[destIdx];
+            updated[destIdx] = {
+              ...destPerson,
+              tasks: [...(destPerson.tasks || []), taskToMove]
+            };
+          } else {
+            // Cria um novo bloco de pessoa para o novo responsável
+            updated.push({
+              personName: targetPersonName,
+              matchedUserId: targetUserMatched,
+              roleOrMinistry: assignedUser ? 'Membro da Equipe' : 'Pendente de Definição',
+              summary: `Atividades e demandas atribuídas individualmente para ${targetPersonName}.`,
+              tasks: [taskToMove]
+            });
+          }
+
+          // Se o bloco de origem ficou sem tarefas, remove-o (a menos que não queiramos órfãos)
+          if (remainingTasks.length === 0) {
+            updated.splice(pIdx, 1);
+          } else {
+            updated[pIdx] = { ...sourcePerson, tasks: remainingTasks };
+          }
         }
-        updated[pIdx] = targetPerson;
+
         setIntelligence({ ...intelligence, peopleActivities: updated });
       }
     }
