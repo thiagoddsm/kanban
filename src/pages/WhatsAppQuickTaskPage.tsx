@@ -50,6 +50,7 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
   // Anexos & Upload State
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
 
@@ -178,23 +179,42 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
 
   // Handler para upload direto de arquivos e artes
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !task) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !task) return;
 
     try {
       setIsUploading(true);
       setUploadProgress(0);
       const safeOrgId = task.organizationId || currentOrganization?.id || 'default';
-      const newAtt = await StorageUploadService.uploadTaskAttachment(
-        safeOrgId,
-        task.id,
-        file,
-        currentUser?.name || 'Membro WhatsApp',
-        (pct) => setUploadProgress(pct)
-      );
+      const uploadedAttachments: AttachmentLink[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setUploadStatusText(
+          files.length > 1
+            ? `Enviando ${i + 1} de ${files.length}: "${file.name}"...`
+            : `Enviando "${file.name}"...`
+        );
+
+        const newAtt = await StorageUploadService.uploadTaskAttachment(
+          safeOrgId,
+          task.id,
+          file,
+          currentUser?.name || 'Membro WhatsApp',
+          (filePct) => {
+            const basePct = (i / files.length) * 100;
+            const currentContribution = filePct / files.length;
+            setUploadProgress(Math.round(basePct + currentContribution));
+          }
+        );
+        uploadedAttachments.push(newAtt);
+      }
 
       const existing = task.attachmentLinks || [];
-      const updatedLinks = [...existing.filter((a) => a.id !== newAtt.id), newAtt];
+      const updatedLinks = [
+        ...existing.filter((a) => !uploadedAttachments.some((u) => u.id === a.id)),
+        ...uploadedAttachments,
+      ];
 
       updateTask({
         ...task,
@@ -202,13 +222,20 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
         updatedAt: new Date().toISOString(),
       });
 
-      success('Arquivo anexado!', `"${file.name}" foi salvo e já está disponível.`);
+      if (files.length === 1) {
+        success('Arquivo anexado!', `"${files[0].name}" foi salvo e já está disponível.`);
+      } else {
+        success('Arquivos anexados!', `${files.length} arquivos foram salvos com sucesso.`);
+      }
       setUploadProgress(null);
+      setUploadStatusText('');
     } catch (err: any) {
       console.error('Erro no upload na página rápida:', err);
-      warning('Falha no Upload', err?.message || 'Não foi possível enviar o arquivo.');
+      warning('Falha no Upload', err?.message || 'Não foi possível enviar os arquivos.');
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
+      setUploadStatusText('');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -341,6 +368,7 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
             <div className="flex items-center gap-1.5">
               <input
                 type="file"
+                multiple
                 ref={fileInputRef}
                 onChange={handleFileUpload}
                 className="hidden"
@@ -354,7 +382,7 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
                 }`}
               >
                 <Upload className="w-3 h-3" />
-                <span>{isUploading ? 'Enviando...' : 'Anexar Arte'}</span>
+                <span>{isUploading ? 'Enviando...' : 'Anexar Artes / Fotos'}</span>
               </label>
 
               <button
@@ -372,8 +400,8 @@ export const WhatsAppQuickTaskPage: React.FC = () => {
           {uploadProgress !== null && (
             <div className="p-3 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 space-y-1.5">
               <div className="flex items-center justify-between text-xs text-indigo-300 font-bold">
-                <span>Enviando arquivo para o Cloud Storage...</span>
-                <span>{uploadProgress}%</span>
+                <span className="truncate pr-2">{uploadStatusText || 'Enviando arquivo(s) para o Cloud Storage...'}</span>
+                <span className="shrink-0">{uploadProgress}%</span>
               </div>
               <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
                 <div

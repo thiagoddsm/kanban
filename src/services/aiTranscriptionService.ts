@@ -73,9 +73,11 @@ export interface PersonActivitySummary {
   summary: string;
   tasks: Array<{
     title: string;
+    description?: string;
     deadline?: string;
     priority?: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
     demandType?: string;
+    checklist?: string[];
   }>;
 }
 
@@ -188,12 +190,21 @@ Analise a transcrição até o momento e gere uma estrutura completa em JSON con
 1. Mapa Mental estruturado (tema central, até 5 ramos principais e 2 a 4 sub-nós por ramo).
 2. Resumo executivo da reunião, decisões já tomadas e pontos em aberto.
 3. Palavras-chave e conceitos de maior impacto (com peso de 1 a 10).
-4. Resumo de atividades por pessoa (cruzando com a lista de membros: [${memberNames}]) e lista de tarefas estruturadas para o Kanban.
+4. Resumo de atividades e entregas por pessoa com tarefas estruturadas para o Kanban.
 
 DATA DE REFERÊNCIA: ${currentDateStr} (${dayOfWeek})
 MEMBROS CADASTRADOS: [${memberNames}]
 EVENTOS/PROJETOS: [${eventNames}]
 TIPOS DE DEMANDA: [${demandTypeNames}]
+
+DIRETRIZ CRÍTICA DE ATRIBUIÇÃO DE RESPONSÁVEIS:
+- Em reuniões de equipe, ideias e demandas são debatidas coletivamente.
+- NUNCA atribua arbitrariamente uma tarefa a uma pessoa a menos que ela tenha sido EXPLICITAMENTE indicada ou comandada na conversa (ex: "Thiago você faz isso", "Dinho cuida dos cabos", "Fulano assume", ou alguém dizendo "eu assumo...").
+- Quando uma tarefa ou ação surgir MAS NINGUÉM foi expressamente citado como responsável, coloque OBRIGATORIAMENTE:
+  "personName": "A Definir"
+  "roleOrMinistry": "Pendente de Definição"
+  (Assim o usuário selecionará o responsável da lista de membros diretamente na tela antes de exportar).
+- Se uma pessoa cadastrada foi expressamente indicada, use o nome exato contido em [${memberNames}].
 
 Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
 {
@@ -221,15 +232,17 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
   ],
   "peopleActivities": [
     {
-      "personName": "Nome da Pessoa",
-      "roleOrMinistry": "Papel identificado na conversa",
-      "summary": "Síntese do que essa pessoa falou ou assumiu na reunião",
+      "personName": "Nome da Pessoa (se citado expressamente) OU 'A Definir'",
+      "roleOrMinistry": "Papel citado OU 'Pendente de Definição'",
+      "summary": "Síntese do que essa pessoa falou/assumiu, ou resumo das ações gerais pendentes de responsável",
       "tasks": [
         {
-          "title": "Ação específica atribuída a ela",
+          "title": "Ação específica",
+          "description": "Contexto e detalhes explicativos da demanda discutida",
           "deadline": "YYYY-MM-DD",
           "priority": "Alta",
-          "demandType": "Vídeo"
+          "demandType": "Vídeo",
+          "checklist": ["Subtarefa 1", "Subtarefa 2"]
         }
       ]
     }
@@ -245,7 +258,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         "data_inicio": "${currentDateStr}",
         "prazo_final": "YYYY-MM-DD"
       },
-      "responsaveis": [{ "nome": "Nome", "selecionado": true }],
+      "responsaveis": [{ "nome": "Nome ou A Definir", "selecionado": true }],
       "checklist_subtarefas": [{ "titulo": "Etapa 1", "concluida": false }]
     }
   ]
@@ -301,15 +314,42 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         // Faz o match de cada pessoa com os usuários reais da organização
         if (Array.isArray(parsed.peopleActivities)) {
           parsed.peopleActivities = parsed.peopleActivities.map((pa) => {
+            const rawName = (pa.personName || '').trim();
+            const lower = rawName.toLowerCase();
+
+            const isUnassigned =
+              !rawName ||
+              lower.includes('definir') ||
+              lower.includes('pendente') ||
+              lower.includes('ninguém') ||
+              lower.includes('ninguem') ||
+              lower.includes('equipe') ||
+              lower.includes('geral') ||
+              lower.includes('a designar') ||
+              lower.includes('não atribuído') ||
+              lower.includes('nao atribuido') ||
+              lower.includes('sem responsável');
+
+            if (isUnassigned) {
+              return {
+                ...pa,
+                personName: 'A Definir',
+                roleOrMinistry: pa.roleOrMinistry || 'Pendente de Definição',
+                matchedUserId: undefined,
+              };
+            }
+
             const matchedUser = context.users.find(
               (u) =>
-                u.name.toLowerCase().includes(pa.personName.toLowerCase()) ||
-                pa.personName.toLowerCase().includes(u.name.split(' ')[0].toLowerCase())
+                u.name.toLowerCase() === lower ||
+                u.name.toLowerCase().includes(lower) ||
+                (rawName.length >= 3 && lower.includes(u.name.split(' ')[0].toLowerCase()))
             );
+
             return {
               ...pa,
               matchedUserId: matchedUser?.id,
-              personName: matchedUser ? matchedUser.name : pa.personName,
+              personName: matchedUser ? matchedUser.name : rawName,
             };
           });
         }

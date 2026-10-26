@@ -40,7 +40,10 @@ import {
   Minimize2,
   Edit3,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  SlidersHorizontal,
+  UserCheck,
+  HelpCircle
 } from 'lucide-react';
 import { useAI } from '../context/AIContext';
 import { useAuth } from '../context/AuthContext';
@@ -133,6 +136,23 @@ export const AILiveModePage: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [createdTaskKeys, setCreatedTaskKeys] = useState<Record<string, boolean>>({});
+
+  // ── Modal de Ajuste de Tarefa antes do envio ao Kanban ──
+  interface EditingMeetingTaskState {
+    pIdx: number;
+    tIdx: number;
+    taskKey: string;
+    title: string;
+    description: string;
+    selectedUserId: string;
+    personName: string;
+    priority: 'Baixa' | 'Média' | 'Alta' | 'Urgente';
+    demandType: string;
+    deadline: string;
+    checklist: string[];
+    newChecklistInput: string;
+  }
+  const [editingTask, setEditingTask] = useState<EditingMeetingTaskState | null>(null);
 
   // ── Histórico de Reuniões Gravadas ──
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
