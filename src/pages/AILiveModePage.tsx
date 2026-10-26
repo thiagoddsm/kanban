@@ -377,11 +377,11 @@ export const AILiveModePage: React.FC = () => {
             title: autoTitle,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            durationSeconds: elapsedSecondsRef.current,
+            durationSeconds: elapsedSeconds,
             segments,
             intelligence: res.data,
-            wordCloud: wordCloudItemsRef.current,
-            createdTaskKeys: createdTaskKeysRef.current,
+            wordCloud: wordCloudItems,
+            createdTaskKeys,
             modelUsed: selectedModel,
             status: 'IN_PROGRESS'
           }).catch(() => {});
@@ -396,22 +396,22 @@ export const AILiveModePage: React.FC = () => {
         setIsAnalyzingAi(false);
       }
     },
-    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId]
+    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, elapsedSeconds, wordCloudItems, createdTaskKeys]
   );
 
-  // Ciclo automático após novas falas (sem ser cancelado pelo cronômetro!)
+  // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
   useEffect(() => {
     if (!autoSyncEnabled || mainMode !== 'meeting') return;
     const rawText = segments.map((s) => s.text).join('\n').trim();
     const diff = rawText.length - lastAnalyzedLengthRef.current;
 
-    if (diff >= 20 && !isAnalyzingAi) {
+    if (diff >= 35 && !isAnalyzingAi && apiKey.trim()) {
       const timer = setTimeout(() => {
         triggerMeetingAnalysis(true);
-      }, 4500);
+      }, 6000);
       return () => clearTimeout(timer);
     }
-  }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, triggerMeetingAnalysis]);
+  }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, apiKey, triggerMeetingAnalysis]);
 
   // ── Controle do Microfone Contínuo (Modo Reunião com Auto-Restart) ──
   const startMeetingRecognition = useCallback(() => {

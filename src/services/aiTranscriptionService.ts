@@ -33,10 +33,10 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Mais Recente • Recomendado' },
-  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade • Rápido' },
-  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', tag: 'Ultra Rápido • Econômico' },
-  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Equilibrado' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Estável • Recomendado' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Ultra Rápido' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
   { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
 ] as const;
 
@@ -143,271 +143,13 @@ export class AiLiveMeetingHelper {
   }
 
   /**
-   * Resolve a lista ordenada de endpoints reais do Google Gemini API para evitar 404 e garantir resposta na 1ª chamada.
-   */
-  public static resolveEffectiveModels(selectedModel?: string): string[] {
-    const map: Record<string, string[]> = {
-      'gemini-3.8-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'],
-      'gemini-3.7-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'],
-      'gemini-3.5-flash-lite': ['gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-latest'],
-      'gemini-3.5-flash': ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest'],
-      'gemini-3.1-pro': ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-flash-latest'],
-    };
-    const mapped = (selectedModel && map[selectedModel]) || [];
-    return Array.from(
-      new Set([
-        ...mapped,
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-flash-latest',
-        'gemini-1.5-flash',
-      ])
-    );
-  }
-
-  /**
-   * Motor de Inteligência Instantânea Local (0ms de latência):
-   * Constrói imediatamente Mapa Mental, Resumo Executivo e Atividades por Pessoa a partir das falas/notas
-   * enquanto o Gemini processa em background (ou caso a chave/rede esteja indisponível).
-   */
-  public static buildInstantIntelligence(
-    segments: Array<{ id: string; timestamp: string; text: string }>,
-    users: User[] = [],
-    customTitle?: string
-  ): LiveMeetingIntelligence | null {
-    const cleanSegments = (segments || [])
-      .map((s) => ({ ...s, text: (s.text || '').trim() }))
-      .filter((s) => s.text.length >= 3);
-
-    if (cleanSegments.length === 0) return null;
-
-    const fullText = cleanSegments.map((s) => s.text).join(' ');
-    const keywords = this.computeLocalWordCloud(fullText, 28);
-
-    const normalize = (str: string) =>
-      (str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .trim();
-
-    const capitalize = (str: string) =>
-      str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
-
-    // Palavras comuns que NÃO são nomes de pessoas
-    const NON_PERSON_WORDS = new Set([
-      'reuniao', 'video', 'festa', 'arte', 'culto', 'igreja', 'grupo', 'equipe', 'domingo',
-      'sabado', 'semana', 'criativamente', 'sobre', 'fazer', 'gravar', 'criar', 'postar',
-      'projeto', 'evento', 'campanha', 'pauta', 'tema', 'ideia', 'decisao', 'urgente',
-      'importante', 'hoje', 'amanha', 'ontem', 'depois', 'antes', 'vamos', 'precisa',
-      'definir', 'organizar', 'preparar', 'enviar', 'mandar', 'falar', 'conversar'
-    ]);
-
-    const inferDemandType = (text: string): string => {
-      const n = normalize(text);
-      if (/\b(video|gravar|gravacao|reels|edicao|camera|filmagem|teaser)\b/.test(n)) return 'Vídeo';
-      if (/\b(arte|design|flyer|cartaz|banner|carrossel|post|card|layout)\b/.test(n)) return 'Arte';
-      if (/\b(foto|fotografia|cobertura|ensaio)\b/.test(n)) return 'Fotografia';
-      if (/\b(texto|legenda|roteiro|copy|aviso|email)\b/.test(n)) return 'Texto';
-      if (/\b(som|audio|mesa|microfone|luz|iluminacao|palco|telao)\b/.test(n)) return 'Produção / Técnica';
-      return 'Planejamento';
-    };
-
-    const inferCategory = (text: string): 'DECISAO' | 'PROJETO' | 'IDEIA' | 'ALERTA' => {
-      const n = normalize(text);
-      if (/\b(urgente|atencao|problema|cuidado|atraso|bloqueado|falta)\b/.test(n)) return 'ALERTA';
-      if (/\b(decidimos|definido|aprovado|fechado|combinado|reuniao)\b/.test(n)) return 'DECISAO';
-      if (/\b(vai|gravar|fazer|criar|produzir|organizar|entregar|preparar)\b/.test(n)) return 'PROJETO';
-      return 'IDEIA';
-    };
-
-    const inferChecklist = (dtype: string, text: string): string[] => {
-      if (dtype === 'Vídeo') {
-        return ['Alinhar roteiro e detalhes da gravação', 'Realizar captação e edição', 'Enviar prévia para aprovação'];
-      }
-      if (dtype === 'Arte') {
-        return ['Definir referências visuais e texto', 'Criar layout da peça', 'Revisar e exportar arquivos'];
-      }
-      if (normalize(text).includes('reuniao')) {
-        return ['Confirmar horário com os participantes', 'Alinhar pauta principal', 'Registrar definições no Kanban'];
-      }
-      return [`Executar: ${capitalize(text.slice(0, 60))}`, 'Validar entrega com a equipe'];
-    };
-
-    // Detecta pessoas mencionadas em uma frase (cadastradas em users OU nomes próprios na frase)
-    const extractPeopleFromLine = (line: string): Array<{ name: string; matchedUser?: User }> => {
-      const foundMap = new Map<string, { name: string; matchedUser?: User }>();
-      const normLine = normalize(line);
-
-      // 1. Procura usuários cadastrados na organização
-      for (const u of users) {
-        if (!u.name) continue;
-        const firstName = u.name.trim().split(/\s+/)[0];
-        const normFirst = normalize(firstName);
-        const normFull = normalize(u.name);
-        if (normFirst.length >= 3) {
-          const regex = new RegExp(`\\b${normFirst.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-          if (regex.test(normLine) || (normFull.length >= 4 && normLine.includes(normFull))) {
-            foundMap.set(normFirst, { name: u.name, matchedUser: u });
-          }
-        }
-      }
-
-      // 2. Procura sujeito antes de verbo de ação (ex: "francisco vai gravar...", "Lizandra reunião com...")
-      const subjectRegex = /(?:^|[.,;]\s*)([a-zA-ZÀ-ÿ]{3,16})\s+(?:vai|ira|irá|ficou|precisa|deve|reuniao|reunião|cuidara|cuidará|fara|fará|assumiu|assume|combinou)\b/gi;
-      let match: RegExpExecArray | null;
-      while ((match = subjectRegex.exec(line)) !== null) {
-        const candidate = match[1];
-        const normCand = normalize(candidate);
-        if (!PT_STOPWORDS.has(normCand) && !NON_PERSON_WORDS.has(normCand) && !foundMap.has(normCand)) {
-          const matchedUser = users.find((u) => normalize(u.name).includes(normCand));
-          foundMap.set(normCand, {
-            name: matchedUser ? matchedUser.name : capitalize(candidate.toLowerCase()),
-            matchedUser,
-          });
-        }
-      }
-
-      // 3. Procura nomes após "com", "e", "para" (ex: "com Hugo", "com Francisco e Belle")
-      const afterPrepRegex = /\b(?:com|para|pro|pra|e)\s+([A-ZÀ-Ÿ][a-zA-ZÀ-ÿ]{2,15})(?:\s+e\s+([A-ZÀ-Ÿ][a-zA-ZÀ-ÿ]{2,15}))?/g;
-      while ((match = afterPrepRegex.exec(line)) !== null) {
-        for (const group of [match[1], match[2]]) {
-          if (!group) continue;
-          const normCand = normalize(group);
-          if (!PT_STOPWORDS.has(normCand) && !NON_PERSON_WORDS.has(normCand) && !foundMap.has(normCand)) {
-            const matchedUser = users.find((u) => normalize(u.name).includes(normCand));
-            foundMap.set(normCand, {
-              name: matchedUser ? matchedUser.name : capitalize(group.toLowerCase()),
-              matchedUser,
-            });
-          }
-        }
-      }
-
-      return Array.from(foundMap.values());
-    };
-
-    const peopleMap = new Map<string, PersonActivitySummary>();
-    const branches: MindMapBranch[] = [];
-    const keyDecisions: string[] = [];
-    const openQuestions: string[] = [];
-
-    cleanSegments.forEach((seg, idx) => {
-      const text = seg.text;
-      const people = extractPeopleFromLine(text);
-      const dtype = inferDemandType(text);
-      const category = inferCategory(text);
-      const cleanTitle = capitalize(text.replace(/^[-\s•*]+/, ''));
-
-      // Decisões e Perguntas
-      if (text.includes('?') || /\b(duvida|dúvida|como|quando|qual|definir)\b/i.test(text)) {
-        openQuestions.push(cleanTitle);
-      } else {
-        keyDecisions.push(cleanTitle);
-      }
-
-      // Ramo do Mapa Mental (até 6 ramos principais)
-      if (branches.length < 6) {
-        const words = text.split(/\s+/);
-        const shortLabel = words.length > 5 ? words.slice(0, 5).join(' ') + '...' : cleanTitle;
-        const children: Array<{ id: string; label: string }> = [
-          { id: `c_${idx}_1`, label: cleanTitle.slice(0, 70) },
-        ];
-        if (people.length > 0) {
-          children.push({
-            id: `c_${idx}_2`,
-            label: `Envolvidos: ${people.map((p) => p.name).join(', ')}`,
-          });
-        }
-        children.push({
-          id: `c_${idx}_3`,
-          label: `Categoria: ${dtype}`,
-        });
-
-        branches.push({
-          id: `b_${idx}`,
-          label: capitalize(shortLabel),
-          category,
-          children,
-        });
-      }
-
-      // Atividades por Pessoa
-      const targets =
-        people.length > 0
-          ? people
-          : [{ name: 'A Definir', matchedUser: undefined }];
-
-      targets.forEach((person) => {
-        const key = normalize(person.name);
-        const existing = peopleMap.get(key) || {
-          personName: person.name,
-          matchedUserId: person.matchedUser?.id,
-          roleOrMinistry:
-            person.name === 'A Definir'
-              ? 'Pendente de Definição'
-              : (person.matchedUser as any)?.ministry || (person.matchedUser as any)?.department || 'Membro da Equipe',
-          summary:
-            person.name === 'A Definir'
-              ? 'Demandas gerais identificadas aguardando definição de responsável.'
-              : `Atividades e alinhamentos envolvendo ${person.name} na reunião.`,
-          tasks: [],
-        };
-
-        const otherPeople = people.filter((p) => normalize(p.name) !== key).map((p) => p.name);
-        const taskDesc =
-          otherPeople.length > 0
-            ? `${cleanTitle} (Em conjunto com: ${otherPeople.join(', ')}) — Registrado às ${seg.timestamp}`
-            : `${cleanTitle} — Registrado às ${seg.timestamp}`;
-
-        existing.tasks.push({
-          title: cleanTitle,
-          description: taskDesc,
-          priority: category === 'ALERTA' ? 'Urgente' : 'Alta',
-          demandType: dtype,
-          checklist: inferChecklist(dtype, text),
-        });
-
-        peopleMap.set(key, existing);
-      });
-    });
-
-    const topKeywords = keywords.slice(0, 2).map((k) => k.word);
-    const centralTopic =
-      (customTitle && customTitle.trim()) ||
-      (topKeywords.length > 0 ? `Pauta: ${topKeywords.join(' & ')}` : 'Reunião em Andamento');
-
-    const executiveSummary =
-      cleanSegments.length === 1
-        ? `Pauta iniciada abordando: "${cleanSegments[0].text}".`
-        : `Reunião com ${cleanSegments.length} tópicos registrados até o momento. Principais pontos discutidos: ${cleanSegments
-            .slice(0, 4)
-            .map((s) => capitalize(s.text))
-            .join(' • ')}.`;
-
-    return {
-      centralTopic,
-      executiveSummary,
-      keyDecisions: keyDecisions.slice(0, 6),
-      openQuestions: openQuestions.slice(0, 4),
-      mindMap: {
-        centralTopic,
-        branches,
-      },
-      keywords,
-      peopleActivities: Array.from(peopleMap.values()),
-      rawTasks: [],
-    };
-  }
-
-  /**
    * Analisa a transcrição acumulada da reunião em tempo real via Gemini e devolve Mapa Mental,
    * Resumo Executivo, Palavras-Chave e Atividades por Pessoa.
    */
   public static async analyzeLiveMeeting({
     transcriptText,
     apiKey,
-    model = 'gemini-3.8-flash',
+    model = 'gemini-2.5-flash',
     context,
   }: {
     transcriptText: string;
@@ -448,21 +190,12 @@ Analise a transcrição até o momento e gere uma estrutura completa em JSON con
 1. Mapa Mental estruturado (tema central, até 5 ramos principais e 2 a 4 sub-nós por ramo).
 2. Resumo executivo da reunião, decisões já tomadas e pontos em aberto.
 3. Palavras-chave e conceitos de maior impacto (com peso de 1 a 10).
-4. Resumo de atividades e entregas por pessoa com tarefas estruturadas para o Kanban.
+4. Resumo de atividades por pessoa (cruzando com a lista de membros: [${memberNames}]) e lista de tarefas estruturadas para o Kanban.
 
 DATA DE REFERÊNCIA: ${currentDateStr} (${dayOfWeek})
 MEMBROS CADASTRADOS: [${memberNames}]
 EVENTOS/PROJETOS: [${eventNames}]
 TIPOS DE DEMANDA: [${demandTypeNames}]
-
-DIRETRIZ CRÍTICA DE ATRIBUIÇÃO DE RESPONSÁVEIS:
-- Em reuniões de equipe, ideias e demandas são debatidas coletivamente.
-- NUNCA atribua arbitrariamente uma tarefa a uma pessoa a menos que ela tenha sido EXPLICITAMENTE indicada ou comandada na conversa (ex: "Thiago você faz isso", "Dinho cuida dos cabos", "Fulano assume", ou alguém dizendo "eu assumo...").
-- Quando uma tarefa ou ação surgir MAS NINGUÉM foi expressamente citado como responsável, coloque OBRIGATORIAMENTE:
-  "personName": "A Definir"
-  "roleOrMinistry": "Pendente de Definição"
-  (Assim o usuário selecionará o responsável da lista de membros diretamente na tela antes de exportar).
-- Se uma pessoa cadastrada foi expressamente indicada, use o nome exato contido em [${memberNames}].
 
 Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
 {
@@ -490,17 +223,15 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
   ],
   "peopleActivities": [
     {
-      "personName": "Nome da Pessoa (se citado expressamente) OU 'A Definir'",
-      "roleOrMinistry": "Papel citado OU 'Pendente de Definição'",
-      "summary": "Síntese do que essa pessoa falou/assumiu, ou resumo das ações gerais pendentes de responsável",
+      "personName": "Nome da Pessoa",
+      "roleOrMinistry": "Papel identificado na conversa",
+      "summary": "Síntese do que essa pessoa falou ou assumiu na reunião",
       "tasks": [
         {
-          "title": "Ação específica",
-          "description": "Contexto e detalhes explicativos da demanda discutida",
+          "title": "Ação específica atribuída a ela",
           "deadline": "YYYY-MM-DD",
           "priority": "Alta",
-          "demandType": "Vídeo",
-          "checklist": ["Subtarefa 1", "Subtarefa 2"]
+          "demandType": "Vídeo"
         }
       ]
     }
@@ -516,13 +247,13 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         "data_inicio": "${currentDateStr}",
         "prazo_final": "YYYY-MM-DD"
       },
-      "responsaveis": [{ "nome": "Nome ou A Definir", "selecionado": true }],
+      "responsaveis": [{ "nome": "Nome", "selecionado": true }],
       "checklist_subtarefas": [{ "titulo": "Etapa 1", "concluida": false }]
     }
   ]
 }`;
 
-    const modelsToTry = this.resolveEffectiveModels(model);
+    const modelsToTry = Array.from(new Set([model, 'gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest']));
 
     const payload = {
       contents: [
@@ -537,12 +268,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
       },
     };
 
-    let lastError = 'Não foi possível sincronizar a inteligência da reunião neste ciclo.';
-
-    for (let i = 0; i < modelsToTry.length; i++) {
-      const currentModel = modelsToTry[i];
-      const nextCandidate = modelsToTry[i + 1];
-
+    for (const currentModel of modelsToTry) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
         const res = await fetch(url, {
@@ -552,17 +278,12 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         });
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const msg = errData?.error?.message || `HTTP ${res.status}`;
-          lastError = msg;
-
           if (res.status === 400 || res.status === 403) {
+            const errData = await res.json().catch(() => ({}));
+            const msg = errData?.error?.message || '';
             if (msg.toLowerCase().includes('key')) {
               return { success: false, error: 'Chave Gemini inválida. Verifique sua configuração de chave.' };
             }
-          }
-          if ((res.status === 429 || res.status === 503) && nextCandidate) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
           continue;
         }
@@ -582,56 +303,28 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
         // Faz o match de cada pessoa com os usuários reais da organização
         if (Array.isArray(parsed.peopleActivities)) {
           parsed.peopleActivities = parsed.peopleActivities.map((pa) => {
-            const rawName = (pa.personName || '').trim();
-            const lower = rawName.toLowerCase();
-
-            const isUnassigned =
-              !rawName ||
-              lower.includes('definir') ||
-              lower.includes('pendente') ||
-              lower.includes('ninguém') ||
-              lower.includes('ninguem') ||
-              lower.includes('equipe') ||
-              lower.includes('geral') ||
-              lower.includes('a designar') ||
-              lower.includes('não atribuído') ||
-              lower.includes('nao atribuido') ||
-              lower.includes('sem responsável');
-
-            if (isUnassigned) {
-              return {
-                ...pa,
-                personName: 'A Definir',
-                roleOrMinistry: pa.roleOrMinistry || 'Pendente de Definição',
-                matchedUserId: undefined,
-              };
-            }
-
             const matchedUser = context.users.find(
               (u) =>
-                u.name.toLowerCase() === lower ||
-                u.name.toLowerCase().includes(lower) ||
-                (rawName.length >= 3 && lower.includes(u.name.split(' ')[0].toLowerCase()))
+                u.name.toLowerCase().includes(pa.personName.toLowerCase()) ||
+                pa.personName.toLowerCase().includes(u.name.split(' ')[0].toLowerCase())
             );
-
             return {
               ...pa,
               matchedUserId: matchedUser?.id,
-              personName: matchedUser ? matchedUser.name : rawName,
+              personName: matchedUser ? matchedUser.name : pa.personName,
             };
           });
         }
 
         return { success: true, data: parsed };
-      } catch (err: any) {
+      } catch (err) {
         console.warn(`[Jarvis Live Meeting] Falha com modelo ${currentModel}:`, err);
-        lastError = err?.message || lastError;
       }
     }
 
     return {
       success: false,
-      error: lastError,
+      error: 'Não foi possível sincronizar a inteligência da reunião neste ciclo.',
     };
   }
 }
@@ -672,14 +365,14 @@ export class AiTranscriptionService {
     const storageKey = `${STORAGE_MODEL_PREFIX}_${orgId}_${userId}`;
     const stored = localStorage.getItem(storageKey) as AiModelId;
     if (stored && AI_MODELS.some((m) => m.id === stored)) {
-      // Migra modelos legados/descontinuados para o 3.8-flash
-      if ((stored as string) === 'gemini-3.6-flash' || (stored as string) === 'gemini-2.5-flash' || (stored as string) === 'gemini-2.5-flash-lite') {
-        localStorage.setItem(storageKey, 'gemini-3.8-flash');
-        return 'gemini-3.8-flash';
+      // Se o usuário tinha ficado com o 3.6-flash salvo no navegador (que está com instabilidade no Google), migra para o 2.5-flash
+      if (stored === 'gemini-3.6-flash' || stored === 'gemini-3.8-flash') {
+        localStorage.setItem(storageKey, 'gemini-2.5-flash');
+        return 'gemini-2.5-flash';
       }
       return stored;
     }
-    return 'gemini-3.8-flash';
+    return 'gemini-2.5-flash';
   }
 
   /**
@@ -696,7 +389,7 @@ export class AiTranscriptionService {
   public static async extractTasksFromTranscript({
     transcriptText,
     apiKey,
-    model = 'gemini-3.8-flash',
+    model = 'gemini-2.5-flash',
     context,
     onProgress,
   }: {
@@ -780,7 +473,13 @@ Responda ESTRITAMENTE em formato JSON válido, sem qualquer texto introdutório 
 }`;
 
     // Lista ordenada de modelos a testar com fallback automático
-    const modelsToTry = AiLiveMeetingHelper.resolveEffectiveModels(model);
+    const rawFallbackList = [model, 'gemini-2.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+    const modelsToTry: string[] = [];
+    for (const m of rawFallbackList) {
+      if (m && !modelsToTry.includes(m)) {
+        modelsToTry.push(m);
+      }
+    }
 
     const payload = {
       contents: [
