@@ -33,7 +33,12 @@ import {
   Clock,
   Bookmark,
   ChevronRight,
-  FolderOpen
+  FolderOpen,
+  Tv,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react';
 import { useAI } from '../context/AIContext';
 import { useAuth } from '../context/AuthContext';
@@ -114,6 +119,10 @@ export const AILiveModePage: React.FC = () => {
   const [interimText, setInterimText] = useState('');
   const [manualNoteInput, setManualNoteInput] = useState('');
 
+  // ── Modo Telão / Apresentação (Projetor / TV de Sala de Reunião) ──
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [isFeedCollapsedInPresentation, setIsFeedCollapsedInPresentation] = useState(true);
+
   // ── Inteligência Ao Vivo (Mapa Mental, Nuvem, Resumo, Pessoas) ──
   const [intelligence, setIntelligence] = useState<LiveMeetingIntelligence | null>(null);
   const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
@@ -183,6 +192,46 @@ export const AILiveModePage: React.FC = () => {
     const s = secs % 60;
     return [h, m, s].map((v) => String(v).padStart(2, '0')).join(':');
   };
+
+  // Alternar Modo Telão / Apresentação (Projetor/TV)
+  const togglePresentationMode = useCallback(() => {
+    if (!isPresentationMode) {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+      setIsPresentationMode(true);
+      success('Modo Telão Ativado', 'Layout otimizado para TV e Projetor. Pressione Esc ou F para sair.');
+    } else {
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsPresentationMode(false);
+    }
+  }, [isPresentationMode, success]);
+
+  // Listener de tecla de atalho (F = Telão) e sincronização do Fullscreen
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isPresentationMode) {
+        setIsPresentationMode(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (mainMode !== 'meeting') return;
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select') return;
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        togglePresentationMode();
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPresentationMode, togglePresentationMode, mainMode]);
 
   // Texto completo acumulado da reunião
   const fullTranscriptText = useMemo(() => {
@@ -728,7 +777,8 @@ export const AILiveModePage: React.FC = () => {
         }}
       />
 
-      {/* ── TOP HUD HEADER ─────────────────────────────────────────────────── */}
+      {/* ── TOP HUD HEADER (Oculto quando em Modo Telão para maximizar espaço na TV) ── */}
+      {!isPresentationMode && (
       <header className="px-4 sm:px-6 py-3.5 border-b border-cyan-900/40 bg-slate-950/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 z-20 shrink-0">
         {/* Left: Brand + Frequency */}
         <div className="flex items-center gap-3">
@@ -841,6 +891,7 @@ export const AILiveModePage: React.FC = () => {
           </button>
         </div>
       </header>
+      )}
 
       {/* ── MODAL INLINE DE CHAVE GEMINI ───────────────────────────────────── */}
       {isKeyModalOpen && (
@@ -880,6 +931,138 @@ export const AILiveModePage: React.FC = () => {
       {mainMode === 'meeting' ? (
         <div className="flex-1 flex flex-col min-h-0 z-10 overflow-hidden">
           {/* ── BARRA DE CONTROLE DA REUNIÃO AO VIVO ───────────────────────── */}
+          {isPresentationMode ? (
+            <div className="px-6 py-2.5 bg-slate-950/95 border-b border-cyan-500/40 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_0_25px_rgba(6,182,212,0.15)]">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-cyan-400 animate-pulse" />
+                  <span className="text-xs sm:text-sm font-black text-white tracking-wider uppercase font-sans">
+                    {currentOrganization?.name || 'Oiko'} • TELÃO REUNIÃO
+                  </span>
+                </div>
+                <span className="text-cyan-800">|</span>
+                <span className="text-xs sm:text-sm font-bold text-cyan-300 font-sans truncate max-w-[260px]">
+                  {meetingTitle || intelligence?.centralTopic || 'Pauta em Andamento'}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-cyan-800/60 text-cyan-400 text-xs font-bold flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" />
+                  {formatDuration(elapsedSeconds)}
+                </span>
+              </div>
+
+              {/* Abas de Foco Rápido para o Projetor */}
+              <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-cyan-900/60">
+                <button
+                  type="button"
+                  onClick={() => setActiveHudTab('ALL')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    activeHudTab === 'ALL'
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'text-cyan-400 hover:text-cyan-200'
+                  }`}
+                >
+                  4 TELÕES
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveHudTab('MINDMAP')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    activeHudTab === 'MINDMAP'
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'text-cyan-400 hover:text-cyan-200'
+                  }`}
+                >
+                  MAPA MENTAL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveHudTab('SUMMARY')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    activeHudTab === 'SUMMARY'
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'text-cyan-400 hover:text-cyan-200'
+                  }`}
+                >
+                  RESUMO & DECISÕES
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveHudTab('PEOPLE')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    activeHudTab === 'PEOPLE'
+                      ? 'bg-cyan-500 text-slate-950'
+                      : 'text-cyan-400 hover:text-cyan-200'
+                  }`}
+                >
+                  TAREFAS POR PESSOA
+                </button>
+              </div>
+
+              {/* Controles Rápidos no Telão */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFeedCollapsedInPresentation(!isFeedCollapsedInPresentation)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-cyan-800/60 text-cyan-300 text-xs font-bold"
+                  title="Mostrar ou recolher coluna de transcrição lateral"
+                >
+                  {isFeedCollapsedInPresentation ? (
+                    <>
+                      <PanelLeftOpen className="w-3.5 h-3.5" />
+                      <span className="hidden xl:inline">Mostrar Feed</span>
+                    </>
+                  ) : (
+                    <>
+                      <PanelLeftClose className="w-3.5 h-3.5" />
+                      <span className="hidden xl:inline">Ocultar Feed</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleMeetingRecording}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-black text-xs transition-all ${
+                    isRecordingMeeting
+                      ? 'bg-rose-500 text-white animate-pulse'
+                      : 'bg-cyan-500 text-slate-950'
+                  }`}
+                >
+                  {isRecordingMeeting ? (
+                    <>
+                      <Square className="w-3 h-3 fill-current" />
+                      <span>GRAVANDO</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>ESCUCHAR</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => triggerMeetingAnalysis(false)}
+                  disabled={isAnalyzingAi || segments.length === 0}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 text-xs font-bold disabled:opacity-40"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isAnalyzingAi ? 'animate-spin text-cyan-400' : ''}`} />
+                  <span className="hidden sm:inline">Atualizar IA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={togglePresentationMode}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-rose-950/70 border border-cyan-500/50 hover:border-rose-500/50 text-cyan-200 hover:text-rose-200 text-xs font-bold transition-all"
+                  title="Sair do Modo Telão (Tecla F ou Esc)"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Sair (F)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="px-4 sm:px-6 py-2.5 bg-slate-950/60 border-b border-cyan-900/30 flex flex-wrap items-center justify-between gap-3 shrink-0">
             {/* Botão Principal de Escuta + Cronômetro */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -982,6 +1165,17 @@ export const AILiveModePage: React.FC = () => {
                 </span>
               )}
 
+              {/* Botão Modo Telão / Projetor */}
+              <button
+                type="button"
+                onClick={togglePresentationMode}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/70 border border-cyan-500/50 text-cyan-300 font-bold transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                title="Ativar Modo Telão para Projetor/TV (Atalho: Tecla F)"
+              >
+                <Tv className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Modo Telão (F)</span>
+              </button>
+
               {segments.length > 0 && (
                 <>
                   <button
@@ -1015,11 +1209,13 @@ export const AILiveModePage: React.FC = () => {
               )}
             </div>
           </div>
+          )}
 
           {/* ── ÁREA PRINCIPAL: FEED DE TRANSCRIÇÃO + 4 PAINÉIS HOLOGRÁFICOS ── */}
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 sm:p-5 min-h-0 overflow-y-auto lg:overflow-hidden">
             
             {/* COLUNA ESQUERDA (3 cols): NÚCLEO NEURAL + TRANSCRIÇÃO AO VIVO */}
+            {(!isPresentationMode || !isFeedCollapsedInPresentation) && (
             <div className="lg:col-span-3 flex flex-col bg-slate-950/70 border border-cyan-900/40 rounded-2xl overflow-hidden min-h-[280px] lg:min-h-0">
               {/* Mini Jarvis Pulse Header */}
               <div className="p-3 border-b border-cyan-900/40 bg-slate-900/60 flex items-center justify-between">
@@ -1093,10 +1289,13 @@ export const AILiveModePage: React.FC = () => {
                 </button>
               </form>
             </div>
+            )}
 
-            {/* COLUNA DIREITA (9 cols): DASHBOARD HOLOGRÁFICO DE 4 QUADRANTES OU ABA EXPANDIDA */}
+            {/* COLUNA DIREITA (9 ou 12 cols): DASHBOARD HOLOGRÁFICO DE 4 QUADRANTES OU ABA EXPANDIDA */}
             <div
-              className={`lg:col-span-9 grid gap-4 min-h-0 lg:overflow-y-auto custom-scrollbar ${
+              className={`${
+                isPresentationMode && isFeedCollapsedInPresentation ? 'lg:col-span-12' : 'lg:col-span-9'
+              } grid gap-4 min-h-0 lg:overflow-y-auto custom-scrollbar ${
                 activeHudTab === 'ALL' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'
               }`}
             >
