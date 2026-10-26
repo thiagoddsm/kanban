@@ -859,7 +859,7 @@ export const AILiveModePage: React.FC = () => {
               type="password"
               value={tempKey}
               onChange={(e) => setTempKey(e.target.value)}
-              placeholder="Cole sua chave AIzaSy..."
+              placeholder="Cole sua chave AQ... ou AIzaSy..."
               className="w-full sm:w-72 px-3 py-1.5 rounded-xl bg-slate-900 border border-cyan-800 text-cyan-200 text-xs focus:outline-none focus:border-cyan-400"
             />
             <button

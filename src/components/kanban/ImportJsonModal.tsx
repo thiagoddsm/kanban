@@ -639,7 +639,7 @@ export const ImportJsonModal: React.FC<ImportJsonModalProps> = ({ isOpen, onClos
                   type={showApiKeyText ? 'text' : 'password'}
                   value={tempApiKey}
                   onChange={(e) => setTempApiKey(e.target.value)}
-                  placeholder="Cole sua chave de API do Gemini (AIzaSy...)"
+                  placeholder="Cole sua chave de API do Gemini (AQ... ou AIzaSy...)"
                   className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-cyan-300 text-xs font-mono focus:outline-none focus:border-indigo-500 pr-16 shadow-inner"
                 />
                 <button

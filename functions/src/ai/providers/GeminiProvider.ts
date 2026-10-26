@@ -38,7 +38,7 @@ export class GeminiProvider implements AIProvider {
       parts: [{ text: input.userMessage }]
     });
 
-    const modelName = process.env.AI_MODEL || 'gemini-2.5-flash';
+    const modelName = process.env.AI_MODEL || 'gemini-3.5-flash-lite';
 
     let response;
     try {
