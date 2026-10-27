@@ -438,16 +438,17 @@ export const AILiveModePage: React.FC = () => {
     [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, wordCloudItems, createdTaskKeys]
   );
 
-  // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
+  // Ciclo automático contínuo: dispara após 4s de pausa ou imediatamente ao atingir 180 novos caracteres falados
   useEffect(() => {
     if (!autoSyncEnabled || mainMode !== 'meeting') return;
     const rawText = segments.map((s) => s.text).join('\n').trim();
     const diff = rawText.length - lastAnalyzedLengthRef.current;
 
-    if (diff >= 35 && !isAnalyzingAi && apiKey.trim()) {
+    if (diff >= 30 && !isAnalyzingAi && apiKey.trim()) {
+      const waitMs = diff >= 180 ? 800 : 4000;
       const timer = setTimeout(() => {
         triggerMeetingAnalysis(true);
-      }, 6000);
+      }, waitMs);
       return () => clearTimeout(timer);
     }
   }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, apiKey, triggerMeetingAnalysis]);
@@ -760,6 +761,30 @@ export const AILiveModePage: React.FC = () => {
     });
   };
 
+  // Excluir/descartar uma tarefa sugerida antes de enviar ao Kanban
+  const handleDeletePersonTask = (pIdx: number, tIdx: number) => {
+    if (!intelligence?.peopleActivities) return;
+    const updated = [...intelligence.peopleActivities];
+    const person = updated[pIdx];
+    if (!person) return;
+
+    const removedTitle = person.tasks?.[tIdx]?.title || 'Tarefa';
+    const remainingTasks = (person.tasks || []).filter((_, i) => i !== tIdx);
+    updated[pIdx] = {
+      ...person,
+      tasks: remainingTasks
+    };
+
+    setIntelligence({
+      ...intelligence,
+      peopleActivities: updated
+    });
+    if (editingTask && editingTask.pIdx === pIdx && editingTask.tIdx === tIdx) {
+      setEditingTask(null);
+    }
+    info('Tarefa descartada', `"${removedTitle}" foi removida da ata.`);
+  };
+
   // Abrir modal para ajustar tarefa individual antes de importar
   const handleOpenEditTask = (pIdx: number, tIdx: number) => {
     if (!intelligence?.peopleActivities) return;
@@ -775,6 +800,7 @@ export const AILiveModePage: React.FC = () => {
       title: task.title || '',
       description:
         task.description ||
+        (person.summary ? `Contexto da reunião (${person.personName}): ${person.summary}` : '') ||
         `Demanda extraída no Modo Reunião J.A.R.V.I.S.\nResponsável indicado: ${person.personName}`,
       selectedUserId: person.matchedUserId || '',
       personName: person.personName || 'A Definir',
@@ -2361,7 +2387,12 @@ export const AILiveModePage: React.FC = () => {
                                       <p className="text-slate-200 font-semibold truncate">
                                         {t.title}
                                       </p>
-                                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
+                                      {t.description && (
+                                        <p className="text-[11px] text-slate-400/90 leading-snug mt-0.5 line-clamp-2">
+                                          {t.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
                                         {t.demandType && <span>• {t.demandType}</span>}
                                         {t.priority && <span>• Prioridade {t.priority}</span>}
                                         {t.deadline && (
@@ -2420,6 +2451,17 @@ export const AILiveModePage: React.FC = () => {
                                           </>
                                         )}
                                       </button>
+
+                                      {!isCreated && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeletePersonTask(pIdx, tIdx)}
+                                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 bg-slate-900 hover:bg-rose-950/40 border border-slate-800 hover:border-rose-500/40 transition-all"
+                                          title="Descartar esta tarefa sugerida"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -3033,13 +3075,24 @@ export const AILiveModePage: React.FC = () => {
 
             {/* Footer Buttons */}
             <div className="px-5 py-3.5 border-t border-cyan-900/50 bg-slate-950/80 flex items-center justify-between gap-3 font-mono">
-              <button
-                type="button"
-                onClick={() => setEditingTask(null)}
-                className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors"
-              >
-                Cancelar
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTask(null)}
+                  className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePersonTask(editingTask.pIdx, editingTask.tIdx)}
+                  className="px-3 py-1.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1 transition-all"
+                  title="Excluir esta tarefa da ata"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Descartar</span>
+                </button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <button

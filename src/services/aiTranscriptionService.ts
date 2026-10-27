@@ -192,6 +192,11 @@ Analise a transcrição até o momento e gere uma estrutura completa em JSON con
 3. Palavras-chave e conceitos de maior impacto (com peso de 1 a 10).
 4. Resumo de atividades por pessoa (cruzando com a lista de membros: [${memberNames}]) e lista de tarefas estruturadas para o Kanban.
 
+REGRAS DE QUALIDADE E CONTEXTO:
+- FOCO NA PAUTA: Ignore conversas paralelas, histórias pessoais ou familiares, comentários sobre comida ou bate-papos casuais fora do escopo da reunião.
+- ZERO TAREFAS SUPERFICIAIS: Só crie tarefas concretas e acionáveis que tenham sido realmente combinadas. Não crie tarefas vagas como "Acompanhar demandas" se alguém apenas foi citado de passagem sem uma entrega definida.
+- CONTEXTO OBRIGATÓRIO NA TAREFA: Em cada tarefa dentro de "peopleActivities", preencha obrigatoriamente o campo "description" explicando o contexto real falado na reunião (o que precisa ser feito, por quê, referências citadas e detalhes combinados) e "checklist" com 2 a 4 passos práticos para a execução.
+
 DATA DE REFERÊNCIA: ${currentDateStr} (${dayOfWeek})
 MEMBROS CADASTRADOS: [${memberNames}]
 EVENTOS/PROJETOS: [${eventNames}]
@@ -218,8 +223,8 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
     ]
   },
   "keywords": [
-    { "word": "Conferência", "weight": 10 },
-    { "word": "Vídeo", "weight": 8 }
+    { "word": "Planejamento", "weight": 10 },
+    { "word": "Entrega", "weight": 8 }
   ],
   "peopleActivities": [
     {
@@ -228,10 +233,12 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
       "summary": "Síntese do que essa pessoa falou ou assumiu na reunião",
       "tasks": [
         {
-          "title": "Ação específica atribuída a ela",
+          "title": "Ação específica e clara atribuída a ela",
+          "description": "Explicação clara do contexto falado na reunião: o que foi combinado, detalhes, referências citadas e objetivo da entrega.",
           "deadline": "YYYY-MM-DD",
           "priority": "Alta",
-          "demandType": "Vídeo"
+          "demandType": "Vídeo",
+          "checklist": ["Passo prático 1", "Passo prático 2"]
         }
       ]
     }
@@ -239,7 +246,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
   "rawTasks": [
     {
       "titulo": "Título da demanda",
-      "descricao_orientacoes": "Contexto",
+      "descricao_orientacoes": "Contexto detalhado do que foi combinado na reunião",
       "status": "Em Andamento",
       "prioridade": "Alta",
       "tipo": "Vídeo",
@@ -269,13 +276,17 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
     };
 
     for (const currentModel of modelsToTry) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 22000);
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(currentModel)}:generateContent?key=${encodeURIComponent(apiKey)}`;
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           if (res.status === 400 || res.status === 403) {
@@ -300,7 +311,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
           parsed = JSON.parse(cleaned);
         }
 
-        // Faz o match de cada pessoa com os usuários reais da organização
+        // Faz o match de cada pessoa com os usuários reais da organização e enriquece o contexto das tarefas
         if (Array.isArray(parsed.peopleActivities)) {
           parsed.peopleActivities = parsed.peopleActivities.map((pa) => {
             const matchedUser = context.users.find(
@@ -308,16 +319,50 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
                 u.name.toLowerCase().includes(pa.personName.toLowerCase()) ||
                 pa.personName.toLowerCase().includes(u.name.split(' ')[0].toLowerCase())
             );
+            const enrichedTasks = Array.isArray(pa.tasks)
+              ? pa.tasks.map((t) => {
+                  const matchingRaw = Array.isArray(parsed.rawTasks)
+                    ? parsed.rawTasks.find(
+                        (rt) =>
+                          rt.titulo &&
+                          t.title &&
+                          (rt.titulo.toLowerCase().includes(t.title.toLowerCase().slice(0, 15)) ||
+                            t.title.toLowerCase().includes(rt.titulo.toLowerCase().slice(0, 15)))
+                      )
+                    : undefined;
+
+                  const desc =
+                    t.description?.trim() ||
+                    matchingRaw?.descricao_orientacoes?.trim() ||
+                    (pa.summary ? `Contexto da reunião (${pa.personName}): ${pa.summary}` : '');
+
+                  const checkItems =
+                    Array.isArray(t.checklist) && t.checklist.length > 0
+                      ? t.checklist
+                      : Array.isArray(matchingRaw?.checklist_subtarefas)
+                      ? matchingRaw!.checklist_subtarefas.map((c) => c.titulo).filter(Boolean)
+                      : [];
+
+                  return {
+                    ...t,
+                    description: desc,
+                    checklist: checkItems,
+                  };
+                })
+              : [];
+
             return {
               ...pa,
               matchedUserId: matchedUser?.id,
               personName: matchedUser ? matchedUser.name : pa.personName,
+              tasks: enrichedTasks,
             };
           });
         }
 
         return { success: true, data: parsed };
       } catch (err) {
+        clearTimeout(timeoutId);
         console.warn(`[Jarvis Live Meeting] Falha com modelo ${currentModel}:`, err);
       }
     }
