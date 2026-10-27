@@ -377,23 +377,7 @@ export const AILiveModePage: React.FC = () => {
     [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, wordCloudItems, createdTaskKeys]
   );
 
-  // ── Motor Instantâneo (0ms de latência): popula Mapa Mental, Resumo e Pessoas imediatamente ──
-  useEffect(() => {
-    if (segments.length === 0) return;
-    setIntelligence((prev) => {
-      // Se ainda não temos inteligência confirmada pelo Gemini ou se estamos no fallback instantâneo inicial
-      if (!prev || (prev as any).isInstantFallback) {
-        const instant = AiLiveMeetingHelper.buildInstantIntelligence(segments, users, meetingTitle);
-        if (instant) {
-          (instant as any).isInstantFallback = true;
-          return instant;
-        }
-      }
-      return prev;
-    });
-  }, [segments, users, meetingTitle]);
-
-  // Ciclo automático a cada 20 segundos quando há pelo menos 35 novos caracteres falados
+  // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
   useEffect(() => {
     if (!autoSyncEnabled || mainMode !== 'meeting') return;
     const rawText = segments.map((s) => s.text).join('\n').trim();
@@ -402,7 +386,7 @@ export const AILiveModePage: React.FC = () => {
     if (diff >= 35 && !isAnalyzingAi && apiKey.trim()) {
       const timer = setTimeout(() => {
         triggerMeetingAnalysis(true);
-      }, 5000);
+      }, 6000);
       return () => clearTimeout(timer);
     }
   }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, apiKey, triggerMeetingAnalysis]);
