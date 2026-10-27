@@ -33,11 +33,11 @@ export interface AiExtractionResponse {
 }
 
 export const AI_MODELS = [
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Estável • Recomendado' },
-  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Alta Capacidade' },
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', tag: 'Ultra Rápido' },
-  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Avançado' },
-  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', tag: 'Raciocínio Profundo' },
+  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash-Lite', tag: 'Ultra Rápido • Alta Quota (Recomendado)' },
+  { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Alta Capacidade' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash', tag: 'Mais Recente' },
+  { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Equilibrado' },
+  { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', tag: 'Automático' },
 ] as const;
 
 export type AiModelId = typeof AI_MODELS[number]['id'];
@@ -149,7 +149,7 @@ export class AiLiveMeetingHelper {
   public static async analyzeLiveMeeting({
     transcriptText,
     apiKey,
-    model = 'gemini-2.5-flash',
+    model = 'gemini-3.5-flash-lite',
     context,
   }: {
     transcriptText: string;
@@ -253,7 +253,7 @@ Retorne ESTRITAMENTE este formato JSON válido (sem markdown em volta):
   ]
 }`;
 
-    const modelsToTry = Array.from(new Set([model, 'gemini-2.5-flash', 'gemini-3.7-flash', 'gemini-flash-latest']));
+    const modelsToTry = Array.from(new Set([model, 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.8-flash']));
 
     const payload = {
       contents: [
@@ -363,16 +363,17 @@ export class AiTranscriptionService {
    */
   public static getSelectedModel(orgId: string, userId: string): AiModelId {
     const storageKey = `${STORAGE_MODEL_PREFIX}_${orgId}_${userId}`;
-    const stored = localStorage.getItem(storageKey) as AiModelId;
-    if (stored && AI_MODELS.some((m) => m.id === stored)) {
-      // Se o usuário tinha ficado com o 3.6-flash salvo no navegador (que está com instabilidade no Google), migra para o 2.5-flash
-      if (stored === 'gemini-3.6-flash') {
-        localStorage.setItem(storageKey, 'gemini-2.5-flash');
-        return 'gemini-2.5-flash';
+    const rawStored = localStorage.getItem(storageKey);
+    if (rawStored) {
+      if (rawStored === 'gemini-3.6-flash' || rawStored === 'gemini-2.5-flash' || rawStored === 'gemini-3.1-pro') {
+        localStorage.setItem(storageKey, 'gemini-3.5-flash-lite');
+        return 'gemini-3.5-flash-lite';
       }
-      return stored;
+      if (AI_MODELS.some((m) => m.id === rawStored)) {
+        return rawStored as AiModelId;
+      }
     }
-    return 'gemini-2.5-flash';
+    return 'gemini-3.5-flash-lite';
   }
 
   /**
@@ -389,7 +390,7 @@ export class AiTranscriptionService {
   public static async extractTasksFromTranscript({
     transcriptText,
     apiKey,
-    model = 'gemini-2.5-flash',
+    model = 'gemini-3.5-flash-lite',
     context,
     onProgress,
   }: {
@@ -473,7 +474,7 @@ Responda ESTRITAMENTE em formato JSON válido, sem qualquer texto introdutório 
 }`;
 
     // Lista ordenada de modelos a testar com fallback automático
-    const rawFallbackList = [model, 'gemini-2.5-flash', 'gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-flash-latest'];
+    const rawFallbackList = [model, 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-3.8-flash'];
     const modelsToTry: string[] = [];
     for (const m of rawFallbackList) {
       if (m && !modelsToTry.includes(m)) {
