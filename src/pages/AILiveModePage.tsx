@@ -36,6 +36,7 @@ import {
   FolderOpen,
   Tv,
   Printer,
+  SearchCode,
   Maximize2,
   Minimize2,
   PanelLeftClose,
@@ -131,6 +132,26 @@ export const AILiveModePage: React.FC = () => {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [createdTaskKeys, setCreatedTaskKeys] = useState<Record<string, boolean>>({});
+
+  // ── Painel de Auditoria IA ao Vivo (Inspeção de Contexto & Diagnóstico) ──
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
+  const [lastAuditData, setLastAuditData] = useState<{
+    timestamp: string;
+    latencyMs: number;
+    modelUsed: string;
+    segmentsCount: number;
+    rawTextLength: number;
+    eventsInPrompt: string[];
+    usersInPromptCount: number;
+    usersSample: string[];
+    centralTopic?: string;
+    executiveSummary?: string;
+    decisions: string[];
+    people: Array<{ name: string; tasks: string[] }>;
+    rawTranscript: string;
+    rawJson?: string;
+    errorMessage?: string;
+  } | null>(null);
 
   // ── Modal de Ajuste de Tarefa antes do envio ao Kanban ──
   interface EditingMeetingTaskState {
@@ -320,6 +341,7 @@ export const AILiveModePage: React.FC = () => {
       }
 
       setIsAnalyzingAi(true);
+      const auditStartTime = Date.now();
       try {
         const res = await AiLiveMeetingHelper.analyzeLiveMeeting({
           transcriptText: rawText,
@@ -334,6 +356,8 @@ export const AILiveModePage: React.FC = () => {
           }
         });
 
+        const latencyMs = Date.now() - auditStartTime;
+
         if (res.success && res.data) {
           setIntelligence(res.data);
           lastAnalyzedLengthRef.current = rawText.length;
@@ -343,6 +367,29 @@ export const AILiveModePage: React.FC = () => {
           if (!silent) {
             success('Inteligência Atualizada', 'Mapa mental, resumo e atividades por pessoa sincronizados!');
           }
+
+          // Salva auditoria em tempo real
+          const auditSnapshot = {
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+            latencyMs,
+            modelUsed: selectedModel,
+            segmentsCount: segments.length,
+            rawTextLength: rawText.length,
+            eventsInPrompt: events.map((e) => e.title),
+            usersInPromptCount: users.length,
+            usersSample: users.slice(0, 8).map((u) => u.name),
+            centralTopic: res.data.centralTopic,
+            executiveSummary: res.data.executiveSummary,
+            decisions: res.data.keyDecisions || [],
+            people: (res.data.peopleActivities || []).map((p) => ({
+              name: p.personName,
+              tasks: (p.tasks || []).map((t) => t.title)
+            })),
+            rawTranscript: rawText,
+            rawJson: JSON.stringify(res.data, null, 2)
+          };
+          setLastAuditData(auditSnapshot);
+          (window as any).__jarvisLiveAudit = () => auditSnapshot;
 
           // Auto-save contínuo em background (persiste ata, nuvem, mapa mental e tarefas)
           const autoTitle =
@@ -364,6 +411,20 @@ export const AILiveModePage: React.FC = () => {
             status: 'IN_PROGRESS'
           }).catch(() => {});
         } else if (!silent && res.error) {
+          setLastAuditData({
+            timestamp: new Date().toLocaleTimeString('pt-BR'),
+            latencyMs,
+            modelUsed: selectedModel,
+            segmentsCount: segments.length,
+            rawTextLength: rawText.length,
+            eventsInPrompt: events.map((e) => e.title),
+            usersInPromptCount: users.length,
+            usersSample: users.slice(0, 8).map((u) => u.name),
+            decisions: [],
+            people: [],
+            rawTranscript: rawText,
+            errorMessage: res.error
+          });
           notifyError('Aviso da IA', res.error);
         }
       } catch (err: any) {
@@ -1666,6 +1727,16 @@ export const AILiveModePage: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => setIsAuditModalOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900 border border-amber-500/50 text-amber-300 text-xs font-bold"
+                  title="Auditoria de contexto e eficiência da IA ao vivo"
+                >
+                  <SearchCode className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden sm:inline">Auditoria</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={togglePresentationMode}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-rose-950/70 border border-cyan-500/50 hover:border-rose-500/50 text-cyan-200 hover:text-rose-200 text-xs font-bold transition-all"
                   title="Sair do Modo Telão (Tecla F ou Esc)"
@@ -1798,6 +1869,17 @@ export const AILiveModePage: React.FC = () => {
               >
                 <Printer className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Exportar PDF</span>
+              </button>
+
+              {/* Botão Auditoria IA */}
+              <button
+                type="button"
+                onClick={() => setIsAuditModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-950/40 hover:bg-amber-900/50 border border-amber-500/50 text-amber-300 font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.2)]"
+                title="Auditoria de contexto e eficiência da IA ao vivo"
+              >
+                <SearchCode className="w-3.5 h-3.5 text-amber-400" />
+                <span>Auditoria</span>
               </button>
 
               {segments.length > 0 && (
@@ -2977,6 +3059,206 @@ export const AILiveModePage: React.FC = () => {
                   <span>Salvar e Criar no Kanban</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DE AUDITORIA DE INTELIGÊNCIA E CONTEXTO AO VIVO ────────────── */}
+      {isAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-slate-900 border border-amber-500/50 rounded-2xl shadow-[0_0_50px_rgba(245,158,11,0.25)] overflow-hidden font-sans">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-amber-500/30 bg-slate-950/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-950/80 border border-amber-500/50 flex items-center justify-center text-amber-400">
+                  <SearchCode className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-amber-300 font-mono tracking-wide">
+                    AUDITORIA DE INTELIGÊNCIA & CONTEXTO
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Inspeção do payload enviado ao Gemini e verificação de isolamento de contexto.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAuditModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Metrics Ribbon */}
+            <div className="px-5 py-2.5 bg-slate-950/40 border-b border-cyan-900/40 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+              <div className="p-2 rounded-xl bg-slate-900/90 border border-cyan-900/50">
+                <span className="text-[10px] text-slate-400 block uppercase">Modelo Ativo</span>
+                <span className="text-cyan-300 font-bold truncate block">{selectedModel}</span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-900/90 border border-cyan-900/50">
+                <span className="text-[10px] text-slate-400 block uppercase">Latência IA</span>
+                <span className={`font-bold ${lastAuditData?.latencyMs ? 'text-emerald-400' : 'text-slate-500'}`}>
+                  {lastAuditData?.latencyMs ? `${(lastAuditData.latencyMs / 1000).toFixed(2)}s` : 'Aguardando sync'}
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-900/90 border border-cyan-900/50">
+                <span className="text-[10px] text-slate-400 block uppercase">Falas no Feed</span>
+                <span className="text-cyan-300 font-bold">
+                  {segments.length} ({segments.map((s) => s.text).join(' ').length} chars)
+                </span>
+              </div>
+              <div className="p-2 rounded-xl bg-slate-900/90 border border-cyan-900/50">
+                <span className="text-[10px] text-slate-400 block uppercase">Último Sync</span>
+                <span className="text-amber-300 font-bold truncate block">
+                  {lastSyncTime || 'Nenhum ainda'}
+                </span>
+              </div>
+            </div>
+
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs custom-scrollbar">
+              {/* Card 1: Diagnóstico de Isolamento & Contaminação */}
+              <div className="p-3.5 rounded-xl bg-slate-950/60 border border-cyan-900/40 space-y-2">
+                <h4 className="text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                  <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Diagnóstico de Eficiência & Isolamento</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px] text-slate-300">
+                  <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
+                    <strong className="text-amber-400 block">Projetos/Eventos Injetados no Prompt:</strong>
+                    {events.length === 0 ? (
+                      <span className="text-slate-500 italic">Nenhum evento cadastrado no sistema.</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {events.map((e) => (
+                          <span
+                            key={e.id}
+                            className="px-1.5 py-0.5 rounded bg-cyan-950 border border-cyan-800/60 text-cyan-300 text-[10px]"
+                          >
+                            {e.title}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      ⚠️ Se houver projetos antigos aqui, a IA pode tentar associar tarefas a eles.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 space-y-1">
+                    <strong className="text-cyan-400 block">Membros da Organização no Prompt:</strong>
+                    <span className="text-slate-300">{users.length} membro(s) cadastrado(s) para match de responsável.</span>
+                    <div className="flex flex-wrap gap-1 mt-1 max-h-16 overflow-y-auto custom-scrollbar">
+                      {users.slice(0, 12).map((u) => (
+                        <span
+                          key={u.id}
+                          className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]"
+                        >
+                          {u.name}
+                        </span>
+                      ))}
+                      {users.length > 12 && (
+                        <span className="text-[10px] text-slate-500">+{users.length - 12} outros</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Transcrição Atual Acumulada */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-cyan-300 uppercase tracking-wider font-mono">
+                    Transcrição Acumulada da Sessão ({segments.length} falas)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = segments.map((s) => `[${s.timestamp}] ${s.text}`).join('\n');
+                      navigator.clipboard.writeText(text);
+                      success('Copiado!', 'Transcrição copiada.');
+                    }}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-200 underline font-mono"
+                  >
+                    Copiar Transcrição
+                  </button>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950 border border-cyan-900/40 text-slate-300 max-h-40 overflow-y-auto custom-scrollbar font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+                  {segments.length === 0
+                    ? '// Nenhuma fala registrada nesta sessão ainda.'
+                    : segments.map((s) => `[${s.timestamp}] ${s.text}`).join('\n')}
+                </div>
+              </div>
+
+              {/* Card 3: Resposta Estruturada da IA */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-cyan-300 uppercase tracking-wider font-mono">
+                    Último Retorno Estruturado do Gemini
+                  </h4>
+                  {intelligence && (
+                    <span className="text-[10px] text-emerald-400 font-mono">
+                      ✓ Tema: {intelligence.centralTopic}
+                    </span>
+                  )}
+                </div>
+                <pre className="p-3 rounded-xl bg-slate-950 border border-cyan-900/40 text-emerald-400/90 max-h-52 overflow-y-auto custom-scrollbar font-mono text-[10.5px] leading-tight">
+                  {lastAuditData?.rawJson ||
+                    (intelligence
+                      ? JSON.stringify(intelligence, null, 2)
+                      : '// Aguardando primeiro ciclo de análise do Gemini...')}
+                </pre>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-5 py-3 border-t border-cyan-900/40 bg-slate-950/80 flex items-center justify-between gap-3 font-mono">
+              <button
+                type="button"
+                onClick={() => setIsAuditModalOpen(false)}
+                className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors"
+              >
+                Fechar
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const report = [
+                    '# 🔍 RELATÓRIO DE AUDITORIA JARVIS AI',
+                    `- Data/Hora: ${new Date().toLocaleString('pt-BR')}`,
+                    `- Modelo Utilizado: ${selectedModel}`,
+                    `- Latência da IA: ${lastAuditData?.latencyMs ? `${lastAuditData.latencyMs}ms` : 'N/A'}`,
+                    `- Falas Registradas: ${segments.length}`,
+                    `- Caracteres Falados: ${segments.map((s) => s.text).join(' ').length}`,
+                    `- Eventos/Projetos no Prompt: ${events.map((e) => e.title).join(', ') || 'Nenhum'}`,
+                    `- Membros no Prompt: ${users.length}`,
+                    '',
+                    '## 🎯 TEMA CENTRAL DETECTADO:',
+                    intelligence?.centralTopic || 'Ainda não identificado',
+                    '',
+                    '## 📋 RESUMO EXECUTIVO:',
+                    intelligence?.executiveSummary || 'N/A',
+                    '',
+                    '## 👥 PESSOAS E TAREFAS DETECTADAS:',
+                    (intelligence?.peopleActivities || [])
+                      .map((p) => `- ${p.personName}: ${(p.tasks || []).map((t) => t.title).join('; ') || 'Sem tarefas'}`)
+                      .join('\n') || 'Nenhuma',
+                    '',
+                    '## 🎙️ TRANSCRIÇÃO ENVIADA:',
+                    segments.map((s) => `[${s.timestamp}] ${s.text}`).join('\n') || 'Vazia'
+                  ].join('\n');
+                  navigator.clipboard.writeText(report);
+                  success('Diagnóstico Copiado!', 'Cole no chat com o assistente para avaliarmos.');
+                }}
+                className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black tracking-wide flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copiar Diagnóstico Completo</span>
+              </button>
             </div>
           </div>
         </div>
