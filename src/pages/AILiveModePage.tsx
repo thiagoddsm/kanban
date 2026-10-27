@@ -35,6 +35,7 @@ import {
   ChevronRight,
   FolderOpen,
   Tv,
+  Printer,
   Maximize2,
   Minimize2,
   PanelLeftClose,
@@ -195,7 +196,12 @@ export const AILiveModePage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Cronômetro da reunião
+  // Cronômetro da reunião e ref desacoplada para não invalidar callbacks a cada segundo
+  const elapsedSecondsRef = useRef(0);
+  useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds;
+  }, [elapsedSeconds]);
+
   useEffect(() => {
     if (!isRecordingMeeting) return;
     const timer = setInterval(() => {
@@ -349,7 +355,7 @@ export const AILiveModePage: React.FC = () => {
             title: autoTitle,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            durationSeconds: elapsedSeconds,
+            durationSeconds: elapsedSecondsRef.current,
             segments,
             intelligence: res.data,
             wordCloud: wordCloudItems,
@@ -368,10 +374,26 @@ export const AILiveModePage: React.FC = () => {
         setIsAnalyzingAi(false);
       }
     },
-    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, elapsedSeconds, wordCloudItems, createdTaskKeys]
+    [segments, apiKey, selectedModel, currentOrganization, users, events, campuses, demandTypes, notifyError, success, warning, meetingTitle, orgId, currentMeetingId, wordCloudItems, createdTaskKeys]
   );
 
-  // Ciclo automático a cada 25 segundos quando há pelo menos 35 novos caracteres falados
+  // ── Motor Instantâneo (0ms de latência): popula Mapa Mental, Resumo e Pessoas imediatamente ──
+  useEffect(() => {
+    if (segments.length === 0) return;
+    setIntelligence((prev) => {
+      // Se ainda não temos inteligência confirmada pelo Gemini ou se estamos no fallback instantâneo inicial
+      if (!prev || (prev as any).isInstantFallback) {
+        const instant = AiLiveMeetingHelper.buildInstantIntelligence(segments, users, meetingTitle);
+        if (instant) {
+          (instant as any).isInstantFallback = true;
+          return instant;
+        }
+      }
+      return prev;
+    });
+  }, [segments, users, meetingTitle]);
+
+  // Ciclo automático a cada 20 segundos quando há pelo menos 35 novos caracteres falados
   useEffect(() => {
     if (!autoSyncEnabled || mainMode !== 'meeting') return;
     const rawText = segments.map((s) => s.text).join('\n').trim();
@@ -380,7 +402,7 @@ export const AILiveModePage: React.FC = () => {
     if (diff >= 35 && !isAnalyzingAi && apiKey.trim()) {
       const timer = setTimeout(() => {
         triggerMeetingAnalysis(true);
-      }, 6000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [segments, autoSyncEnabled, mainMode, isAnalyzingAi, apiKey, triggerMeetingAnalysis]);
@@ -958,6 +980,405 @@ export const AILiveModePage: React.FC = () => {
     success('Ata copiada!', 'Resumo, mapa mental, tarefas por pessoa e transcrição copiados para a área de transferência.');
   };
 
+  // ── Exportação Executiva da Ata em PDF (Layout A4 Formal para Liderança / Conselho) ──
+  const handleExportPdfMinutes = () => {
+    if (segments.length === 0 && !intelligence) {
+      warning('Reunião Vazia', 'Inicie a escuta ou adicione notas antes de exportar a ata em PDF.');
+      return;
+    }
+
+    const titleToUse =
+      meetingTitle.trim() ||
+      intelligence?.centralTopic ||
+      `Ata de Reunião - ${new Date().toLocaleDateString('pt-BR')}`;
+
+    const orgName = currentOrganization?.name || 'Igreja / Organização';
+    const logoUrl = currentOrganization?.branding?.logoUrl || '';
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    });
+    const timeFormatted = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const durationFormatted = formatDuration(elapsedSeconds);
+    const modelTag = selectedModel || 'Gemini 3.8 Flash';
+
+    // Decisões Confirmadas
+    const decisionsHtml =
+      intelligence?.keyDecisions && intelligence.keyDecisions.length > 0
+        ? intelligence.keyDecisions
+            .map(
+              (d) => `
+          <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: #f0fdf4; border-left: 3px solid #16a34a; border-radius: 4px;">
+            <span style="color: #16a34a; font-weight: bold; font-size: 14px;">✓</span>
+            <div style="font-size: 13px; color: #166534; line-height: 1.4;">${d}</div>
+          </div>
+        `
+            )
+            .join('')
+        : '<p style="color: #64748b; font-style: italic; font-size: 12px;">Nenhuma decisão explícita registrada.</p>';
+
+    // Pendências / Pontos em Aberto
+    const openQuestionsHtml =
+      intelligence?.openQuestions && intelligence.openQuestions.length > 0
+        ? intelligence.openQuestions
+            .map(
+              (q) => `
+          <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding: 8px 12px; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px;">
+            <span style="color: #f59e0b; font-weight: bold; font-size: 14px;">?</span>
+            <div style="font-size: 13px; color: #92400e; line-height: 1.4;">${q}</div>
+          </div>
+        `
+            )
+            .join('')
+        : '';
+
+    // Tabela Executiva de Tarefas e Entregas por Pessoa
+    let tasksTableHtml = '';
+    if (intelligence?.peopleActivities && intelligence.peopleActivities.length > 0) {
+      const rows: string[] = [];
+      intelligence.peopleActivities.forEach((person) => {
+        if (person.tasks && person.tasks.length > 0) {
+          person.tasks.forEach((t) => {
+            const isHigh = t.priority === 'Urgente' || t.priority === 'Alta';
+            const badgeStyle = isHigh
+              ? 'background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;'
+              : 'background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;';
+
+            rows.push(`
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 10px 12px; font-weight: 700; color: #0f172a; font-size: 12px;">
+                  ${person.personName}
+                  ${person.roleOrMinistry ? `<br/><span style="font-size: 10px; font-weight: normal; color: #64748b;">${person.roleOrMinistry}</span>` : ''}
+                </td>
+                <td style="padding: 10px 12px; color: #1e293b; font-size: 12px; line-height: 1.4;">
+                  ${t.title}
+                  ${t.description ? `<div style="font-size: 11px; color: #475569; margin-top: 2px;">${t.description}</div>` : ''}
+                  ${t.checklist && t.checklist.length > 0 ? `<div style="font-size: 10px; color: #64748b; margin-top: 4px;">• ${t.checklist.join('<br/>• ')}</div>` : ''}
+                </td>
+                <td style="padding: 10px 12px; color: #475569; font-size: 12px; white-space: nowrap;">${t.deadline || 'A definir'}</td>
+                <td style="padding: 10px 12px; text-align: center;">
+                  <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; text-transform: uppercase; ${badgeStyle}">
+                    ${t.priority || 'Normal'}
+                  </span>
+                </td>
+                <td style="padding: 10px 12px; color: #64748b; font-size: 11px;">${t.demandType || 'Geral'}</td>
+              </tr>
+            `);
+          });
+        } else {
+          rows.push(`
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 10px 12px; font-weight: 700; color: #0f172a; font-size: 12px;">${person.personName}</td>
+              <td colspan="4" style="padding: 10px 12px; color: #64748b; font-style: italic; font-size: 12px;">${person.summary || 'Acompanhou os alinhamentos da reunião.'}</td>
+            </tr>
+          `);
+        }
+      });
+
+      tasksTableHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+              <th style="padding: 10px 12px; text-align: left;">Responsável</th>
+              <th style="padding: 10px 12px; text-align: left;">Demanda / Entrega</th>
+              <th style="padding: 10px 12px; text-align: left;">Prazo</th>
+              <th style="padding: 10px 12px; text-align: center;">Prioridade</th>
+              <th style="padding: 10px 12px; text-align: left;">Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // Mapa Mental em Tópicos
+    let mindMapHtml = '';
+    if (intelligence?.mindMap?.branches && intelligence.mindMap.branches.length > 0) {
+      mindMapHtml = `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px;">
+          ${intelligence.mindMap.branches
+            .map(
+              (b) => `
+            <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; background: #f8fafc;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <strong style="color: #0f172a; font-size: 12px;">${b.label}</strong>
+                ${b.category ? `<span style="font-size: 9px; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 4px; font-weight: 700;">${b.category}</span>` : ''}
+              </div>
+              ${
+                b.children && b.children.length > 0
+                  ? `
+                <ul style="margin: 6px 0 0 16px; padding: 0; font-size: 11px; color: #475569; line-height: 1.4;">
+                  ${b.children.map((c) => `<li>${c.label}</li>`).join('')}
+                </ul>
+              `
+                  : ''
+              }
+            </div>
+          `
+            )
+            .join('')}
+        </div>
+      `;
+    }
+
+    // Palavras Mais Debatidas
+    let keywordsHtml = '';
+    if (wordCloudItems && wordCloudItems.length > 0) {
+      keywordsHtml = `
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+          ${wordCloudItems
+            .slice(0, 24)
+            .map(
+              (w) => `
+            <span style="display: inline-block; padding: 3px 8px; border-radius: 9999px; background: #f1f5f9; border: 1px solid #cbd5e1; font-size: 11px; color: #334155;">
+              ${w.word} ${w.count && w.count > 1 ? `<strong style="color: #0284c7;">(${w.count}x)</strong>` : ''}
+            </span>
+          `
+            )
+            .join('')}
+        </div>
+      `;
+    }
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>Ata - ${titleToUse}</title>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 15mm 15mm 20mm 15mm;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+            line-height: 1.5;
+          }
+          .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #0284c7;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+          }
+          .title-area h1 {
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0 0 4px 0;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .meta-row {
+            display: flex;
+            gap: 16px;
+            font-size: 11px;
+            color: #475569;
+            flex-wrap: wrap;
+          }
+          .section {
+            margin-bottom: 18px;
+            page-break-inside: auto;
+          }
+          .section-title {
+            font-size: 12px;
+            font-weight: 800;
+            color: #0369a1;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+          .summary-box {
+            padding: 10px 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            color: #1e293b;
+            font-size: 12px;
+            line-height: 1.6;
+          }
+          .footer-note {
+            margin-top: 30px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 10px;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .signatures {
+            margin-top: 35px;
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            page-break-inside: avoid;
+          }
+          .sign-col {
+            flex: 1;
+            border-top: 1px solid #94a3b8;
+            padding-top: 6px;
+            text-align: center;
+            font-size: 11px;
+            color: #475569;
+          }
+          @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title-area">
+            <h1>${titleToUse}</h1>
+            <div class="meta-row">
+              <span><strong>Organização:</strong> ${orgName}</span>
+              <span>•</span>
+              <span><strong>Data:</strong> ${dateFormatted}</span>
+              <span>•</span>
+              <span><strong>Duração:</strong> ${durationFormatted}</span>
+              <span>•</span>
+              <span><strong>Processamento:</strong> J.A.R.V.I.S. (${modelTag})</span>
+            </div>
+          </div>
+          ${
+            logoUrl
+              ? `<img src="${logoUrl}" alt="${orgName}" style="max-height: 48px; max-width: 140px; object-fit: contain;" />`
+              : `<div style="font-size: 14px; font-weight: 800; color: #0284c7; border: 1px solid #bae6fd; padding: 6px 12px; border-radius: 6px; background: #f0f9ff;">${orgName}</div>`
+          }
+        </div>
+
+        ${
+          intelligence?.centralTopic
+            ? `
+          <div class="section" style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 6px; margin-bottom: 14px;">
+            <strong style="color: #166534; font-size: 11px; text-transform: uppercase;">🎯 Tema Central da Reunião:</strong>
+            <span style="color: #14532d; font-size: 13px; font-weight: 700; margin-left: 6px;">${intelligence.centralTopic}</span>
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          intelligence?.executiveSummary
+            ? `
+          <div class="section">
+            <div class="section-title">📋 Resumo Executivo</div>
+            <div class="summary-box">${intelligence.executiveSummary}</div>
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          intelligence?.keyDecisions && intelligence.keyDecisions.length > 0
+            ? `
+          <div class="section">
+            <div class="section-title">✅ Decisões Confirmadas (${intelligence.keyDecisions.length})</div>
+            ${decisionsHtml}
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          intelligence?.openQuestions && intelligence.openQuestions.length > 0
+            ? `
+          <div class="section">
+            <div class="section-title">⚠️ Pontos em Aberto / Pendências (${intelligence.openQuestions.length})</div>
+            ${openQuestionsHtml}
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          tasksTableHtml
+            ? `
+          <div class="section">
+            <div class="section-title">👥 Plano de Ação e Entregas por Responsável</div>
+            ${tasksTableHtml}
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          mindMapHtml
+            ? `
+          <div class="section" style="page-break-inside: avoid;">
+            <div class="section-title">🧠 Estrutura do Mapa Mental</div>
+            ${mindMapHtml}
+          </div>
+        `
+            : ''
+        }
+
+        ${
+          keywordsHtml
+            ? `
+          <div class="section" style="page-break-inside: avoid;">
+            <div class="section-title">☁️ Termos Mais Debatidos na Reunião</div>
+            ${keywordsHtml}
+          </div>
+        `
+            : ''
+        }
+
+        <div class="signatures">
+          <div class="sign-col">
+            <strong>Secretaria / Registro</strong><br/>
+            ${currentUser?.name || 'Responsável pela Ata'}
+          </div>
+          <div class="sign-col">
+            <strong>Liderança / Direção</strong><br/>
+            Visto da Coordenação
+          </div>
+        </div>
+
+        <div class="footer-note">
+          <span>Ata gerada e consolidada via inteligência artificial J.A.R.V.I.S. • ${orgName}</span>
+          <span>Emitido em ${dateFormatted} às ${timeFormatted}</span>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      notifyError('Pop-up bloqueado', 'Permita pop-ups no navegador para visualizar e salvar o PDF da ata.');
+      return;
+    }
+
+    printWindow.document.write(fullHtml);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+    success('Ata em PDF gerada!', 'A janela de impressão/salvar como PDF foi aberta.');
+  };
+
   const handleClose = () => {
     stopAudio();
     stopMeetingRecognition();
@@ -1251,6 +1672,16 @@ export const AILiveModePage: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={handleExportPdfMinutes}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-xs font-bold"
+                  title="Exportar ata executiva formal em PDF"
+                >
+                  <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">PDF</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={togglePresentationMode}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-cyan-950 hover:bg-rose-950/70 border border-cyan-500/50 hover:border-rose-500/50 text-cyan-200 hover:text-rose-200 text-xs font-bold transition-all"
                   title="Sair do Modo Telão (Tecla F ou Esc)"
@@ -1372,6 +1803,17 @@ export const AILiveModePage: React.FC = () => {
               >
                 <Tv className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Modo Telão (F)</span>
+              </button>
+
+              {/* Botão Exportar PDF */}
+              <button
+                type="button"
+                onClick={handleExportPdfMinutes}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/50 text-emerald-300 font-bold transition-all shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                title="Exportar ata executiva formal em PDF para envio à diretoria e conselho"
+              >
+                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Exportar PDF</span>
               </button>
 
               {segments.length > 0 && (
